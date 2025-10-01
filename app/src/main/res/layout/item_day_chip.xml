@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent"
+    android:layout_marginHorizontal="4dp"
+    app:cardCornerRadius="14dp"
+    app:cardElevation="2dp"
+    app:strokeColor="@color/cardStroke"
+    app:cardBackgroundColor="@android:color/white">
+
+    <LinearLayout
+        android:layout_width="72dp"
+        android:layout_height="match_parent"
+        android:paddingHorizontal="6dp"
+        android:paddingVertical="6dp"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvDiaCorto"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="LUN"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:textColor="@color/textSecondary"/>
+
+        <TextView
+            android:id="@+id/tvNumDia"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="30"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:layout_marginTop="2dp"
+            android:textColor="@color/textPrimary"/>
+
+        <!-- Punto azul para indicar que hay citas -->
+        <View
+            android:id="@+id/viewDot"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_dot_blue"
+            android:visibility="gone"/>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

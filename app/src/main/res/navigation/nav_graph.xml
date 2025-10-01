@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/loginFragment">
+
+    <!-- LOGIN (pantalla inicial) -->
+    <fragment
+        android:id="@+id/loginFragment"
+        android:name="com.centroalerce.auth.LoginFragment"
+        android:label="Login" >
+        <!-- acción de conveniencia para ir a Home después de autenticar -->
+        <action
+            android:id="@+id/action_loginFragment_to_homeFragment"
+            app:destination="@id/homeFragment" />
+    </fragment>
+
+    <!-- HOME -->
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.centroalerce.ui.HomeFragment"
+        android:label="Inicio" />
+
+    <!-- CALENDARIO -->
+    <fragment
+        android:id="@+id/calendarFragment"
+        android:name="com.centroalerce.ui.CalendarFragment"
+        android:label="Calendario" />
+
+    <!-- LISTA DE ACTIVIDADES -->
+    <fragment
+        android:id="@+id/activitiesListFragment"
+        android:name="com.centroalerce.ui.ActivitiesListFragment"
+        android:label="Actividades" />
+
+    <!-- CONFIGURACIÓN -->
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.centroalerce.ui.SettingsFragment"
+        android:label="Config" />
+
+    <!-- FORM NUEVA/MODIFICA ACTIVIDAD -->
+    <fragment
+        android:id="@+id/activityFormFragment"
+        android:name="com.centroalerce.ui.ActivityFormFragment"
+        android:label="Nueva actividad" />
+
+    <!-- DETALLE DE ACTIVIDAD -->
+    <fragment
+        android:id="@+id/activityDetailFragment"
+        android:name="com.centroalerce.ui.ActivityDetailFragment"
+        android:label="Detalle" />
+
+    <!-- MANTENEDORES -->
+    <fragment
+        android:id="@+id/maintainersFragment"
+        android:name="com.centroalerce.ui.MaintainersFragment"
+        android:label="Mantenedores" />
+</navigation>

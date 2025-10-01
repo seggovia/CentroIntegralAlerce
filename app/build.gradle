@@ -13,7 +13,6 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
-
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -23,9 +22,14 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
     compileOptions {
+        // Puedes dejar 1.8; con desugaring funciona igual
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
+
+        // 👇 Habilita desugaring para usar java.time en API < 26
+        coreLibraryDesugaringEnabled true
     }
 }
 
@@ -36,21 +40,22 @@ dependencies {
     implementation 'androidx.activity:activity:1.8.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 
-    // Firebase BoM (Bill of Materials)
+    // Firebase BoM
     implementation platform('com.google.firebase:firebase-bom:32.7.0')
-
-    // Firebase Authentication
     implementation 'com.google.firebase:firebase-auth'
-
-    // Firebase Firestore
     implementation 'com.google.firebase:firebase-firestore'
-
-    // Firebase Storage (para archivos adjuntos)
     implementation 'com.google.firebase:firebase-storage'
 
-    // Lifecycle components (para MVVM)
+    // Lifecycle (MVVM)
     implementation 'androidx.lifecycle:lifecycle-viewmodel:2.7.0'
     implementation 'androidx.lifecycle:lifecycle-livedata:2.7.0'
+
+    // Navigation
+    implementation "androidx.navigation:navigation-fragment:2.7.7"
+    implementation "androidx.navigation:navigation-ui:2.7.7"
+
+    // ✅ Desugaring (necesario para java.time con minSdk 24)
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 
     // Testing
     testImplementation 'junit:junit:4.13.2'

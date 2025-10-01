@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center_horizontal"
+        android:background="@android:color/white">
+
+        <!-- Avatar circular con iniciales -->
+        <FrameLayout
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:background="@drawable/bg_avatar_circle"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:id="@+id/tvAvatarInitials"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="CA"
+                android:textStyle="bold"
+                android:textSize="24sp"
+                android:textColor="@color/avatarText"/>
+        </FrameLayout>
+
+        <!-- Título y subtítulo -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Inicia sesión"
+            android:textStyle="bold"
+            android:textSize="28sp"
+            android:letterSpacing="0.02"
+            android:textColor="@color/textPrimary"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Bienvenido de nuevo. Introduce tus datos para continuar."
+            android:textColor="@color/textSecondary"
+            android:layout_marginTop="6dp"/>
+
+        <!-- Email -->
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox.Dense"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            app:boxBackgroundMode="filled"
+            app:boxCornerRadiusTopStart="22dp"
+            app:boxCornerRadiusTopEnd="22dp"
+            app:boxCornerRadiusBottomStart="22dp"
+            app:boxCornerRadiusBottomEnd="22dp"
+            app:boxBackgroundColor="@android:color/white"
+            app:boxStrokeColor="@color/divider"
+            app:boxStrokeWidth="1dp"
+            app:boxStrokeWidthFocused="2dp"
+            app:hintEnabled="true"
+            app:hintTextColor="@color/textSecondary">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etEmail"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="Email"
+                android:inputType="textEmailAddress"
+                android:textColor="@android:color/black"
+                android:textColorHint="@color/textSecondary"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Password -->
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox.Dense"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:boxBackgroundMode="filled"
+            app:boxCornerRadiusTopStart="22dp"
+            app:boxCornerRadiusTopEnd="22dp"
+            app:boxCornerRadiusBottomStart="22dp"
+            app:boxCornerRadiusBottomEnd="22dp"
+            app:boxBackgroundColor="@android:color/white"
+            app:boxStrokeColor="@color/divider"
+            app:boxStrokeWidth="1dp"
+            app:boxStrokeWidthFocused="2dp"
+            app:passwordToggleEnabled="true"
+            app:endIconMode="password_toggle"
+            app:endIconTint="@color/textSecondary"
+            app:hintTextColor="@color/textSecondary">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etPass"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="Contraseña"
+                android:inputType="textPassword"
+                android:textColor="@android:color/black"
+                android:textColorHint="@color/textSecondary"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- ¿Olvidaste tu contraseña? -->
+        <TextView
+            android:id="@+id/tvForgot"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="¿Olvidaste tu contraseña?"
+            android:textColor="@color/primary"
+            android:layout_gravity="end"
+            android:layout_marginTop="12dp"/>
+
+        <!-- Iniciar sesión (deshabilitado hasta tener email+pass) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnLogin"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="18dp"
+            android:text="Iniciar sesión"
+            android:enabled="false"
+            app:cornerRadius="28dp"/>
+
+        <!-- Crear cuenta (estilo bordes redondeados) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCrearCuenta"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:text="Crear cuenta"
+            app:cornerRadius="28dp"
+            app:strokeWidth="2dp"/>
+
+        <!-- divisor: "o ingresa con" -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="18dp"
+            android:layout_marginBottom="6dp">
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:background="@color/divider"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="  o ingresa con  "
+                android:textColor="@color/textSecondary"/>
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:background="@color/divider"/>
+        </LinearLayout>
+
+        <!-- Botones sociales circulares -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnGoogle"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:text="G"
+                android:textStyle="bold"
+                app:cornerRadius="28dp"/>
+
+            <Space android:layout_width="16dp" android:layout_height="wrap_content"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFacebook"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:text="f"
+                android:textStyle="bold"
+                app:cornerRadius="28dp"/>
+
+            <Space android:layout_width="16dp" android:layout_height="wrap_content"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnX"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:text="𝕏"
+                android:textStyle="bold"
+                app:cornerRadius="28dp"/>
+        </LinearLayout>
+
+        <!-- link inferior "¿Aún no tienes una cuenta? Crear tu cuenta" -->
+        <TextView
+            android:id="@+id/tvCreateFromLink"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:textColor="@color/textSecondary"
+            android:text="¿Aún no tienes una cuenta? " />
+
+        <TextView
+            android:id="@+id/tvCreateInlineLink"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Crear tu cuenta"
+            android:textColor="@color/primary"/>
+    </LinearLayout>
+</ScrollView>

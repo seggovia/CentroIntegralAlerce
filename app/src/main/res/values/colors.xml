@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <color name="primary">#3F51F7</color>
+    <color name="primaryDark">#2E3AE0</color>
+    <color name="accent">#6B8BFF</color>
+    <color name="gradientStart">#6A8DFF</color>
+    <color name="gradientEnd">#7C5CFF</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="cardStroke">#1A000000</color>
+    <color name="textPrimary">#1C2533</color>
+    <color name="textSecondary">#6D7A8B</color>
+    <color name="chipSelectedBg">#2F3A63</color>
+    <color name="chipSelectedText">#FFFFFF</color>
+    <color name="chipUnselectedBg">#F1F3F6</color>
+    <color name="chipUnselectedText">#2F3A63</color>
+    <color name="divider">#22000000</color>
+    <color name="inputBg">#F7F8FC</color>
+    <color name="avatarText">#4662FF</color>
+    <color name="purple_700">#6C63FF</color>
+
 </resources>
