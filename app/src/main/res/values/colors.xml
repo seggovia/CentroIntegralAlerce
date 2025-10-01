@@ -17,5 +17,6 @@
     <color name="inputBg">#F7F8FC</color>
     <color name="avatarText">#4662FF</color>
     <color name="purple_700">#6C63FF</color>
+    <color name="chipBg">#F2F4F7</color>
 
 </resources>

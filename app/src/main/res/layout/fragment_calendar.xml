@@ -15,28 +15,43 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical">
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="16dp"
+            android:background="@android:color/transparent">
 
+            <!-- Título principal -->
             <TextView
+                android:id="@+id/tvTituloCalendario"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Calendario"
                 android:textStyle="bold"
-                android:textSize="24sp"
-                android:textColor="@android:color/white"/>
+                android:textSize="28sp"
+                android:textColor="@android:color/white"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.05"
+                android:paddingBottom="4dp"/>
 
+            <!-- Subtítulo -->
             <TextView
+                android:id="@+id/tvSubtituloCalendario"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Agenda semanal"
                 android:textSize="14sp"
-                android:textColor="@android:color/white"/>
+                android:textColor="@android:color/white"
+                android:fontFamily="sans-serif"
+                android:letterSpacing="0.02"/>
         </LinearLayout>
+
+
     </FrameLayout>
 
     <!-- Card: Selector semanal -->
     <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardWeek"
         android:layout_below="@id/header"
         android:layout_margin="16dp"
         android:layout_width="match_parent"
@@ -51,56 +66,67 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-            <!-- FILA: Anterior | 29 SEPT – 5 OCT | Siguiente -->
-            <LinearLayout
+            <!-- Anterior | Rango | Siguiente (una sola línea) -->
+            <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:layout_height="wrap_content">
 
                 <TextView
                     android:id="@+id/btnSemanaAnterior"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="start"
                     android:text="Anterior"
-                    android:textColor="@color/primary"/>
+                    android:textColor="@color/primary"
+                    android:paddingHorizontal="4dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
 
                 <TextView
                     android:id="@+id/tvRangoSemana"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
                     android:text="29 SEPT – 5 OCT"
                     android:textStyle="bold"
-                    android:textColor="@color/textPrimary"/>
+                    android:textColor="@color/textPrimary"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false"
+                    android:gravity="center"
+                    app:layout_constraintStart_toEndOf="@id/btnSemanaAnterior"
+                    app:layout_constraintEnd_toStartOf="@id/btnSemanaSiguiente"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
 
                 <TextView
                     android:id="@+id/btnSemanaSiguiente"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="end"
                     android:text="Siguiente"
-                    android:textColor="@color/primary"/>
-            </LinearLayout>
+                    android:textColor="@color/primary"
+                    android:paddingHorizontal="4dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
+            </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- 7 días (chips) en una fila. No requiere scroll lateral en la mayoría de pantallas -->
+            <!-- 7 días (sin scroll). El ancho lo fijamos por código = (ancho - paddings - 6*spacing)/7 -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvDays"
                 android:layout_width="match_parent"
-                android:layout_height="64dp"
+                android:layout_height="68dp"
                 android:paddingTop="8dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
                 android:overScrollMode="never"/>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Título del día seleccionado -->
+    <!-- Título del día seleccionado (debajo del selector semanal) -->
     <TextView
         android:id="@+id/tvTituloDia"
-        android:layout_below="@+id/header"
-        android:layout_marginTop="130dp"
+        android:layout_below="@id/cardWeek"
+        android:layout_marginTop="8dp"
         android:layout_marginHorizontal="16dp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -111,10 +137,12 @@
 
     <!-- Card: lista de eventos del día -->
     <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardEventos"
         android:layout_below="@id/tvTituloDia"
+        android:layout_above="@id/fabAdd"
+        android:layout_margin="16dp"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_margin="16dp"
         app:cardCornerRadius="16dp"
         app:strokeColor="@color/cardStroke"
         app:cardBackgroundColor="@android:color/white">
@@ -123,7 +151,10 @@
             android:id="@+id/rvEventos"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="12dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
             android:clipToPadding="false"
             android:overScrollMode="never"/>
     </com.google.android.material.card.MaterialCardView>

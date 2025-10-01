@@ -1,68 +1,108 @@
 package com.centroalerce.ui;
 
+import android.graphics.Rect;
 import android.os.Bundle;
-import android.view.*;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.centroalerce.gestion.R;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+// ===== NUEVO: Firebase / Firestore =====
+import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QuerySnapshot;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*; // List, Map, HashMap, etc.
+
+/**
+ * Calendario semanal con:
+ * - Fila de 7 días centrados (ancho idéntico + spacing adaptativo).
+ * - Punto azul en días con citas.
+ * - Lista inferior: si un día no tiene citas => lista vacía (en blanco).
+ */
 public class CalendarFragment extends Fragment {
 
-    private LocalDate weekStart;      // lunes de la semana visible
+    private LocalDate weekStart;      // lunes visible
     private LocalDate selectedDay;    // día seleccionado
     private DayAdapter dayAdapter;
     private EventAdapter eventAdapter;
     private TextView tvRangoSemana, tvTituloDia;
+    private RecyclerView rvDays;
 
-    public CalendarFragment() {}
+    // Citas de la semana visible (día -> lista de eventos)
+    private final Map<LocalDate, List<EventItem>> weekEvents = new HashMap<>();
 
-    @Nullable @Override
+    // ===== NUEVO: Firestore =====
+    private FirebaseFirestore db;
+    private ListenerRegistration weekListener;
+    private final Map<String, String> activityNameCache = new HashMap<>();
+
+    @Nullable
+    @Override
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle b) {
         View v = inf.inflate(R.layout.fragment_calendar, c, false);
 
         tvRangoSemana = v.findViewById(R.id.tvRangoSemana);
         tvTituloDia   = v.findViewById(R.id.tvTituloDia);
-        RecyclerView rvDays    = v.findViewById(R.id.rvDays);
+        rvDays        = v.findViewById(R.id.rvDays);
         RecyclerView rvEventos = v.findViewById(R.id.rvEventos);
         FloatingActionButton fab = v.findViewById(R.id.fabAdd);
 
         // Inicial
         LocalDate today = LocalDate.now();
-        weekStart = today.minusDays((today.getDayOfWeek().getValue()+6)%7); // Lunes
+        weekStart   = today.minusDays((today.getDayOfWeek().getValue() + 6) % 7); // lunes
         selectedDay = today;
 
-        // Lista de días (7 chips) – ancho fijo por código
+        // Firestore
+        db = FirebaseFirestore.getInstance();
+
+        // ---- DÍAS (fila semanal) ----
         rvDays.setLayoutManager(new LinearLayoutManager(getContext(), RecyclerView.HORIZONTAL, false));
-        rvDays.setItemAnimator(null); // evita animaciones/“saltos” al cambiar semana
+        rvDays.setItemAnimator(null); // sin saltos
+
         dayAdapter = new DayAdapter(new ArrayList<>(), d -> {
             selectedDay = d;
             updateDayTitle();
-            loadEventsFor(selectedDay);
+            loadEventsFor(selectedDay); // muestra lista (vacía si no hay)
         });
         rvDays.setAdapter(dayAdapter);
 
-        // Lista de eventos del día
+        // Espaciado + ancho ADAPTATIVO según ancho disponible
+        rvDays.addOnLayoutChangeListener((view, l, t, r, btm, ol, ot, orr, ob) -> applyAdaptiveLayoutForWeek());
+        rvDays.post(this::applyAdaptiveLayoutForWeek);
+
+        // ---- EVENTOS DEL DÍA ----
         rvEventos.setLayoutManager(new LinearLayoutManager(getContext()));
         rvEventos.setItemAnimator(null);
+
         eventAdapter = new EventAdapter(new ArrayList<>(), event -> {
             ActivityDetailBottomSheet sheet = ActivityDetailBottomSheet.newInstance(
-                    event.titulo, event.lugar, event.hora
+                    event.hora, event.titulo, event.lugar   // ordena como necesites
             );
             sheet.show(getChildFragmentManager(), "activity_detail_sheet");
         });
         rvEventos.setAdapter(eventAdapter);
 
-        // Botones semana anterior/siguiente
+        // Navegación de semana
         v.findViewById(R.id.btnSemanaAnterior).setOnClickListener(x -> {
             weekStart = weekStart.minusWeeks(1);
             fillWeek();
@@ -79,56 +119,234 @@ public class CalendarFragment extends Fragment {
         return v;
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (weekListener != null) {
+            weekListener.remove();
+            weekListener = null;
+        }
+    }
+
+    /**
+     * Calcula spacing e itemWidth de los chips según el ancho real disponible del RecyclerView.
+     * Mantiene 7 ítems visibles, centrados y sin romper texto.
+     */
+    private void applyAdaptiveLayoutForWeek() {
+        if (rvDays == null || rvDays.getWidth() == 0) return;
+
+        // ancho disponible (sin paddings)
+        int available = rvDays.getWidth() - rvDays.getPaddingStart() - rvDays.getPaddingEnd();
+
+        // ancho mínimo deseado de cada chip (px) y espaciados
+        int minChipPx = dp(52);
+        int maxSpacing = dp(8);
+        int minSpacing = dp(2);
+        int spacing    = maxSpacing;
+
+        // 7 chips => 6 separaciones
+        int extra = available - (minChipPx * 7);
+
+        // Si no alcanza, reducimos spacing hasta minSpacing
+        if (extra < spacing * 6) {
+            spacing = Math.max(minSpacing, extra / 6);
+        }
+
+        // Re-aplicamos decoración con el spacing calculado
+        while (rvDays.getItemDecorationCount() > 0) {
+            rvDays.removeItemDecorationAt(0);
+        }
+        rvDays.addItemDecoration(new SpacingDecoration(spacing));
+
+        // ancho exacto por item
+        int itemWidth = (available - spacing * 6) / 7;
+        dayAdapter.setItemWidth(itemWidth);
+    }
+
     private void fillWeek() {
-        // Lunes..Domingo: SIEMPRE 7 elementos
+        // Lunes..Domingo (orden fijo)
         List<LocalDate> week = new ArrayList<>(7);
         for (int i = 0; i < 7; i++) week.add(weekStart.plusDays(i));
         dayAdapter.submit(week);
 
         // Rango "29 SEPT – 5 OCT"
-        DateTimeFormatter d1 = DateTimeFormatter.ofPattern("d MMM", new Locale("es","CL"));
+        DateTimeFormatter d1 = DateTimeFormatter.ofPattern("d MMM", new Locale("es", "CL"));
         String start = week.get(0).format(d1).toUpperCase(Locale.ROOT);
         String end   = week.get(6).format(d1).toUpperCase(Locale.ROOT);
-        tvRangoSemana.setText(start + " – " + end);
+        tvRangoSemana.setText(getString(R.string.rango_semana, start, end));
 
-        // Marcar días con eventos (DEMO)
-        Set<LocalDate> daysWithEvents = loadEventDaysDemo(weekStart);
-        dayAdapter.setEventDays(daysWithEvents);
+        // 🔁 Firestore: escuchar semana visible
+        listenWeekFromFirestore(weekStart, weekStart.plusDays(6));
 
-        // Mantener seleccionado dentro de la semana
+        // Corregir selección si quedó fuera de rango
         if (selectedDay.isBefore(weekStart) || selectedDay.isAfter(weekStart.plusDays(6))) {
             selectedDay = weekStart;
         }
+
         updateDayTitle();
+        // La lista del día se recargará cuando lleguen datos del snapshot
+        // (pero mostramos vacío para no dejar basura previa)
         loadEventsFor(selectedDay);
     }
 
     private void updateDayTitle() {
         DateTimeFormatter df = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", new Locale("es","CL"));
         String t = selectedDay.format(df);
-        tvTituloDia.setText(t.substring(0,1).toUpperCase()+t.substring(1));
+        tvTituloDia.setText(t.substring(0, 1).toUpperCase() + t.substring(1));
     }
 
+    /**
+     * Carga la lista del día seleccionado.
+     * Si no hay citas => lista vacía (queda "en blanco").
+     */
     private void loadEventsFor(LocalDate day) {
-        // TODO: conectar a Firestore (collectionGroup "citas" por fecha 'day')
-        // Demo
-        List<EventItem> demo = new ArrayList<>();
-        if (day.getDayOfWeek().getValue() <= 5) { // solo L-V demo
-            demo.add(new EventItem("10:00","Taller de alfabetización digital","Oficina del centro"));
-            demo.add(new EventItem("12:30","Atención psicológica","Sala 2"));
+        List<EventItem> list = weekEvents.get(day);
+        if (list == null) list = Collections.emptyList();
+        eventAdapter.submit(list);
+    }
+
+    private int dp(int v){
+        return Math.round(v * getResources().getDisplayMetrics().density);
+    }
+
+    // ---------- ItemDecoration para espaciado uniforme ----------
+    static class SpacingDecoration extends RecyclerView.ItemDecoration {
+        private final int space;
+        SpacingDecoration(int space){ this.space = space; }
+        @Override
+        public void getItemOffsets(@NonNull Rect outRect,
+                                   @NonNull View view,
+                                   @NonNull RecyclerView parent,
+                                   @NonNull RecyclerView.State state) {
+            int pos = parent.getChildAdapterPosition(view);
+            outRect.left  = (pos == 0) ? 0 : space;
+            outRect.right = 0;
         }
-        eventAdapter.submit(demo);
     }
 
-    /** DEMO: retorna días de la semana con eventos para mostrar el punto azul. */
-    private Set<LocalDate> loadEventDaysDemo(LocalDate monday) {
-        Set<LocalDate> set = new HashSet<>();
-        set.add(monday.plusDays(1)); // martes
-        set.add(monday.plusDays(3)); // jueves
-        return set;
+    // ==================== FIRESTORE (semana visible) ====================
+
+    /** Escucha en tiempo real las citas de la semana [monday..sunday] */
+    /** Escucha en tiempo real las citas de la semana [monday..sunday] */
+    private void listenWeekFromFirestore(LocalDate monday, LocalDate sunday) {
+        if (weekListener != null) {
+            weekListener.remove();
+            weekListener = null;
+        }
+
+        // Rango de timestamps para la consulta
+        ZonedDateTime zStart = monday.atStartOfDay(ZoneId.systemDefault());
+        ZonedDateTime zEnd   = sunday.plusDays(1).atStartOfDay(ZoneId.systemDefault()); // exclusivo
+        Timestamp tsStart = new Timestamp(Date.from(zStart.toInstant()));
+        Timestamp tsEnd   = new Timestamp(Date.from(zEnd.toInstant()));
+
+        weekListener = db.collectionGroup("citas")
+                .whereGreaterThanOrEqualTo("startAt", tsStart)
+                .whereLessThan("startAt", tsEnd)
+                .orderBy("startAt", Query.Direction.ASCENDING)
+                .addSnapshotListener((snap, err) -> {
+                    if (err != null) {
+                        // ❌ No limpies la UI si hay error: mantenemos lo último estable
+                        android.util.Log.e("CAL", "Error escuchando citas", err);
+                        return;
+                    }
+                    if (snap == null) return;
+
+                    android.util.Log.d("CAL", "fromCache=" + snap.getMetadata().isFromCache()
+                            + " pendingWrites=" + snap.getMetadata().hasPendingWrites()
+                            + " size=" + snap.size());
+
+                    // Mapea SOLO si hay snapshot válido
+                    Map<LocalDate, List<EventItem>> map = new HashMap<>();
+                    mapSnapshotToWeekEvents(snap, map);
+
+                    // ✅ Reemplaza el contenido solo con datos válidos
+                    weekEvents.clear();
+                    weekEvents.putAll(map);
+                    dayAdapter.setEventDays(new HashSet<>(weekEvents.keySet()));
+                    loadEventsFor(selectedDay);
+                });
     }
 
-    // --------- Modelos y Adapters ---------
+
+    private void mapSnapshotToWeekEvents(@NonNull QuerySnapshot snap,
+                                         @NonNull Map<LocalDate, List<EventItem>> map) {
+        for (DocumentSnapshot doc : snap.getDocuments()) {
+            Timestamp startTs = doc.getTimestamp("startAt");
+
+            // Fallback: si aún no tienes 'startAt', intenta con 'fecha' + 'horaInicio'
+            if (startTs == null) {
+                String fecha = doc.getString("fecha");      // "2025-10-05"
+                String hora  = doc.getString("horaInicio"); // "14:00"
+                try {
+                    LocalDate d = LocalDate.parse(fecha); // asume ISO yyyy-MM-dd
+                    String[] hhmm = (hora != null) ? hora.split(":") : new String[]{"00","00"};
+                    ZonedDateTime zdt = d.atTime(
+                            Integer.parseInt(hhmm[0]),
+                            Integer.parseInt(hhmm[1])
+                    ).atZone(ZoneId.systemDefault());
+                    startTs = new Timestamp(Date.from(zdt.toInstant()));
+                } catch (Exception ignored) { /* saltar si no se puede parsear */ }
+            }
+            if (startTs == null) continue; // sin fecha/hora no se puede dibujar
+
+            // Log útil para depurar rangos
+            ZonedDateTime local = ZonedDateTime.ofInstant(
+                    Instant.ofEpochMilli(startTs.toDate().getTime()),
+                    ZoneId.systemDefault()
+            );
+            android.util.Log.d("CAL", "doc=" + doc.getReference().getPath()
+                    + " startAtLocal=" + local);
+
+            // Hora "HH:mm"
+            String horaStr = String.format(Locale.getDefault(), "%02d:%02d",
+                    local.getHour(), local.getMinute());
+
+            // Lugar y título
+            String lugarNombre = doc.getString("lugarNombre");
+            if (lugarNombre == null) lugarNombre = "Lugar";
+
+            String titulo = doc.getString("titulo"); // si la cita lo trae denormalizado
+            String activityId = getActivityIdFromRef(doc.getReference());
+            if (titulo == null) titulo = getActivityNameSync(activityId);
+
+            EventItem item = new EventItem(horaStr, titulo, lugarNombre);
+
+            LocalDate key = local.toLocalDate();
+            map.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
+        }
+    }
+
+
+    @Nullable
+    private String getActivityIdFromRef(DocumentReference ref) {
+        try {
+            // .../activities/{activityId}/citas/{citaId}
+            DocumentReference parentActivity = ref.getParent().getParent();
+            return parentActivity != null ? parentActivity.getId() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String getActivityNameSync(@Nullable String activityId) {
+        if (activityId == null) return "Actividad";
+        String cached = activityNameCache.get(activityId);
+        if (cached != null) return cached;
+
+        db.collection("activities").document(activityId).get()
+                .addOnSuccessListener(doc -> {
+                    String name = doc.getString("nombre");
+                    if (name != null) {
+                        activityNameCache.put(activityId, name);
+                        // refresca la lista del día actual
+                        loadEventsFor(selectedDay);
+                    }
+                });
+        return "Actividad";
+    }
+
+    // ----------------- modelos / adapters -----------------
 
     public static class EventItem {
         public final String hora, titulo, lugar;
@@ -137,8 +355,8 @@ public class CalendarFragment extends Fragment {
 
     static class EventAdapter extends RecyclerView.Adapter<EventVH> {
         private final List<EventItem> data;
-        private final OnClick cb;
         interface OnClick { void onTap(EventItem it); }
+        private final OnClick cb;
         EventAdapter(List<EventItem> d, OnClick c){data=d;cb=c;}
         void submit(List<EventItem> d){ data.clear(); data.addAll(d); notifyDataSetChanged();}
         @NonNull @Override public EventVH onCreateViewHolder(@NonNull ViewGroup p, int vtype){
@@ -167,36 +385,37 @@ public class CalendarFragment extends Fragment {
 
     static class DayAdapter extends RecyclerView.Adapter<DayVH>{
         interface DayClick { void onTap(LocalDate day); }
-        private final List<LocalDate> days; private final DayClick cb;
+        private final List<LocalDate> days;
+        private final DayClick cb;
         private final Set<LocalDate> eventDays = new HashSet<>();
+        private int itemWidthPx = 0;
 
         DayAdapter(List<LocalDate> d, DayClick c){days=d;cb=c;}
 
-        void submit(List<LocalDate> d){
-            days.clear(); days.addAll(d); notifyDataSetChanged();
-        }
-
+        void submit(List<LocalDate> d){ days.clear(); days.addAll(d); notifyDataSetChanged();}
         void setEventDays(Set<LocalDate> set){
             eventDays.clear();
             if (set != null) eventDays.addAll(set);
             notifyDataSetChanged();
         }
+        void setItemWidth(int w){
+            if (w > 0 && w != itemWidthPx) {
+                itemWidthPx = w;
+                notifyDataSetChanged();
+            }
+        }
 
         @NonNull @Override public DayVH onCreateViewHolder(@NonNull ViewGroup p, int vtype){
             View v = LayoutInflater.from(p.getContext()).inflate(R.layout.item_day_chip, p, false);
-            // Fijar ancho = contenedor/7 para que NO se deforme nunca
-            v.post(() -> {
-                int pw = p.getWidth();
-                if (pw > 0) {
-                    RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) v.getLayoutParams();
-                    lp.width = pw / 7;
-                    v.setLayoutParams(lp);
-                }
-            });
             return new DayVH(v);
         }
 
         @Override public void onBindViewHolder(@NonNull DayVH h,int i){
+            if (itemWidthPx > 0) {
+                RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) h.itemView.getLayoutParams();
+                lp.width = itemWidthPx;
+                h.itemView.setLayoutParams(lp);
+            }
             LocalDate d = days.get(i);
             h.bind(d, eventDays.contains(d));
             h.itemView.setOnClickListener(x -> cb.onTap(d));
@@ -213,7 +432,7 @@ public class CalendarFragment extends Fragment {
             viewDot    = v.findViewById(R.id.viewDot);
         }
         void bind(LocalDate d, boolean hasEvents){
-            String[] dias = {"LUN","MAR","MIÉ","JUE","VIE","SÁB","DOM"};
+            String[] dias = {"LU","MA","MI","JU","VI","SÁ","DO"};
             tvDiaCorto.setText(dias[(d.getDayOfWeek().getValue()+6)%7]);
             tvNum.setText(String.valueOf(d.getDayOfMonth()));
             viewDot.setVisibility(hasEvents ? View.VISIBLE : View.GONE);
