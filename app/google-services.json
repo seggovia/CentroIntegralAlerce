@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "532783270065",
+    "project_id": "centrointegralalerce",
+    "storage_bucket": "centrointegralalerce.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:532783270065:android:d807e088db78ce30123a90",
+        "android_client_info": {
+          "package_name": "com.centroalerce.gestion"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGkzclbvRGxSsILHXbbXHkH759f7xLTnE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
