@@ -18,6 +18,25 @@
             app:launchSingleTop="true" />
     </fragment>
 
+    <!-- EDITAR ACTIVIDAD -->
+    <fragment
+        android:id="@+id/activityEditFragment"
+        android:name="com.centroalerce.ui.ActivityEditFragment"
+        android:label="Editar actividad">
+        <argument
+            android:name="activityId"
+            app:argType="string" />
+    </fragment>
+
+    <!-- REAGENDAR ACTIVIDAD -->
+    <fragment
+        android:id="@+id/activityRescheduleFragment"
+        android:name="com.centroalerce.ui.ActivityRescheduleFragment"
+        android:label="Reagendar actividad">
+        <argument
+            android:name="activityId"
+            app:argType="string" />
+    </fragment>
 
     <!-- HOME -->
     <fragment
@@ -51,8 +70,8 @@
 
     <!-- DETALLE DE ACTIVIDAD -->
     <fragment
-        android:id="@+id/activityDetailFragment"
-        android:name="com.centroalerce.ui.ActivityDetailFragment"
+        android:id="@+id/detalleActividadFragment"
+        android:name="com.centroalerce.ui.DetalleActividadFragment"
         android:label="Detalle" />
 
     <!-- MANTENEDORES -->

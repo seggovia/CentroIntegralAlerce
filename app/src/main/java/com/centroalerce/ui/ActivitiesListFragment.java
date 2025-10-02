@@ -22,7 +22,7 @@ public class ActivitiesListFragment extends Fragment {
         RecyclerView rv = v.findViewById(R.id.rvActivities);
         rv.setLayoutManager(new LinearLayoutManager(getContext()));
         ActivityAdapter ad = new ActivityAdapter(new ArrayList<>(), it ->
-                Navigation.findNavController(v).navigate(R.id.activityDetailFragment)); // TODO: pasar id
+                Navigation.findNavController(v).navigate(R.id.detalleActividadFragment)); // TODO: pasar id
         rv.setAdapter(ad);
 
         // TODO: cargar desde Firestore. Demo:

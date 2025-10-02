@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Checked: sin borde visible -->
+    <item android:state_checked="true" android:color="#00000000"/>
+    <!-- Unchecked: borde gris claro -->
+    <item android:color="#D7DBE3"/>
+</selector>

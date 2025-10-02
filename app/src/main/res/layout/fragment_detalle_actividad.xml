@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#F7F3FF"> <!-- fondo lila suave -->
+
+    <!-- Cabecera -->
+    <TextView
+        android:id="@+id/tvTitulo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Nombre actividad"
+        android:textStyle="bold"
+        android:textSize="18sp"
+        android:textColor="#4C3BCF" /> <!-- morado -->
+
+    <TextView
+        android:id="@+id/tvTipoYPeriodicidad"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tipo • Periodicidad"
+        android:textSize="14sp"
+        android:textColor="#7C6EE6"
+        android:layout_marginTop="2dp" />
+
+    <!-- Cita -->
+    <TextView
+        android:id="@+id/tvHora"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="dd/MM/yyyy • HH:mm"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:textColor="#1F2937"
+        android:layout_marginTop="12dp" />
+
+    <TextView
+        android:id="@+id/tvLugar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Lugar"
+        android:textSize="14sp"
+        android:textColor="#6B7280"
+        android:layout_marginTop="2dp" />
+
+    <!-- Detalles -->
+    <TextView
+        android:id="@+id/tvTipo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tipo: —"
+        android:textSize="14sp"
+        android:textColor="#1F2937"
+        android:layout_marginTop="12dp" />
+
+    <TextView
+        android:id="@+id/tvPeriodicidad"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Periodicidad: —"
+        android:textSize="14sp"
+        android:textColor="#1F2937" />
+
+    <TextView
+        android:id="@+id/tvCupo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Cupo: —"
+        android:textSize="14sp"
+        android:textColor="#1F2937" />
+
+    <TextView
+        android:id="@+id/tvOferente"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Oferente: —"
+        android:textSize="14sp"
+        android:textColor="#1F2937" />
+
+    <TextView
+        android:id="@+id/tvSocio"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Socio comunitario: —"
+        android:textSize="14sp"
+        android:textColor="#1F2937" />
+
+    <TextView
+        android:id="@+id/tvBeneficiarios"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Beneficiarios: —"
+        android:textSize="14sp"
+        android:textColor="#1F2937" />
+
+    <!-- Adjuntos -->
+    <TextView
+        android:id="@+id/tvAdjuntosHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Adjuntos"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:textColor="#111827"
+        android:layout_marginTop="12dp" />
+
+    <LinearLayout
+        android:id="@+id/llAdjuntos"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="4dp" />
+
+    <!-- Botonera fila 1: Modificar / Reagendar (outlined) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnModificar"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="Modificar"
+            android:textStyle="bold"
+            android:textColor="#5B4CC4"
+            app:cornerRadius="24dp"
+            app:backgroundTint="@android:color/transparent"
+            app:strokeColor="#BDB7D0"
+            app:strokeWidth="1dp" />
+
+        <Space
+            android:layout_width="12dp"
+            android:layout_height="wrap_content" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnReagendar"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="Reagendar"
+            android:textStyle="bold"
+            android:textColor="#5B4CC4"
+            app:cornerRadius="24dp"
+            app:backgroundTint="@android:color/transparent"
+            app:strokeColor="#BDB7D0"
+            app:strokeWidth="1dp" />
+    </LinearLayout>
+
+    <!-- Botonera fila 2: Adjuntar (morado sólido) / Cancelar (rojo sólido) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAdjuntar"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="Adjuntar"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            app:cornerRadius="24dp"
+            app:backgroundTint="#5B4CC4" />
+
+        <Space
+            android:layout_width="12dp"
+            android:layout_height="wrap_content" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCancelar"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="Cancelar"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            app:cornerRadius="24dp"
+            app:backgroundTint="#D32F2F" />
+    </LinearLayout>
+
+</LinearLayout>

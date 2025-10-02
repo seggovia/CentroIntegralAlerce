@@ -33,12 +33,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*; // List, Map, HashMap, etc.
 
-/**
- * Calendario semanal con:
- * - Fila de 7 días centrados (ancho idéntico + spacing adaptativo).
- * - Punto azul en días con citas.
- * - Lista inferior: si un día no tiene citas => lista vacía (en blanco).
- */
 public class CalendarFragment extends Fragment {
 
     private LocalDate weekStart;      // lunes visible
@@ -51,7 +45,7 @@ public class CalendarFragment extends Fragment {
     // Citas de la semana visible (día -> lista de eventos)
     private final Map<LocalDate, List<EventItem>> weekEvents = new HashMap<>();
 
-    // ===== NUEVO: Firestore =====
+    // Firestore
     private FirebaseFirestore db;
     private ListenerRegistration weekListener;
     private final Map<String, String> activityNameCache = new HashMap<>();
@@ -72,21 +66,19 @@ public class CalendarFragment extends Fragment {
         weekStart   = today.minusDays((today.getDayOfWeek().getValue() + 6) % 7); // lunes
         selectedDay = today;
 
-        // Firestore
         db = FirebaseFirestore.getInstance();
 
         // ---- DÍAS (fila semanal) ----
         rvDays.setLayoutManager(new LinearLayoutManager(getContext(), RecyclerView.HORIZONTAL, false));
-        rvDays.setItemAnimator(null); // sin saltos
+        rvDays.setItemAnimator(null);
 
         dayAdapter = new DayAdapter(new ArrayList<>(), d -> {
             selectedDay = d;
             updateDayTitle();
-            loadEventsFor(selectedDay); // muestra lista (vacía si no hay)
+            loadEventsFor(selectedDay);
         });
         rvDays.setAdapter(dayAdapter);
 
-        // Espaciado + ancho ADAPTATIVO según ancho disponible
         rvDays.addOnLayoutChangeListener((view, l, t, r, btm, ol, ot, orr, ob) -> applyAdaptiveLayoutForWeek());
         rvDays.post(this::applyAdaptiveLayoutForWeek);
 
@@ -95,8 +87,10 @@ public class CalendarFragment extends Fragment {
         rvEventos.setItemAnimator(null);
 
         eventAdapter = new EventAdapter(new ArrayList<>(), event -> {
+            // ✅ ahora pasamos los IDs correctos
             ActivityDetailBottomSheet sheet = ActivityDetailBottomSheet.newInstance(
-                    event.hora, event.titulo, event.lugar   // ordena como necesites
+                    event.activityId,
+                    event.citaId
             );
             sheet.show(getChildFragmentManager(), "activity_detail_sheet");
         });
@@ -128,64 +122,47 @@ public class CalendarFragment extends Fragment {
         }
     }
 
-    /**
-     * Calcula spacing e itemWidth de los chips según el ancho real disponible del RecyclerView.
-     * Mantiene 7 ítems visibles, centrados y sin romper texto.
-     */
     private void applyAdaptiveLayoutForWeek() {
         if (rvDays == null || rvDays.getWidth() == 0) return;
 
-        // ancho disponible (sin paddings)
         int available = rvDays.getWidth() - rvDays.getPaddingStart() - rvDays.getPaddingEnd();
-
-        // ancho mínimo deseado de cada chip (px) y espaciados
         int minChipPx = dp(52);
         int maxSpacing = dp(8);
         int minSpacing = dp(2);
         int spacing    = maxSpacing;
 
-        // 7 chips => 6 separaciones
         int extra = available - (minChipPx * 7);
 
-        // Si no alcanza, reducimos spacing hasta minSpacing
         if (extra < spacing * 6) {
             spacing = Math.max(minSpacing, extra / 6);
         }
 
-        // Re-aplicamos decoración con el spacing calculado
         while (rvDays.getItemDecorationCount() > 0) {
             rvDays.removeItemDecorationAt(0);
         }
         rvDays.addItemDecoration(new SpacingDecoration(spacing));
 
-        // ancho exacto por item
         int itemWidth = (available - spacing * 6) / 7;
         dayAdapter.setItemWidth(itemWidth);
     }
 
     private void fillWeek() {
-        // Lunes..Domingo (orden fijo)
         List<LocalDate> week = new ArrayList<>(7);
         for (int i = 0; i < 7; i++) week.add(weekStart.plusDays(i));
         dayAdapter.submit(week);
 
-        // Rango "29 SEPT – 5 OCT"
         DateTimeFormatter d1 = DateTimeFormatter.ofPattern("d MMM", new Locale("es", "CL"));
         String start = week.get(0).format(d1).toUpperCase(Locale.ROOT);
         String end   = week.get(6).format(d1).toUpperCase(Locale.ROOT);
         tvRangoSemana.setText(getString(R.string.rango_semana, start, end));
 
-        // 🔁 Firestore: escuchar semana visible
         listenWeekFromFirestore(weekStart, weekStart.plusDays(6));
 
-        // Corregir selección si quedó fuera de rango
         if (selectedDay.isBefore(weekStart) || selectedDay.isAfter(weekStart.plusDays(6))) {
             selectedDay = weekStart;
         }
 
         updateDayTitle();
-        // La lista del día se recargará cuando lleguen datos del snapshot
-        // (pero mostramos vacío para no dejar basura previa)
         loadEventsFor(selectedDay);
     }
 
@@ -195,10 +172,6 @@ public class CalendarFragment extends Fragment {
         tvTituloDia.setText(t.substring(0, 1).toUpperCase() + t.substring(1));
     }
 
-    /**
-     * Carga la lista del día seleccionado.
-     * Si no hay citas => lista vacía (queda "en blanco").
-     */
     private void loadEventsFor(LocalDate day) {
         List<EventItem> list = weekEvents.get(day);
         if (list == null) list = Collections.emptyList();
@@ -209,7 +182,6 @@ public class CalendarFragment extends Fragment {
         return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
-    // ---------- ItemDecoration para espaciado uniforme ----------
     static class SpacingDecoration extends RecyclerView.ItemDecoration {
         private final int space;
         SpacingDecoration(int space){ this.space = space; }
@@ -224,19 +196,16 @@ public class CalendarFragment extends Fragment {
         }
     }
 
-    // ==================== FIRESTORE (semana visible) ====================
+    // ==================== FIRESTORE ====================
 
-    /** Escucha en tiempo real las citas de la semana [monday..sunday] */
-    /** Escucha en tiempo real las citas de la semana [monday..sunday] */
     private void listenWeekFromFirestore(LocalDate monday, LocalDate sunday) {
         if (weekListener != null) {
             weekListener.remove();
             weekListener = null;
         }
 
-        // Rango de timestamps para la consulta
         ZonedDateTime zStart = monday.atStartOfDay(ZoneId.systemDefault());
-        ZonedDateTime zEnd   = sunday.plusDays(1).atStartOfDay(ZoneId.systemDefault()); // exclusivo
+        ZonedDateTime zEnd   = sunday.plusDays(1).atStartOfDay(ZoneId.systemDefault());
         Timestamp tsStart = new Timestamp(Date.from(zStart.toInstant()));
         Timestamp tsEnd   = new Timestamp(Date.from(zEnd.toInstant()));
 
@@ -246,21 +215,14 @@ public class CalendarFragment extends Fragment {
                 .orderBy("startAt", Query.Direction.ASCENDING)
                 .addSnapshotListener((snap, err) -> {
                     if (err != null) {
-                        // ❌ No limpies la UI si hay error: mantenemos lo último estable
                         android.util.Log.e("CAL", "Error escuchando citas", err);
                         return;
                     }
                     if (snap == null) return;
 
-                    android.util.Log.d("CAL", "fromCache=" + snap.getMetadata().isFromCache()
-                            + " pendingWrites=" + snap.getMetadata().hasPendingWrites()
-                            + " size=" + snap.size());
-
-                    // Mapea SOLO si hay snapshot válido
                     Map<LocalDate, List<EventItem>> map = new HashMap<>();
                     mapSnapshotToWeekEvents(snap, map);
 
-                    // ✅ Reemplaza el contenido solo con datos válidos
                     weekEvents.clear();
                     weekEvents.putAll(map);
                     dayAdapter.setEventDays(new HashSet<>(weekEvents.keySet()));
@@ -268,60 +230,54 @@ public class CalendarFragment extends Fragment {
                 });
     }
 
-
     private void mapSnapshotToWeekEvents(@NonNull QuerySnapshot snap,
                                          @NonNull Map<LocalDate, List<EventItem>> map) {
         for (DocumentSnapshot doc : snap.getDocuments()) {
             Timestamp startTs = doc.getTimestamp("startAt");
 
-            // Fallback: si aún no tienes 'startAt', intenta con 'fecha' + 'horaInicio'
             if (startTs == null) {
-                String fecha = doc.getString("fecha");      // "2025-10-05"
-                String hora  = doc.getString("horaInicio"); // "14:00"
+                String fecha = doc.getString("fecha");
+                String hora  = doc.getString("horaInicio");
                 try {
-                    LocalDate d = LocalDate.parse(fecha); // asume ISO yyyy-MM-dd
+                    LocalDate d = LocalDate.parse(fecha);
                     String[] hhmm = (hora != null) ? hora.split(":") : new String[]{"00","00"};
                     ZonedDateTime zdt = d.atTime(
                             Integer.parseInt(hhmm[0]),
                             Integer.parseInt(hhmm[1])
                     ).atZone(ZoneId.systemDefault());
                     startTs = new Timestamp(Date.from(zdt.toInstant()));
-                } catch (Exception ignored) { /* saltar si no se puede parsear */ }
+                } catch (Exception ignored) { }
             }
-            if (startTs == null) continue; // sin fecha/hora no se puede dibujar
+            if (startTs == null) continue;
 
-            // Log útil para depurar rangos
             ZonedDateTime local = ZonedDateTime.ofInstant(
                     Instant.ofEpochMilli(startTs.toDate().getTime()),
                     ZoneId.systemDefault()
             );
-            android.util.Log.d("CAL", "doc=" + doc.getReference().getPath()
-                    + " startAtLocal=" + local);
 
-            // Hora "HH:mm"
             String horaStr = String.format(Locale.getDefault(), "%02d:%02d",
                     local.getHour(), local.getMinute());
 
-            // Lugar y título
             String lugarNombre = doc.getString("lugarNombre");
             if (lugarNombre == null) lugarNombre = "Lugar";
 
-            String titulo = doc.getString("titulo"); // si la cita lo trae denormalizado
             String activityId = getActivityIdFromRef(doc.getReference());
+            String citaId = doc.getId(); // ✅
+
+            String titulo = doc.getString("titulo");
             if (titulo == null) titulo = getActivityNameSync(activityId);
 
-            EventItem item = new EventItem(horaStr, titulo, lugarNombre);
+            // ✅ EventItem ahora incluye activityId y citaId
+            EventItem item = new EventItem(horaStr, titulo, lugarNombre, activityId, citaId);
 
             LocalDate key = local.toLocalDate();
             map.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
         }
     }
 
-
     @Nullable
     private String getActivityIdFromRef(DocumentReference ref) {
         try {
-            // .../activities/{activityId}/citas/{citaId}
             DocumentReference parentActivity = ref.getParent().getParent();
             return parentActivity != null ? parentActivity.getId() : null;
         } catch (Exception e) {
@@ -339,18 +295,24 @@ public class CalendarFragment extends Fragment {
                     String name = doc.getString("nombre");
                     if (name != null) {
                         activityNameCache.put(activityId, name);
-                        // refresca la lista del día actual
                         loadEventsFor(selectedDay);
                     }
                 });
         return "Actividad";
     }
 
-    // ----------------- modelos / adapters -----------------
+    // ----------------- MODELOS / ADAPTERS -----------------
 
     public static class EventItem {
         public final String hora, titulo, lugar;
-        public EventItem(String h,String t,String l){hora=h;titulo=t;lugar=l;}
+        public final String activityId, citaId; // ✅ nuevos
+        public EventItem(String h, String t, String l, String activityId, String citaId){
+            this.hora = h;
+            this.titulo = t;
+            this.lugar = l;
+            this.activityId = activityId;
+            this.citaId = citaId;
+        }
     }
 
     static class EventAdapter extends RecyclerView.Adapter<EventVH> {

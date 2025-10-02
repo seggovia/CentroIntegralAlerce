@@ -2,36 +2,52 @@ package com.centroalerce.gestion;
 
 import android.os.Bundle;
 import android.view.View;
+
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.NavigationUI;
+
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+
+import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1) Obtener NavController desde el NavHostFragment
+        // 1) Obtener NavController desde el NavHostFragment (id: @id/nav_host)
         NavHostFragment navHost = (NavHostFragment)
                 getSupportFragmentManager().findFragmentById(R.id.nav_host);
-        if (navHost == null) return; // safety
-        NavController navController = navHost.getNavController();
+        if (navHost == null) {
+            // Si esto pasara, el layout no tiene el id correcto o no infló
+            throw new IllegalStateException("No se encontró NavHostFragment con id @id/nav_host");
+        }
+        NavController navController = Objects.requireNonNull(navHost).getNavController();
 
         // 2) Conectar BottomNavigationView con NavController
-        BottomNavigationView bottom = findViewById(R.id.bottom_nav);
-        NavigationUI.setupWithNavController(bottom, navController);
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
+        NavigationUI.setupWithNavController(bottomNav, navController);
 
-        // 3) Ocultar BottomNav en login
+        // Evitar re-navegar al re-seleccionar el mismo tab
+        bottomNav.setOnItemReselectedListener(item -> { /* no-op */ });
+
+        // 3) Mostrar/ocultar BottomNav según destino
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
-            if (destination.getId() == R.id.loginFragment) {
-                bottom.setVisibility(View.GONE);
-            } else {
-                bottom.setVisibility(View.VISIBLE);
-            }
+            int id = destination.getId();
+
+            boolean hide =
+                    id == R.id.loginFragment ||
+                            id == R.id.activityFormFragment ||
+                            id == R.id.activityEditFragment ||
+                            id == R.id.activityRescheduleFragment ||
+                            id == R.id.detalleActividadFragment;
+
+            bottomNav.setVisibility(hide ? View.GONE : View.VISIBLE);
         });
     }
 }

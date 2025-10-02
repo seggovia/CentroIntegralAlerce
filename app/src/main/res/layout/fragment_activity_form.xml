@@ -1,132 +1,427 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#F6F7FB"
+    android:fitsSystemWindows="true">
 
+    <!-- Header degradado (sin título para evitar duplicado) -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="180dp"
+        android:background="@drawable/bg_header_gradient"
+        app:title=""
+        app:titleCentered="true"
+        app:navigationIconTint="@android:color/white" />
+
+    <!-- Título grande + subtítulo -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="180dp"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:gravity="center">
 
         <TextView
+            android:id="@+id/tvTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Nueva actividad"
+            android:textSize="28sp"
             android:textStyle="bold"
-            android:textSize="20sp"
-            android:paddingBottom="8dp"/>
-
-        <EditText
-            android:id="@+id/etNombre"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Nombre de la actividad *"/>
-
-        <RadioGroup
-            android:id="@+id/rgPeriodicidad"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingTop="8dp">
-
-            <RadioButton
-                android:id="@+id/rbPuntual"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Puntual"
-                android:checked="true"/>
-
-            <RadioButton
-                android:id="@+id/rbPeriodica"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Periódica"
-                android:layout_marginStart="16dp"/>
-        </RadioGroup>
-
-        <EditText
-            android:id="@+id/etCupo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="number"
-            android:hint="Cupo (opcional)"/>
-
-        <EditText
-            android:id="@+id/etLugar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Lugar (opcional)"/>
-
-        <EditText
-            android:id="@+id/etOferente"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Oferente (opcional)"/>
-
-        <EditText
-            android:id="@+id/etSocio"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Socio comunitario (opcional)"/>
+            android:textColor="@android:color/white"/>
 
         <TextView
+            android:id="@+id/tvSubtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Fechas y horas"
-            android:textStyle="bold"
-            android:paddingTop="12dp"/>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <EditText
-                android:id="@+id/etFecha"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:focusable="false"
-                android:clickable="true"
-                android:hint="Fecha (AAAA-MM-DD)"/>
-
-            <Space
-                android:layout_width="8dp"
-                android:layout_height="wrap_content"/>
-
-            <EditText
-                android:id="@+id/etHora"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:focusable="false"
-                android:clickable="true"
-                android:hint="Hora (HH:mm)"/>
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="end"
-            android:paddingTop="16dp">
-
-            <Button
-                android:id="@+id/btnCancelar"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Cancelar"/>
-
-            <Space
-                android:layout_width="8dp"
-                android:layout_height="wrap_content"/>
-
-            <Button
-                android:id="@+id/btnGuardar"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Guardar actividad"/>
-        </LinearLayout>
+            android:text="Completa los datos y guarda"
+            android:textSize="16sp"
+            android:alpha="0.9"
+            android:paddingTop="4dp"
+            android:textColor="@android:color/white"/>
     </LinearLayout>
-</ScrollView>
+
+    <!-- Contenido -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="140dp"
+        android:clipToPadding="false"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="96dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Card del formulario -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="16dp"
+                app:cardUseCompatPadding="true"
+                app:strokeColor="#E5E7EB"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- Nombre -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Nombre de la actividad *"
+                        app:boxBackgroundMode="outline"
+                        app:boxStrokeColor="#E5E7EB"
+                        app:boxCornerRadiusTopStart="8dp"
+                        app:boxCornerRadiusTopEnd="8dp"
+                        app:boxCornerRadiusBottomStart="8dp"
+                        app:boxCornerRadiusBottomEnd="8dp">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etNombre"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="@null"
+                            android:textColor="#111827"
+                            android:textColorHint="#9CA3AF"
+                            android:backgroundTint="@android:color/transparent"
+                            android:inputType="textCapSentences"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Tipo de actividad -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilTipo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Tipo de actividad"
+                        android:layout_marginTop="12dp"
+                        app:endIconMode="dropdown_menu"
+                        app:boxBackgroundMode="outline"
+                        app:boxStrokeColor="#E5E7EB"
+                        app:boxCornerRadiusTopStart="8dp"
+                        app:boxCornerRadiusTopEnd="8dp"
+                        app:boxCornerRadiusBottomStart="8dp"
+                        app:boxCornerRadiusBottomEnd="8dp">
+
+                        <AutoCompleteTextView
+                            android:id="@+id/acTipoActividad"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="@null"
+                            android:textColor="#111827"
+                            android:textColorHint="#9CA3AF"
+                            android:backgroundTint="@android:color/transparent"
+                            android:inputType="none"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Toggle Puntual / Periódica -->
+                    <com.google.android.material.button.MaterialButtonToggleGroup
+                        android:id="@+id/tgPeriodicidad"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        app:singleSelection="true"
+                        app:selectionRequired="true"
+                        app:checkedButton="@id/btnPuntual">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPuntual"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:text="Puntual"
+                            android:textAllCaps="false"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp"
+                            android:paddingLeft="16dp"
+                            android:paddingRight="16dp"
+                            app:cornerRadius="18dp"
+                            app:backgroundTint="@color/toggle_bg"
+                            app:strokeColor="@color/toggle_stroke"
+                            app:strokeWidth="1dp"
+                            android:textColor="@color/toggle_text" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPeriodica"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:text="Periódica"
+                            android:textAllCaps="false"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp"
+                            android:paddingLeft="16dp"
+                            android:paddingRight="16dp"
+                            app:cornerRadius="18dp"
+                            app:backgroundTint="@color/toggle_bg"
+                            app:strokeColor="@color/toggle_stroke"
+                            app:strokeWidth="1dp"
+                            android:textColor="@color/toggle_text" />
+                    </com.google.android.material.button.MaterialButtonToggleGroup>
+
+                    <!-- Cupo & Lugar -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="12dp">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="Cupo (opcional)"
+                            app:boxBackgroundMode="outline"
+                            app:boxStrokeColor="#E5E7EB"
+                            app:boxCornerRadiusTopStart="8dp"
+                            app:boxCornerRadiusTopEnd="8dp"
+                            app:boxCornerRadiusBottomStart="8dp"
+                            app:boxCornerRadiusBottomEnd="8dp">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etCupo"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="@null"
+                                android:textColor="#111827"
+                                android:textColorHint="#9CA3AF"
+                                android:backgroundTint="@android:color/transparent"
+                                android:inputType="number"/>
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <Space
+                            android:layout_width="12dp"
+                            android:layout_height="wrap_content"/>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="Lugar (opcional)"
+                            app:boxBackgroundMode="outline"
+                            app:boxStrokeColor="#E5E7EB"
+                            app:boxCornerRadiusTopStart="8dp"
+                            app:boxCornerRadiusTopEnd="8dp"
+                            app:boxCornerRadiusBottomStart="8dp"
+                            app:boxCornerRadiusBottomEnd="8dp">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etLugar"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="@null"
+                                android:textColor="#111827"
+                                android:textColorHint="#9CA3AF"
+                                android:backgroundTint="@android:color/transparent"/>
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
+
+                    <!-- Oferente -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:hint="Oferente (opcional)"
+                        app:boxBackgroundMode="outline"
+                        app:boxStrokeColor="#E5E7EB"
+                        app:boxCornerRadiusTopStart="8dp"
+                        app:boxCornerRadiusTopEnd="8dp"
+                        app:boxCornerRadiusBottomStart="8dp"
+                        app:boxCornerRadiusBottomEnd="8dp">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etOferente"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="@null"
+                            android:textColor="#111827"
+                            android:textColorHint="#9CA3AF"
+                            android:backgroundTint="@android:color/transparent"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Sección Fechas -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Fechas y horas"
+                        android:textStyle="bold"
+                        android:textColor="#111827"
+                        android:layout_marginTop="16dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="8dp">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="Fecha"
+                            app:endIconMode="custom"
+                            app:endIconDrawable="@android:drawable/ic_menu_month"
+                            app:boxBackgroundMode="outline"
+                            app:boxStrokeColor="#E5E7EB"
+                            app:boxCornerRadiusTopStart="8dp"
+                            app:boxCornerRadiusTopEnd="8dp"
+                            app:boxCornerRadiusBottomStart="8dp"
+                            app:boxCornerRadiusBottomEnd="8dp">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etFecha"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:focusable="false"
+                                android:clickable="true"
+                                android:hint="@null"
+                                android:textColor="#111827"
+                                android:textColorHint="#9CA3AF"
+                                android:backgroundTint="@android:color/transparent"/>
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <Space
+                            android:layout_width="12dp"
+                            android:layout_height="wrap_content"/>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="Hora"
+                            app:endIconMode="custom"
+                            app:endIconDrawable="@android:drawable/ic_menu_recent_history"
+                            app:boxBackgroundMode="outline"
+                            app:boxStrokeColor="#E5E7EB"
+                            app:boxCornerRadiusTopStart="8dp"
+                            app:boxCornerRadiusTopEnd="8dp"
+                            app:boxCornerRadiusBottomStart="8dp"
+                            app:boxCornerRadiusBottomEnd="8dp">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etHora"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:focusable="false"
+                                android:clickable="true"
+                                android:hint="@null"
+                                android:textColor="#111827"
+                                android:textColorHint="#9CA3AF"
+                                android:backgroundTint="@android:color/transparent"/>
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
+
+                    <!-- Socio comunitario -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:hint="Socio comunitario (opcional)"
+                        app:boxBackgroundMode="outline"
+                        app:boxStrokeColor="#E5E7EB"
+                        app:boxCornerRadiusTopStart="8dp"
+                        app:boxCornerRadiusTopEnd="8dp"
+                        app:boxCornerRadiusBottomStart="8dp"
+                        app:boxCornerRadiusBottomEnd="8dp">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etSocio"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="@null"
+                            android:textColor="#111827"
+                            android:textColorHint="#9CA3AF"
+                            android:backgroundTint="@android:color/transparent"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Beneficiarios -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:hint="Beneficiarios (opcional)"
+                        app:boxBackgroundMode="outline"
+                        app:boxStrokeColor="#E5E7EB"
+                        app:boxCornerRadiusTopStart="8dp"
+                        app:boxCornerRadiusTopEnd="8dp"
+                        app:boxCornerRadiusBottomStart="8dp"
+                        app:boxCornerRadiusBottomEnd="8dp">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etBeneficiarios"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="@null"
+                            android:textColor="#111827"
+                            android:textColorHint="#9CA3AF"
+                            android:backgroundTint="@android:color/transparent"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Adjuntos -->
+                    <LinearLayout
+                        android:id="@+id/boxAdjuntos"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:padding="14dp"
+                        android:background="@drawable/bg_attachment_box"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_menu_add"/>
+
+                        <TextView
+                            android:id="@+id/tvAdjuntos"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="Agregar archivos adjuntos  •  0 seleccionado(s)"
+                            android:textColor="#6B7280"/>
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Botonera inferior -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginBottom="16dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCancelar"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="Cancelar"/>
+
+                <Space
+                    android:layout_width="12dp"
+                    android:layout_height="wrap_content"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnGuardar"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="Guardar actividad"
+                    android:enabled="false"
+                    app:cornerRadius="12dp"
+                    app:backgroundTint="?attr/colorPrimary"
+                    android:textColor="@android:color/white"/>
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
