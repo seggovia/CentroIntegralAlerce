@@ -10,6 +10,9 @@ import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.TextView;
 import android.widget.Toast;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -91,9 +94,21 @@ public class LoginFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle b) {
         super.onViewCreated(view, b);
+
+        // Debug: verificar que el google-services.json cargó correctamente
+        try {
+            FirebaseOptions o = FirebaseApp.getInstance().getOptions();
+            Log.d("FB", "ProjectId=" + o.getProjectId()
+                    + " AppId=" + o.getApplicationId()
+                    + " StorageBucket=" + o.getStorageBucket());
+        } catch (Exception e) {
+            Log.e("FB", "Error leyendo FirebaseOptions: " + e.getMessage());
+        }
+
         // No redirigir automáticamente si hay sesión previa.
         // Deja que el usuario pulse "Iniciar sesión".
     }
+
 
     private boolean isEmpty(@Nullable TextInputEditText e) {
         return e == null || e.getText() == null || e.getText().toString().trim().isEmpty();

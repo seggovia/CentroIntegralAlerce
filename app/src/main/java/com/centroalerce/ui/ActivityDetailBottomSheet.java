@@ -1,9 +1,14 @@
+// ActivityDetailBottomSheet.java
 package com.centroalerce.ui;
 
+import android.app.DownloadManager;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.text.TextUtils;
+import android.util.Log; // 👈 NUEVO
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,6 +40,9 @@ import java.util.List;
 import java.util.Map;
 
 public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
+
+    // ---------- LOG TAG ----------
+    private static final String TAG = "DetalleAdjuntos"; // 👈 NUEVO
 
     // ---------- Factory ----------
     public static ActivityDetailBottomSheet newInstance(String actividadId, String citaId) {
@@ -80,7 +88,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     public void onStart() {
         super.onStart();
         if (getDialog() == null) return;
-        // usa id de la librería material (no depende de tu R)
         View sheet = getDialog().findViewById(com.google.android.material.R.id.design_bottom_sheet);
         if (sheet != null) sheet.setBackgroundColor(android.graphics.Color.WHITE);
     }
@@ -104,7 +111,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         actividadId = getArg("actividadId");
         citaId      = getArg("citaId");
 
-        // Bind por id dinámico (sin R)
         tvNombre        = root.findViewById(id("tvNombre"));
         tvTipoYPer      = root.findViewById(id("tvTipoYPeriodicidad"));
         chFechaHora     = root.findViewById(id("chFechaHora"));
@@ -121,7 +127,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         btnReagendar    = root.findViewById(id("btnReagendar"));
         btnAdjuntar     = root.findViewById(id("btnAdjuntar"));
 
-        // Listeners
         if (btnModificar != null) {
             btnModificar.setOnClickListener(v ->
                     ModificarActividadSheet.newInstance(actividadId)
@@ -143,12 +148,10 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                             .show(getParentFragmentManager(), "AdjuntarComunicacionSheet"));
         }
 
-        // refrescar adjuntos si otro sheet agrega archivos
         getParentFragmentManager().setFragmentResultListener(
                 "adjuntos_change", this, (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
         );
 
-        // Estado inicial UI
         setTextOrDash(tvNombre, "Nombre actividad");
         if (tvTipoYPer != null) tvTipoYPer.setText("Tipo • Periodicidad");
         if (chFechaHora != null) chFechaHora.setText("dd/MM/yyyy • HH:mm");
@@ -160,7 +163,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
         db = FirebaseFirestore.getInstance();
 
-        // Carga
         loadActividad(actividadId);
         loadCita(actividadId, citaId);
         loadAdjuntosAll(actividadId, citaId);
@@ -230,8 +232,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
         Timestamp ts = doc.getTimestamp("startAt");
         if (ts == null) {
-            String fecha = doc.getString("fecha");      // yyyy-MM-dd
-            String hora  = doc.getString("horaInicio"); // HH:mm
+            String fecha = doc.getString("fecha");
+            String hora  = doc.getString("horaInicio");
             try {
                 String[] hhmm = (hora != null) ? hora.split(":") : new String[]{"00","00"};
                 java.time.LocalDate d = java.time.LocalDate.parse(fecha);
@@ -305,9 +307,11 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                         }
                         if (any) return;
 
-                        loadAdjuntosFromCitaSubcollection(actividadId, citaId, "archivos", preferEN, () ->
-                                loadAdjuntosFromCitaSubcollection(actividadId, citaId, "adjuntos", preferEN, () ->
-                                        loadAdjuntosActividad(actividadId, preferEN, onEmpty)));
+                        // 👇 orden: adjuntos → archivos → attachments
+                        loadAdjuntosFromCitaSubcollection(actividadId, citaId, "adjuntos", preferEN, () ->
+                                loadAdjuntosFromCitaSubcollection(actividadId, citaId, "archivos", preferEN, () ->
+                                        loadAdjuntosFromCitaSubcollection(actividadId, citaId, "attachments", preferEN, () ->
+                                                loadAdjuntosActividad(actividadId, preferEN, onEmpty))));
                     })
                     .addOnFailureListener(e -> loadAdjuntosActividad(actividadId, preferEN, onEmpty));
         } else {
@@ -346,8 +350,10 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                     }
                     if (any) return;
 
-                    loadAdjuntosFromSubcollection(actividadId, "archivos", preferEN, () ->
-                            loadAdjuntosFromSubcollection(actividadId, "adjuntos", preferEN, onEmpty));
+                    // 👇 orden: adjuntos → archivos → attachments
+                    loadAdjuntosFromSubcollection(actividadId, "adjuntos", preferEN, () ->
+                            loadAdjuntosFromSubcollection(actividadId, "archivos", preferEN, () ->
+                                    loadAdjuntosFromSubcollection(actividadId, "attachments", preferEN, onEmpty)));
                 })
                 .addOnFailureListener(e -> onEmpty.run());
     }
@@ -413,7 +419,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         tvName.setTextSize(14);
         tvName.setSingleLine(true);
         tvName.setEllipsize(android.text.TextUtils.TruncateAt.END);
-
         if (!TextUtils.isEmpty(url)) {
             tvName.setTextColor(0xFF1D4ED8);
             tvName.setOnClickListener(v -> {
@@ -424,6 +429,31 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             tvName.setTextColor(0xFF374151);
         }
         item.addView(tvName);
+
+        if (!TextUtils.isEmpty(url)) {
+            LinearLayout actions = new LinearLayout(requireContext());
+            actions.setOrientation(LinearLayout.HORIZONTAL);
+
+            TextView btnVer = new TextView(requireContext());
+            btnVer.setText("Ver");
+            btnVer.setTextColor(0xFF1D4ED8);
+            btnVer.setPadding(0, dp(4), dp(16), 0);
+            btnVer.setOnClickListener(v -> {
+                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
+                catch (Exception e) { toast("No se pudo abrir el archivo"); }
+            });
+
+            TextView btnDesc = new TextView(requireContext());
+            btnDesc.setText("Descargar");
+            btnDesc.setTextColor(0xFF1D4ED8);
+            btnDesc.setPadding(0, dp(4), 0, 0);
+            final String nombreFinal = (nombre == null || nombre.trim().isEmpty()) ? nombreDesdeUrl(url) : nombre;
+            btnDesc.setOnClickListener(v -> descargarConDownloadManager(nombreFinal, url));
+
+            actions.addView(btnVer);
+            actions.addView(btnDesc);
+            item.addView(actions);
+        }
 
         if (!TextUtils.isEmpty(adjuntoId)) {
             TextView tvId = new TextView(requireContext());
@@ -440,6 +470,9 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         sep.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)));
         sep.setBackgroundColor(0xFFE5E7EB);
         llAdjuntos.addView(sep);
+
+        // 👇 NUEVO: log de adjunto agregado
+        Log.d(TAG, "Adjunto agregado: " + nombre + " | url=" + url + (adjuntoId != null ? " | id=" + adjuntoId : ""));
     }
 
     private void addNoFilesRow() {
@@ -529,6 +562,32 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         for (String s : xs) if (s != null && !s.trim().isEmpty()) return s.trim();
         return null;
     }
+    private void descargarConDownloadManager(String nombreArchivo, String url) {
+        try {
+            DownloadManager dm = (DownloadManager) requireContext().getSystemService(Context.DOWNLOAD_SERVICE);
+            DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
+            req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            if (TextUtils.isEmpty(nombreArchivo)) nombreArchivo = nombreDesdeUrl(url);
+            req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, nombreArchivo);
+            long enqId = dm.enqueue(req);
+            toast("Descarga iniciada…");
+            // 👇 NUEVO: log de descarga encolada
+            Log.d(TAG, "Descarga encolada id=" + enqId + " | archivo=" + nombreArchivo);
+        } catch (Exception e) {
+            toast("No se pudo iniciar la descarga");
+            // 👇 NUEVO: log de error
+            Log.e(TAG, "Fallo al iniciar descarga: " + e.getMessage(), e);
+        }
+    }
+
+    private String nombreDesdeUrl(String url) {
+        if (TextUtils.isEmpty(url)) return "archivo";
+        int q = url.indexOf('?');
+        String clean = q >= 0 ? url.substring(0, q) : url;
+        int idx = clean.lastIndexOf('/');
+        return idx >= 0 ? clean.substring(idx + 1) : clean;
+    }
+
     private String getArg(String key) {
         return (getArguments() != null) ? getArguments().getString(key, "") : "";
     }

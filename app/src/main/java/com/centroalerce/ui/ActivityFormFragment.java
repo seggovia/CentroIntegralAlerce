@@ -1,9 +1,13 @@
+// ActivityFormFragment.java
 package com.centroalerce.ui;
 
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
+import android.content.Intent; // 👈 NUEVO
+import android.database.Cursor; // 👈 NUEVO
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.OpenableColumns; // 👈 NUEVO
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -72,6 +76,13 @@ public class ActivityFormFragment extends Fragment {
     private final ActivityResultLauncher<String[]> pickFilesLauncher =
             registerForActivityResult(new ActivityResultContracts.OpenMultipleDocuments(), uris -> {
                 if (uris != null && !uris.isEmpty()) {
+                    // 👇 NUEVO: persistir permisos para evitar fallas si el usuario demora
+                    for (Uri u : uris) {
+                        try {
+                            requireContext().getContentResolver()
+                                    .takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        } catch (Exception ignored) {}
+                    }
                     attachmentUris.clear();
                     attachmentUris.addAll(uris);
                     tvAdjuntos.setText("Agregar archivos adjuntos  •  " + attachmentUris.size() + " seleccionado(s)");
@@ -113,6 +124,18 @@ public class ActivityFormFragment extends Fragment {
         tvAdjuntos = v.findViewById(R.id.tvAdjuntos);
 
         db = FirebaseFirestore.getInstance();
+        // Ping de prueba para verificar conexión con Firestore (solo en builds debuggables)
+        boolean isDebuggable = (0 != (requireContext().getApplicationInfo().flags
+                & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE));
+        if (isDebuggable) {
+            java.util.Map<String, Object> ping = new java.util.HashMap<>();
+            ping.put("mensaje", "Hola Firestore 👋");
+            ping.put("ts", com.google.firebase.Timestamp.now());
+            db.collection("test").add(ping)
+                    .addOnSuccessListener(ref -> android.util.Log.d("FS", "OK doc=" + ref.getId()))
+                    .addOnFailureListener(e -> android.util.Log.e("FS", "ERROR Firestore", e));
+        }
+
         storage = FirebaseStorage.getInstance();
 
         // Dropdown “Tipo de actividad”
@@ -189,7 +212,7 @@ public class ActivityFormFragment extends Fragment {
 
     private void showTimePickerPuntual() {
         if (esPeriodica) {
-            Snackbar.make(requireView(), "En 'Periódica' la hora se define con cada fecha agregada.", Snackbar.LENGTH_SHORT).show();
+            com.google.android.material.snackbar.Snackbar.make(requireView(), "En 'Periódica' la hora se define con cada fecha agregada.", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show();
             return;
         }
         Calendar c = Calendar.getInstance();
@@ -214,11 +237,11 @@ public class ActivityFormFragment extends Fragment {
                                 Timestamp ts = toStartAtTimestamp(ld, LocalTime.of(h, min));
                                 citasPeriodicas.add(ts);
                                 etFecha.setText("Fechas agregadas: " + citasPeriodicas.size());
-                                Snackbar.make(requireView(),
+                                com.google.android.material.snackbar.Snackbar.make(requireView(),
                                         "Agregada: " + String.format(Locale.getDefault(),
                                                 "%04d-%02d-%02d %02d:%02d",
                                                 ld.getYear(), ld.getMonthValue(), ld.getDayOfMonth(), h, min),
-                                        Snackbar.LENGTH_SHORT).show();
+                                        com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show();
                                 validarMinimos();
                             },
                             ch.get(Calendar.HOUR_OF_DAY), ch.get(Calendar.MINUTE), true
@@ -230,7 +253,6 @@ public class ActivityFormFragment extends Fragment {
 
     // ---------- Validaciones ----------
     private void validarMinimos() {
-        // limpiar errores
         ((TextInputLayout) etNombre.getParent().getParent()).setError(null);
         tilFecha.setError(null);
         tilHora.setError(null);
@@ -317,7 +339,6 @@ public class ActivityFormFragment extends Fragment {
             }
         }
 
-        // Datos final para lambdas
         final boolean modoPeriodicaFinal = modoPeriodica;
         final String lugarFinal = lugar;
         final String nombreFinal = nombre;
@@ -348,7 +369,6 @@ public class ActivityFormFragment extends Fragment {
                     }
                 })
                 .addOnFailureListener(e -> {
-                    // si falla el chequeo, avisamos pero seguimos guardando
                     Snackbar.make(root, "No se pudo verificar conflictos (" + e.getMessage() + "). Continuando…", Snackbar.LENGTH_LONG).show();
                     subirAdjuntosYGuardar(
                             root,
@@ -382,9 +402,22 @@ public class ActivityFormFragment extends Fragment {
         List<Task<Uri>> urlTasks = new ArrayList<>();
         List<Uri> srcs = new ArrayList<>();
         for (Uri uri : attachmentUris) {
-            String fileName = obtenerNombreArchivo(uri);
+            // 👇 NUEVO: nombre real y contentType
+            String fileName = getDisplayName(uri);
+            String mime = getMime(uri);
+
             StorageReference fileRef = baseRef.child(fileName);
-            UploadTask up = fileRef.putFile(uri);
+
+            com.google.firebase.storage.StorageMetadata md =
+                    new com.google.firebase.storage.StorageMetadata.Builder()
+                            .setContentType(mime != null ? mime : "application/octet-stream")
+                            .build();
+
+            UploadTask up = fileRef.putFile(uri, md);
+            // 👇 NUEVO: log por archivo
+            up.addOnFailureListener(e ->
+                    android.util.Log.e("FS-UPLOAD", "Falló subir " + fileName + ": " + e.getMessage(), e));
+
             Task<Uri> urlTask = up.continueWithTask(task -> {
                 if (!task.isSuccessful()) throw task.getException();
                 return fileRef.getDownloadUrl();
@@ -397,16 +430,13 @@ public class ActivityFormFragment extends Fragment {
                 .addOnSuccessListener(list -> {
                     List<Map<String, Object>> adj = new ArrayList<>();
                     for (int j = 0; j < list.size(); j++) {
-                        Task<?> t = list.get(j);
+                        Task<?> t = (Task<?>) list.get(j);
                         if (t.isSuccessful() && t.getResult() instanceof Uri) {
                             Uri download = (Uri) t.getResult();
                             Uri src = srcs.get(j);
                             Map<String, Object> item = new HashMap<>();
-                            item.put("name", obtenerNombreArchivo(src));
-                            String mime = null;
-                            try {
-                                mime = requireContext().getContentResolver().getType(src);
-                            } catch (Exception ignored) {}
+                            item.put("name", getDisplayName(src)); // 👈 NUEVO
+                            String mime = getMime(src);            // 👈 NUEVO
                             if (mime != null) item.put("mime", mime);
                             item.put("url", download.toString());
                             adj.add(item);
@@ -470,7 +500,7 @@ public class ActivityFormFragment extends Fragment {
         // Doc de actividad
         batch.set(db.collection("activities").document(activityId), activityDoc);
 
-        // ⬇️ NUEVO: espejo de adjuntos en subcolección para que el detalle los encuentre siempre
+        // Espejo de adjuntos en subcolección de la ACTIVIDAD
         if (!adjuntos.isEmpty()) {
             for (Map<String, Object> a : adjuntos) {
                 Map<String, Object> sub = new HashMap<>(a);
@@ -483,6 +513,9 @@ public class ActivityFormFragment extends Fragment {
             }
         }
 
+        // Guardamos refs de las citas para espejar adjuntos dentro de cada cita
+        List<com.google.firebase.firestore.DocumentReference> citaRefs = new ArrayList<>();
+
         // Citas
         if (modoPeriodica) {
             for (Timestamp ts : timestamps) {
@@ -491,8 +524,12 @@ public class ActivityFormFragment extends Fragment {
                 if (!TextUtils.isEmpty(lugar)) cita.put("lugarNombre", lugar);
                 cita.put("estado", "PROGRAMADA");
                 cita.put("titulo", nombre);
-                batch.set(db.collection("activities").document(activityId)
-                        .collection("citas").document(), cita);
+
+                com.google.firebase.firestore.DocumentReference citaRef =
+                        db.collection("activities").document(activityId)
+                                .collection("citas").document();
+                citaRefs.add(citaRef);
+                batch.set(citaRef, cita);
             }
         } else {
             Map<String, Object> cita = new HashMap<>();
@@ -500,12 +537,30 @@ public class ActivityFormFragment extends Fragment {
             if (!TextUtils.isEmpty(lugar)) cita.put("lugarNombre", lugar);
             cita.put("estado", "PROGRAMADA");
             cita.put("titulo", nombre);
-            batch.set(db.collection("activities").document(activityId)
-                    .collection("citas").document(), cita);
+
+            com.google.firebase.firestore.DocumentReference citaRef =
+                    db.collection("activities").document(activityId)
+                            .collection("citas").document();
+            citaRefs.add(citaRef);
+            batch.set(citaRef, cita);
+        }
+
+        // Espejo de adjuntos dentro de CADA CITA
+        if (!adjuntos.isEmpty()) {
+            for (com.google.firebase.firestore.DocumentReference citaRef : citaRefs) {
+                for (Map<String, Object> a : adjuntos) {
+                    Map<String, Object> sub = new HashMap<>(a);
+                    sub.put("creadoEn", FieldValue.serverTimestamp());
+                    batch.set(citaRef.collection("adjuntos").document(), sub);
+                }
+            }
         }
 
         batch.commit()
                 .addOnSuccessListener(ignored -> {
+                    android.util.Log.d("FS",
+                            "Actividad " + activityId + " creada con " + citaRefs.size() +
+                                    " cita(s) y " + (adjuntos == null ? 0 : adjuntos.size()) + " adjunto(s)");
                     Snackbar.make(root,
                             modoPeriodica ? "Actividad creada. " + timestamps.size() + " fechas programadas."
                                     : "Actividad creada y cita generada.",
@@ -523,7 +578,6 @@ public class ActivityFormFragment extends Fragment {
             final String lugarNombre, final java.util.List<com.google.firebase.Timestamp> fechas) {
 
         if (TextUtils.isEmpty(lugarNombre) || fechas == null || fechas.isEmpty()) {
-            // sin lugar/fechas, no bloquear
             return com.google.android.gms.tasks.Tasks.forResult(false);
         }
 
@@ -531,13 +585,11 @@ public class ActivityFormFragment extends Fragment {
         com.google.firebase.firestore.FirebaseFirestore fdb = com.google.firebase.firestore.FirebaseFirestore.getInstance();
 
         for (com.google.firebase.Timestamp ts : fechas) {
-            // Subcolecciones "citas" (solo por startAt -> sin índice compuesto)
             checks.add(
                     fdb.collectionGroup("citas")
                             .whereEqualTo("startAt", ts)
                             .get()
             );
-            // Si además usas una colección top-level "citas", probamos ambos nombres de campo
             checks.add(
                     fdb.collection("citas")
                             .whereEqualTo("startAt", ts)
@@ -545,17 +597,15 @@ public class ActivityFormFragment extends Fragment {
             );
             checks.add(
                     fdb.collection("citas")
-                            .whereEqualTo("fecha", ts) // por si el campo se llama "fecha" en top-level
+                            .whereEqualTo("fecha", ts)
                             .get()
             );
         }
 
-        // IMPORTANTE: whenAllComplete NO falla si alguna tarea falla.
         return com.google.android.gms.tasks.Tasks.whenAllComplete(checks)
                 .continueWith(task -> {
                     java.util.List<?> all = task.getResult();
                     if (all == null || all.isEmpty()) {
-                        // No hubo resultados (o todo falló): no bloqueamos
                         return false;
                     }
 
@@ -564,7 +614,6 @@ public class ActivityFormFragment extends Fragment {
                         com.google.android.gms.tasks.Task<?> t = (com.google.android.gms.tasks.Task<?>) o;
 
                         if (!t.isSuccessful()) {
-                            // Ignora fallas individuales (permiso, colección inexistente, etc.)
                             continue;
                         }
 
@@ -573,7 +622,6 @@ public class ActivityFormFragment extends Fragment {
 
                         com.google.firebase.firestore.QuerySnapshot qs = (com.google.firebase.firestore.QuerySnapshot) res;
                         for (com.google.firebase.firestore.DocumentSnapshot d : qs.getDocuments()) {
-                            // Normaliza nombre de lugar
                             String lugarDoc = d.getString("lugarNombre");
                             if (lugarDoc == null) lugarDoc = d.getString("lugar");
                             if (lugarNombre.equals(lugarDoc)) {
@@ -581,11 +629,9 @@ public class ActivityFormFragment extends Fragment {
                             }
                         }
                     }
-                    return false; // nada conflictivo en las tareas exitosas
+                    return false;
                 });
     }
-
-
 
     // ---------- Utilidades ----------
     @Nullable
@@ -613,15 +659,35 @@ public class ActivityFormFragment extends Fragment {
         return idx >= 0 ? last.substring(idx + 1) : last;
     }
 
+    // 👇 NUEVO: nombre real (DISPLAY_NAME) del SAF con fallback
+    private String getDisplayName(Uri uri) {
+        String fallback = obtenerNombreArchivo(uri);
+        try (Cursor c = requireContext().getContentResolver()
+                .query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                String n = c.getString(0);
+                if (!TextUtils.isEmpty(n)) return n;
+            }
+        } catch (Exception ignored) {}
+        return fallback == null ? "archivo" : fallback;
+    }
+
+    // 👇 NUEVO: MIME type seguro
+    @Nullable
+    private String getMime(Uri uri) {
+        try { return requireContext().getContentResolver().getType(uri); }
+        catch (Exception e) { return null; }
+    }
+
     private String getText(TextInputEditText et) {
         return et.getText() == null ? "" : et.getText().toString().trim();
     }
+
     /** Convierte "a, b; c | d" en lista ["a","b","c","d"], sin duplicados y con trim */
     private List<String> splitToList(String text) {
         List<String> out = new ArrayList<>();
         if (TextUtils.isEmpty(text)) return out;
         String[] tokens = text.split("[,;|\\n]+");
-        // usar Set para evitar duplicados pero conservando orden
         java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
         for (String t : tokens) {
             String s = t == null ? "" : t.trim();
