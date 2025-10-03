@@ -5,16 +5,25 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingBottom="16dp"
-    android:background="@android:color/white"> <!-- Fondo blanco del sheet -->
+    android:background="@color/surface"
+    android:paddingBottom="16dp">
 
-    <!-- Header con gradiente y títulos -->
+    <!-- Handle del bottom sheet -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_sheet_handle"/>
+
+    <!-- Header con gradiente -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="120dp"
-        android:padding="16dp"
+        android:layout_height="130dp"
+        android:padding="20dp"
         android:gravity="bottom"
-        android:background="@drawable/bg_header_gradient_green"
+        android:background="@drawable/bg_header_gradient"
         android:orientation="vertical">
 
         <TextView
@@ -22,16 +31,20 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Nombre actividad"
-            android:textSize="20sp"
+            android:textSize="22sp"
             android:textStyle="bold"
-            android:textColor="@android:color/white"/>
+            android:textColor="@android:color/white"
+            android:maxLines="2"
+            android:ellipsize="end"/>
 
         <TextView
             android:id="@+id/tvTipoYPeriodicidad"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
             android:text="Tipo • Periodicidad"
-            android:alpha="0.95"
+            android:textSize="15sp"
+            android:alpha="0.9"
             android:textColor="@android:color/white"/>
     </LinearLayout>
 
@@ -40,12 +53,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp"
-        android:background="@android:color/white"> <!-- Fondo blanco para el contenido -->
+        android:padding="20dp">
 
+        <!-- Chips fecha/hora y lugar -->
         <com.google.android.material.chip.ChipGroup
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp">
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chFechaHora"
@@ -53,13 +67,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="dd/MM/yyyy • HH:mm"
-                android:textColor="@android:color/white"
                 app:chipIcon="@android:drawable/ic_menu_recent_history"
-                app:chipIconVisible="true"
-                app:chipIconTint="@android:color/white"
-                app:chipBackgroundColor="@color/greenStroke"
-                app:chipStrokeWidth="0dp"
-                app:chipStrokeColor="@android:color/transparent"/>
+                app:chipIconTint="@color/primary"
+                app:chipIconVisible="true"/>
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chLugar"
@@ -67,30 +77,26 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Lugar"
-                android:textColor="@android:color/white"
                 app:chipIcon="@android:drawable/ic_menu_mylocation"
-                app:chipIconVisible="true"
-                app:chipIconTint="@android:color/white"
-                app:chipBackgroundColor="@color/greenStroke"
-                app:chipStrokeWidth="0dp"
-                app:chipStrokeColor="@android:color/transparent"/>
+                app:chipIconTint="@color/primary"
+                app:chipIconVisible="true"/>
         </com.google.android.material.chip.ChipGroup>
 
-
-        <!-- Datos importantes -->
+        <!-- Detalles en card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginBottom="16dp"
             app:cardCornerRadius="12dp"
-            app:strokeColor="#E5E7EB"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/divider"
             app:strokeWidth="1dp"
-            app:cardBackgroundColor="@android:color/white"> <!-- Card blanca -->
+            app:cardBackgroundColor="@color/surface">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="12dp"
+                android:padding="16dp"
                 android:orientation="vertical">
 
                 <TextView
@@ -98,47 +104,53 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Tipo: —"
-                    android:textColor="#111827"/>
+                    android:textSize="14sp"
+                    android:textColor="@color/textPrimary"/>
 
                 <TextView
                     android:id="@+id/tvPeriodicidad"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="6dp"
                     android:text="Periodicidad: —"
-                    android:textColor="#111827"/>
+                    android:textSize="14sp"
+                    android:textColor="@color/textPrimary"/>
 
                 <TextView
                     android:id="@+id/tvCupo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="6dp"
                     android:text="Cupo: —"
-                    android:textColor="#111827"/>
+                    android:textSize="14sp"
+                    android:textColor="@color/textPrimary"/>
 
                 <TextView
                     android:id="@+id/tvOferente"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="6dp"
                     android:text="Oferente: —"
-                    android:textColor="#111827"/>
+                    android:textSize="14sp"
+                    android:textColor="@color/textPrimary"/>
 
                 <TextView
                     android:id="@+id/tvSocio"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="6dp"
                     android:text="Socio comunitario: —"
-                    android:textColor="#111827"/>
+                    android:textSize="14sp"
+                    android:textColor="@color/textPrimary"/>
 
                 <TextView
                     android:id="@+id/tvBeneficiarios"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="6dp"
                     android:text="Beneficiarios: —"
-                    android:textColor="#111827"/>
+                    android:textSize="14sp"
+                    android:textColor="@color/textPrimary"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -146,55 +158,59 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Adjuntos"
+            android:text="Archivos adjuntos"
             android:textStyle="bold"
-            android:textColor="#111827"/>
+            android:textSize="15sp"
+            android:textColor="@color/textPrimary"
+            android:layout_marginBottom="8dp"/>
 
         <LinearLayout
             android:id="@+id/llAdjuntos"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingTop="4dp"/>
+            android:layout_marginBottom="20dp"/>
 
-        <!-- Acciones fila 1 -->
+        <!-- Botones de acción -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_marginTop="16dp">
+            android:gravity="center">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnModificar"
-
+                style="?attr/materialButtonOutlinedStyle"
                 android:text="Modificar"
-                android:textColor="@android:color/white"
                 android:layout_width="0dp"
-                app:backgroundTint="@color/greenStroke"
                 android:layout_height="48dp"
-                android:layout_weight="1"/>
+                android:layout_weight="1"
+                app:cornerRadius="24dp"
+                app:strokeColor="@color/primary"
+                android:textColor="@color/primary"/>
 
-            <Space android:layout_width="8dp" android:layout_height="wrap_content"/>
+            <Space
+                android:layout_width="12dp"
+                android:layout_height="wrap_content"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnReagendar"
-                android:textColor="@android:color/white"
+                style="?attr/materialButtonOutlinedStyle"
                 android:text="Reagendar"
-                app:backgroundTint="@color/greenStroke"
                 android:layout_width="0dp"
                 android:layout_height="48dp"
-                android:layout_weight="1"/>
+                android:layout_weight="1"
+                app:cornerRadius="24dp"
+                app:strokeColor="@color/primary"
+                android:textColor="@color/primary"/>
         </LinearLayout>
 
-        <!-- Acciones fila 2 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center"
-            android:layout_marginTop="8dp">
+            android:layout_marginTop="12dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnAdjuntar"
@@ -202,10 +218,13 @@
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
-                app:backgroundTint="@color/greenStroke"
+                app:cornerRadius="24dp"
+                app:backgroundTint="@color/primary"
                 android:textColor="@android:color/white"/>
 
-            <Space android:layout_width="8dp" android:layout_height="wrap_content"/>
+            <Space
+                android:layout_width="12dp"
+                android:layout_height="wrap_content"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancelar"
@@ -213,8 +232,10 @@
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
-                app:backgroundTint="@android:color/holo_red_dark"
+                app:cornerRadius="24dp"
+                app:backgroundTint="@color/error"
                 android:textColor="@android:color/white"/>
         </LinearLayout>
+
     </LinearLayout>
 </LinearLayout>

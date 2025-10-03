@@ -20,11 +20,10 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1) Obtener NavController desde el NavHostFragment (id: @id/nav_host)
+        // 1) Obtener NavController desde el NavHostFragment
         NavHostFragment navHost = (NavHostFragment)
                 getSupportFragmentManager().findFragmentById(R.id.nav_host);
         if (navHost == null) {
-            // Si esto pasara, el layout no tiene el id correcto o no infló
             throw new IllegalStateException("No se encontró NavHostFragment con id @id/nav_host");
         }
         NavController navController = Objects.requireNonNull(navHost).getNavController();
@@ -40,13 +39,14 @@ public class MainActivity extends AppCompatActivity {
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
             int id = destination.getId();
 
+            // Ocultar BottomNav en estas pantallas
             boolean hide =
                     id == R.id.loginFragment ||
                             id == R.id.signupFragment ||
                             id == R.id.activityFormFragment ||
-                            id == R.id.activityEditFragment ||
                             id == R.id.activityRescheduleFragment ||
-                            id == R.id.detalleActividadFragment;
+                            id == R.id.detalleActividadFragment ||
+                            id == R.id.maintainersFragment;
 
             bottomNav.setVisibility(hide ? View.GONE : View.VISIBLE);
         });

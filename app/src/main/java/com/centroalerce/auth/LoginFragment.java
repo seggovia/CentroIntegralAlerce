@@ -2,232 +2,105 @@ package com.centroalerce.auth;
 
 import android.os.Bundle;
 import android.text.Editable;
-import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.inputmethod.InputMethodManager;
+import android.view.*;
 import android.widget.TextView;
 import android.widget.Toast;
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.FirebaseOptions;
-import android.util.Log;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-
+import androidx.navigation.Navigation;
+import com.centroalerce.gestion.R;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException;
-import com.google.firebase.auth.FirebaseAuthInvalidUserException;
+// Firebase (opcional si ya configuraste BoM)
+// import com.google.firebase.auth.FirebaseAuth;
 
 public class LoginFragment extends Fragment {
 
-    // --- helpers para no usar R ---
-    private int resId(String name, String defType) {
-        return requireContext().getResources()
-                .getIdentifier(name, defType, requireContext().getPackageName());
-    }
-    private int id(String viewIdName) { return resId(viewIdName, "id"); }
-    private int layout(String layoutName) { return resId(layoutName, "layout"); }
-
     private TextInputEditText etEmail, etPass;
-    private MaterialButton btnLogin, btnCrearCuenta;
-    private TextView tvForgot, tvCreateInlineLink;
+    private MaterialButton btnLogin;
+    // private FirebaseAuth auth;
 
-    private FirebaseAuth auth;
+    public LoginFragment(){}
 
-    public LoginFragment() {}
-
-    @Nullable
-    @Override
+    @Nullable @Override
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle b) {
-        View v = inf.inflate(layout("fragment_login"), c, false);
+        View v = inf.inflate(R.layout.fragment_login, c, false);
 
-        // bind
-        etEmail = v.findViewById(id("etEmail"));
-        etPass  = v.findViewById(id("etPass"));
-        btnLogin= v.findViewById(id("btnLogin"));
-        tvForgot= v.findViewById(id("tvForgot"));
-        btnCrearCuenta = v.findViewById(id("btnCrearCuenta"));
-        tvCreateInlineLink = v.findViewById(id("tvCreateInlineLink"));
+        etEmail = v.findViewById(R.id.etEmail);
+        etPass  = v.findViewById(R.id.etPass);
+        btnLogin= v.findViewById(R.id.btnLogin);
+        TextView tvForgot = v.findViewById(R.id.tvForgot);
+        //MaterialButton btnCrear = v.findViewById(R.id.btnCrearCuenta);
+        //TextView tvCreateFromLink = v.findViewById(R.id.tvCreateFromLink);
+        //TextView tvCreateInlineLink = v.findViewById(R.id.tvCreateInlineLink);
 
-        auth = FirebaseAuth.getInstance();
-
-        // habilitar/deshabilitar botón
         TextWatcher watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (btnLogin != null) {
-                    btnLogin.setEnabled(!isEmpty(etEmail) && !isEmpty(etPass));
-                }
+                boolean enable = !isEmpty(etEmail) && !isEmpty(etPass);
+                btnLogin.setEnabled(enable);
             }
             @Override public void afterTextChanged(Editable s) {}
         };
-        if (etEmail != null) etEmail.addTextChangedListener(watcher);
-        if (etPass  != null) etPass.addTextChangedListener(watcher);
+        etEmail.addTextChangedListener(watcher);
+        etPass.addTextChangedListener(watcher);
 
-        if (btnLogin != null) btnLogin.setOnClickListener(x -> doLogin());
-        if (tvForgot != null) tvForgot.setOnClickListener(x -> doForgot());
+        // auth = FirebaseAuth.getInstance();
 
-        // Navegar a Signup (sin R) usando el NavController del fragment en el momento del click
-        View.OnClickListener goSignup = x -> {
-            int signupId = id("signupFragment");
-            if (signupId != 0) {
-                androidx.navigation.fragment.NavHostFragment
-                        .findNavController(this)
-                        .navigate(signupId);
-            } else {
-                toast("Destino 'signupFragment' no encontrado en nav_graph");
-            }
-        };
-        if (btnCrearCuenta != null) btnCrearCuenta.setOnClickListener(goSignup);
-        if (tvCreateInlineLink != null) tvCreateInlineLink.setOnClickListener(goSignup);
+        btnLogin.setOnClickListener(x -> doLogin(v));
+        tvForgot.setOnClickListener(x -> doForgot());
+        //btnCrear.setOnClickListener(x -> openSignup(v));
+        //tvCreateInlineLink.setOnClickListener(x -> openSignup(v));
 
         return v;
     }
 
-    // 👇️ Importante: SIN auto-redirect aquí.
-    @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle b) {
-        super.onViewCreated(view, b);
-
-        // Debug: verificar que el google-services.json cargó correctamente
-        try {
-            FirebaseOptions o = FirebaseApp.getInstance().getOptions();
-            Log.d("FB", "ProjectId=" + o.getProjectId()
-                    + " AppId=" + o.getApplicationId()
-                    + " StorageBucket=" + o.getStorageBucket());
-        } catch (Exception e) {
-            Log.e("FB", "Error leyendo FirebaseOptions: " + e.getMessage());
-        }
-
-        // No redirigir automáticamente si hay sesión previa.
-        // Deja que el usuario pulse "Iniciar sesión".
+    private boolean isEmpty(TextInputEditText e){
+        return e.getText()==null || e.getText().toString().trim().isEmpty();
     }
 
-
-    private boolean isEmpty(@Nullable TextInputEditText e) {
-        return e == null || e.getText() == null || e.getText().toString().trim().isEmpty();
-    }
-
-    // --------- Login principal ----------
-    private void doLogin() {
-        if (etEmail == null || etPass == null) return;
-
+    private void doLogin(View root){
         String email = etEmail.getText().toString().trim();
         String pass  = etPass.getText().toString();
 
-        if (TextUtils.isEmpty(email) || TextUtils.isEmpty(pass)) {
-            toast("Completa email y contraseña");
-            return;
-        }
-
-        hideKeyboard(requireView());
-        setBusy(true);
-
+        // TODO: descomenta si tienes Firebase configurado:
+        /*
+        btnLogin.setEnabled(false);
         auth.signInWithEmailAndPassword(email, pass)
-                .addOnCompleteListener(task -> {
-                    setBusy(false);
-
-                    if (!task.isSuccessful()) {
-                        Throwable e = task.getException();
-                        String msg = "No se pudo iniciar sesión";
-                        if (e instanceof FirebaseAuthInvalidUserException)       msg = "El usuario no existe o fue deshabilitado";
-                        else if (e instanceof FirebaseAuthInvalidCredentialsException) msg = "Credenciales inválidas";
-                        else if (e != null && e.getMessage() != null)            msg = e.getMessage();
-                        toast(msg);
-                        return;
-                    }
-
-                    // ✅ Verificación obligatoria de correo
-                    com.google.firebase.auth.FirebaseUser user = auth.getCurrentUser();
-                    if (user == null) { toast("No se pudo obtener el usuario"); return; }
-
-                    if (!user.isEmailVerified()) {
-                        // Reenviar verificación y bloquear acceso
-                        user.sendEmailVerification()
-                                .addOnSuccessListener(v -> toast("Debes verificar tu correo. Te reenviamos el email de verificación."))
-                                .addOnFailureListener(e -> toast("Debes verificar tu correo (no se pudo reenviar: " + (e!=null?e.getMessage():"") + ")"));
-                        auth.signOut(); // ⛔️ Cerrar sesión si no está verificado
-                        return;
-                    }
-
-                    // OK verificado → Home
-                    navigateHome();
-                });
-    }
-    @Override
-    public void onStart() {
-        super.onStart();
-        try {
-            com.google.firebase.auth.FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
-            if (u != null && !u.isEmailVerified()) {
-                FirebaseAuth.getInstance().signOut(); // impide que un usuario no verificado quede autenticado al abrir la app
-            }
-        } catch (Exception ignored) {}
+            .addOnCompleteListener(task -> {
+                btnLogin.setEnabled(true);
+                if (task.isSuccessful()) {
+                    // Navegar a Home
+                    Navigation.findNavController(root).navigate(R.id.homeFragment);
+                } else {
+                    Toast.makeText(getContext(), "Error: " +
+                        task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+        */
+        // DEMO sin Firebase:
+        Toast.makeText(getContext(),"Login demo", Toast.LENGTH_SHORT).show();
+        Navigation.findNavController(root).navigate(R.id.homeFragment);
     }
 
-
-    // --------- Olvidé mi contraseña ----------
-    private void doForgot() {
-        if (etEmail == null) return;
-        String email = etEmail.getText() == null ? "" : etEmail.getText().toString().trim();
-        if (email.isEmpty()) {
-            toast("Ingresa tu email para recuperar");
+    private void doForgot(){
+        String email = etEmail.getText()==null ? "" : etEmail.getText().toString().trim();
+        if (email.isEmpty()){
+            Toast.makeText(getContext(),"Ingresa tu email para recuperar", Toast.LENGTH_SHORT).show();
             return;
         }
-        auth.sendPasswordResetEmail(email)
-                .addOnSuccessListener(v -> toast("Te enviamos un correo para restablecer"))
-                .addOnFailureListener(e ->
-                        toast(e != null && e.getMessage() != null ? e.getMessage() : "No se pudo enviar el correo"));
+        // TODO: Firebase reset:
+        // auth.sendPasswordResetEmail(email).addOnSuccessListener(v ->
+        //   Toast.makeText(getContext(),"Email de recuperación enviado", Toast.LENGTH_LONG).show());
+
+        Toast.makeText(getContext(),"(Demo) Se enviaría email de recuperación", Toast.LENGTH_SHORT).show();
     }
 
-    // --------- Navegación a Home (sin View y sin R) ----------
-    private void navigateHome() {
-        final int homeId  = requireContext().getResources().getIdentifier(
-                "homeFragment", "id", requireContext().getPackageName()
-        );
-        final int loginId = requireContext().getResources().getIdentifier(
-                "loginFragment", "id", requireContext().getPackageName()
-        );
-
-        if (homeId == 0) { toast("Destino 'homeFragment' no encontrado en nav_graph"); return; }
-
-        requireView().post(() -> {
-            try {
-                androidx.navigation.NavController nav =
-                        androidx.navigation.fragment.NavHostFragment.findNavController(this);
-
-                androidx.navigation.NavOptions opts = new androidx.navigation.NavOptions.Builder()
-                        .setPopUpTo(loginId != 0 ? loginId : nav.getGraph().getStartDestinationId(), true)
-                        .setLaunchSingleTop(true)
-                        .build();
-
-                nav.navigate(homeId, null, opts);
-            } catch (Exception ex) {
-                toast("No se pudo navegar a Home: " + ex.getMessage());
-            }
-        });
-    }
-
-    // --------- Utilidades ----------
-    private void setBusy(boolean busy) {
-        if (btnLogin != null) btnLogin.setEnabled(!busy);
-    }
-
-    private void hideKeyboard(View root) {
-        try {
-            InputMethodManager imm = (InputMethodManager) requireContext()
-                    .getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
-            if (imm != null) imm.hideSoftInputFromWindow(root.getWindowToken(), 0);
-        } catch (Exception ignored) {}
-    }
-
-    private void toast(String m) {
-        Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show();
+    private void openSignup(View root){
+        // TODO: navegar a SignupFragment cuando lo tengas
+        Toast.makeText(getContext(),"Abrir Crear cuenta (por implementar)", Toast.LENGTH_SHORT).show();
+        // Navigation.findNavController(root).navigate(R.id.signupFragment);
     }
 }

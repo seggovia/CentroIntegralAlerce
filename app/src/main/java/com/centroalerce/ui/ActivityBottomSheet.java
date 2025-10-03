@@ -93,7 +93,7 @@ public class ActivityBottomSheet extends BottomSheetDialogFragment {
             Bundle args = new Bundle();
             args.putString("activityId", activityId);
             try {
-                nav().navigate(R.id.activityEditFragment, args);
+                nav().navigate(R.id.activityFormFragment, args);
                 dismiss();
             } catch (Exception e) {
                 toast("No se pudo navegar a edición");

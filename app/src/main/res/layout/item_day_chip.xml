@@ -2,21 +2,27 @@
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="wrap_content"
+    android:id="@+id/cardDay"
+    android:layout_width="48dp"
     android:layout_height="match_parent"
+    android:layout_marginHorizontal="2dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?android:attr/selectableItemBackground"
     app:cardCornerRadius="12dp"
     app:cardElevation="0dp"
     app:cardBackgroundColor="@color/chipBg"
-    app:strokeColor="@android:color/transparent">
+    app:strokeColor="@android:color/transparent"
+    app:strokeWidth="0dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:gravity="center"
-        android:paddingHorizontal="6dp"
-        android:paddingVertical="8dp">
+        android:padding="8dp">
 
+        <!-- Día de la semana (LU, MA, etc) -->
         <TextView
             android:id="@+id/tvDiaCorto"
             android:layout_width="wrap_content"
@@ -26,26 +32,28 @@
             android:textSize="10sp"
             android:singleLine="true"
             android:includeFontPadding="false"
-            android:textColor="@color/textPrimary"/>
+            android:textColor="@color/textSecondary"/>
 
+        <!-- Número del día -->
         <TextView
             android:id="@+id/tvNumDia"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="29"
             android:textStyle="bold"
-            android:textSize="15sp"
-            android:layout_marginTop="2dp"
+            android:textSize="16sp"
+            android:layout_marginTop="4dp"
             android:singleLine="true"
             android:includeFontPadding="false"
             android:textColor="@color/textPrimary"/>
 
+        <!-- Indicador de evento (punto) -->
         <View
             android:id="@+id/viewDot"
-            android:layout_width="8dp"
-            android:layout_height="8dp"
-            android:layout_marginTop="6dp"
-            android:background="@drawable/bg_header_gradient_green"
+            android:layout_width="6dp"
+            android:layout_height="6dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_dot_blue"
             android:visibility="gone"/>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

@@ -1,52 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#3F51F7</color>
-    <color name="primaryDark">#2E3AE0</color>
-    <color name="accent">#6B8BFF</color>
-    <color name="gradientStart">#6A8DFF</color>
-    <color name="gradientEnd">#7C5CFF</color>
-    <color name="surface">#FFFFFFFF</color>
-    <color name="cardStroke">#1A000000</color>
-    <color name="textPrimary">#1C2533</color>
-    <color name="textSecondary">#6D7A8B</color>
-    <color name="chipSelectedBg">#2F3A63</color>
-    <color name="chipSelectedText">#FFFFFF</color>
-    <color name="chipUnselectedBg">#F1F3F6</color>
-    <color name="chipUnselectedText">#2F3A63</color>
-    <color name="divider">#22000000</color>
-    <color name="inputBg">#F7F8FC</color>
-    <color name="avatarText">#4662FF</color>
-    <color name="purple_700">#6C63FF</color>
-    <color name="chipBg">#F2F4F7</color>
-    <color name="greenPrimary">#16A34A</color>        <!-- verde principal -->
-    <color name="greenGradientStart">#22C55E</color>  <!-- degradado: inicio -->
-    <color name="greenGradientEnd">#15803D</color>    <!-- degradado: fin -->
-    <color name="greenStroke">#B7E4C7</color>        <!-- borde suave de cards -->
-    <!-- Blobs suaves (con alpha) -->
-    <color name="greenBlobA">#26FFFFFF</color>        <!-- blanco suave 15% -->
-    <color name="greenBlobB">#3322C55E</color>        <!-- verde con 20% -->
-    <!-- Fondo suave verdoso para mejorar lectura -->
-    <color name="greenScreenBg">#F3FFF7</color>
+    <!-- Paleta principal Centro Integral Alerce -->
+    <color name="primary">#4C3BCF</color>
+    <color name="primary_dark">#3A2CA0</color>
+    <color name="primary_light">#7C6EE6</color>
+    <color name="accent">#5B4CC4</color>
 
-    <!-- Trazo con más contraste para las cards -->
-    <color name="greenStrokeStrong">#9BD7B2</color>
-    <!-- Fondo de los campos (blanco translúcido tipo “glass”) -->
-    <color name="loginFieldBg">#F2FFFFFF</color>
-    <!-- Borde/línea invisible (transparente) -->
-    <color name="loginFieldBorder">#00FFFFFF</color>
+    <!-- Backgrounds -->
+    <color name="background">#F6F7FB</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="card_surface">#FFFFFF</color>
 
+    <!-- Text -->
+    <color name="textPrimary">#111827</color>
+    <color name="textSecondary">#6B7280</color>
+    <color name="textTertiary">#9CA3AF</color>
 
-    <!-- Verdes suaves (mismos tonos que login pero más claros) -->
-    <color name="greenPrimarySoft">#35C76A</color>
-    <color name="greenPrimarySoftWeak">#6635C76A</color>
+    <!-- UI Elements -->
+    <color name="divider">#E5E7EB</color>
+    <color name="cardStroke">#E5E7EB</color>
+    <color name="chipBg">#F3F4F6</color>
 
-    <!-- Fondo suave -->
-    <color name="greenSoftBgStart">#F6FFFB</color>
-    <color name="greenSoftBgEnd">#FFFFFF</color>
-    <color name="greenSoftSpot">#1AF0FFF6</color> <!-- mancha translúcida -->
+    <!-- Status -->
+    <color name="success">#10B981</color>
+    <color name="error">#EF4444</color>
+    <color name="warning">#F59E0B</color>
 
-    <!-- Header suave -->
-    <color name="greenHeaderSoftStart">#33B96A</color>
-    <color name="greenHeaderSoftEnd">#25A157</color>
+    <!-- Avatar -->
+    <color name="avatarBg">#E0DBFF</color>
+    <color name="avatarText">#4C3BCF</color>
 
+    <!-- Gradiente header -->
+    <color name="gradient_start">#5B4CC4</color>
+    <color name="gradient_end">#7C6EE6</color>
+
+    <!-- Toggle buttons -->
+    <color name="toggle_bg">#F3F4F6</color>
+    <color name="toggle_stroke">#D1D5DB</color>
+    <color name="toggle_text">#374151</color>
 </resources>

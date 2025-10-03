@@ -4,77 +4,117 @@
     android:id="@+id/nav_graph"
     app:startDestination="@id/loginFragment">
 
-    <!-- LOGIN (pantalla inicial) -->
+    <!-- LOGIN -->
     <fragment
         android:id="@+id/loginFragment"
         android:name="com.centroalerce.auth.LoginFragment"
         android:label="Login">
 
-        <!-- Elimina acción hacia Home (ya no existe) -->
-        <!-- Si quieres, solo dejas la de ir a Crear Cuenta -->
         <action
-            android:id="@+id/action_loginFragment_to_signupFragment"
-            app:destination="@id/signupFragment"
-            app:launchSingleTop="true" />
-    </fragment>
-
-    <!-- SIGNUP (crear cuenta) -->
-    <fragment
-        android:id="@+id/signupFragment"
-        android:name="com.centroalerce.auth.SignupFragment"
-        android:label="Crear cuenta">
-
-        <!-- Volver a Login -->
-        <action
-            android:id="@+id/action_signupFragment_to_loginFragment"
-            app:destination="@id/loginFragment"
+            android:id="@+id/action_loginFragment_to_homeFragment"
+            app:destination="@id/homeFragment"
             app:popUpTo="@id/loginFragment"
             app:popUpToInclusive="true" />
     </fragment>
+
+    <!-- HOME -->
     <fragment
         android:id="@+id/homeFragment"
         android:name="com.centroalerce.ui.HomeFragment"
-        android:label="Inicio" />
+        android:label="Inicio">
+
+        <action
+            android:id="@+id/action_homeFragment_to_activityFormFragment"
+            app:destination="@id/activityFormFragment" />
+
+        <action
+            android:id="@+id/action_homeFragment_to_calendarFragment"
+            app:destination="@id/calendarFragment" />
+
+        <action
+            android:id="@+id/action_homeFragment_to_maintainersFragment"
+            app:destination="@id/maintainersFragment" />
+    </fragment>
 
     <!-- CALENDARIO -->
     <fragment
         android:id="@+id/calendarFragment"
         android:name="com.centroalerce.ui.CalendarFragment"
-        android:label="Calendario" />
+        android:label="Calendario">
 
-    <!-- LISTA DE ACTIVIDADES -->
+        <action
+            android:id="@+id/action_calendarFragment_to_detalleActividadFragment"
+            app:destination="@id/detalleActividadFragment" />
+
+        <action
+            android:id="@+id/action_calendarFragment_to_activityFormFragment"
+            app:destination="@id/activityFormFragment" />
+    </fragment>
+
+    <!-- LISTA ACTIVIDADES -->
     <fragment
         android:id="@+id/activitiesListFragment"
         android:name="com.centroalerce.ui.ActivitiesListFragment"
-        android:label="Actividades" />
+        android:label="Actividades">
 
-    <!-- DETALLE DE ACTIVIDAD -->
+        <action
+            android:id="@+id/action_activitiesListFragment_to_detalleActividadFragment"
+            app:destination="@id/detalleActividadFragment" />
+
+        <action
+            android:id="@+id/action_activitiesListFragment_to_activityFormFragment"
+            app:destination="@id/activityFormFragment" />
+    </fragment>
+
+    <!-- CONFIGURACIÓN -->
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.centroalerce.ui.SettingsFragment"
+        android:label="Administración">
+
+        <action
+            android:id="@+id/action_settingsFragment_to_maintainersFragment"
+            app:destination="@id/maintainersFragment" />
+    </fragment>
+
+    <!-- DETALLE ACTIVIDAD -->
     <fragment
         android:id="@+id/detalleActividadFragment"
         android:name="com.centroalerce.ui.DetalleActividadFragment"
-        android:label="Detalle" />
+        android:label="Detalle">
 
-    <!-- FORM NUEVA/MODIFICA ACTIVIDAD -->
-    <fragment
-        android:id="@+id/activityFormFragment"
-        android:name="com.centroalerce.ui.ActivityFormFragment"
-        android:label="Nueva actividad" />
-
-    <!-- EDITAR ACTIVIDAD -->
-    <fragment
-        android:id="@+id/activityEditFragment"
-        android:name="com.centroalerce.ui.ActivityEditFragment"
-        android:label="Editar actividad">
         <argument
             android:name="activityId"
             app:argType="string" />
+
+        <action
+            android:id="@+id/action_detalleActividadFragment_to_activityFormFragment"
+            app:destination="@id/activityFormFragment" />
+
+        <action
+            android:id="@+id/action_detalleActividadFragment_to_activityRescheduleFragment"
+            app:destination="@id/activityRescheduleFragment" />
     </fragment>
 
-    <!-- REAGENDAR ACTIVIDAD -->
+    <!-- FORMULARIO ACTIVIDAD -->
+    <fragment
+        android:id="@+id/activityFormFragment"
+        android:name="com.centroalerce.ui.ActivityFormFragment"
+        android:label="Actividad">
+
+        <argument
+            android:name="activityId"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+    </fragment>
+
+    <!-- REAGENDAR -->
     <fragment
         android:id="@+id/activityRescheduleFragment"
         android:name="com.centroalerce.ui.ActivityRescheduleFragment"
-        android:label="Reagendar actividad">
+        android:label="Reagendar">
+
         <argument
             android:name="activityId"
             app:argType="string" />
@@ -86,9 +126,4 @@
         android:name="com.centroalerce.ui.MaintainersFragment"
         android:label="Mantenedores" />
 
-    <!-- CONFIGURACIÓN -->
-    <fragment
-        android:id="@+id/settingsFragment"
-        android:name="com.centroalerce.ui.SettingsFragment"
-        android:label="Config" />
 </navigation>

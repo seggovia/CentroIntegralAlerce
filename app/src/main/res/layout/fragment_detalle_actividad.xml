@@ -1,190 +1,279 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:background="@android:color/white">
-
-    <!-- Cabecera -->
-    <TextView
-        android:id="@+id/tvTitulo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Nombre actividad"
-        android:textStyle="bold"
-        android:textSize="18sp"
-        android:textColor="#4C3BCF" /> <!-- morado -->
-
-    <TextView
-        android:id="@+id/tvTipoYPeriodicidad"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Tipo • Periodicidad"
-        android:textSize="14sp"
-        android:textColor="#7C6EE6"
-        android:layout_marginTop="2dp" />
-
-    <!-- Cita -->
-    <TextView
-        android:id="@+id/tvHora"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="dd/MM/yyyy • HH:mm"
-        android:textStyle="bold"
-        android:textSize="16sp"
-        android:textColor="#1F2937"
-        android:layout_marginTop="12dp" />
-
-    <TextView
-        android:id="@+id/tvLugar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Lugar"
-        android:textSize="14sp"
-        android:textColor="#6B7280"
-        android:layout_marginTop="2dp" />
-
-    <!-- Detalles -->
-    <TextView
-        android:id="@+id/tvTipo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Tipo: —"
-        android:textSize="14sp"
-        android:textColor="#1F2937"
-        android:layout_marginTop="12dp" />
-
-    <TextView
-        android:id="@+id/tvPeriodicidad"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Periodicidad: —"
-        android:textSize="14sp"
-        android:textColor="#1F2937" />
-
-    <TextView
-        android:id="@+id/tvCupo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Cupo: —"
-        android:textSize="14sp"
-        android:textColor="#1F2937" />
-
-    <TextView
-        android:id="@+id/tvOferente"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Oferente: —"
-        android:textSize="14sp"
-        android:textColor="#1F2937" />
-
-    <TextView
-        android:id="@+id/tvSocio"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Socio comunitario: —"
-        android:textSize="14sp"
-        android:textColor="#1F2937" />
-
-    <TextView
-        android:id="@+id/tvBeneficiarios"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Beneficiarios: —"
-        android:textSize="14sp"
-        android:textColor="#1F2937" />
-
-    <!-- Adjuntos -->
-    <TextView
-        android:id="@+id/tvAdjuntosHeader"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Adjuntos"
-        android:textStyle="bold"
-        android:textSize="14sp"
-        android:textColor="#111827"
-        android:layout_marginTop="12dp" />
+    android:layout_height="match_parent"
+    android:background="@color/background">
 
     <LinearLayout
-        android:id="@+id/llAdjuntos"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginTop="4dp" />
+        android:orientation="vertical">
 
-    <!-- Botonera fila 1: Modificar / Reagendar (outlined) -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="16dp">
+        <!-- Header con gradiente -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:padding="24dp"
+            android:gravity="bottom"
+            android:background="@drawable/bg_header_gradient"
+            android:orientation="vertical">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnModificar"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:text="Modificar"
-            android:textStyle="bold"
-            android:textColor="#5B4CC4"
-            app:cornerRadius="24dp"
-            app:backgroundTint="@android:color/transparent"
-            app:strokeColor="#BDB7D0"
-            app:strokeWidth="1dp" />
+            <TextView
+                android:id="@+id/tvNombre"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Nombre actividad"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:maxLines="2"
+                android:ellipsize="end"/>
 
-        <Space
-            android:layout_width="12dp"
-            android:layout_height="wrap_content" />
+            <TextView
+                android:id="@+id/tvTipoYPeriodicidad"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Tipo • Periodicidad"
+                android:textSize="16sp"
+                android:alpha="0.9"
+                android:textColor="@android:color/white"/>
+        </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnReagendar"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:text="Reagendar"
-            android:textStyle="bold"
-            android:textColor="#5B4CC4"
-            app:cornerRadius="24dp"
-            app:backgroundTint="@android:color/transparent"
-            app:strokeColor="#BDB7D0"
-            app:strokeWidth="1dp" />
+        <!-- Contenido -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Chips fecha/hora y lugar -->
+            <com.google.android.material.chip.ChipGroup
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chFechaHora"
+                    style="@style/Widget.Material3.Chip.Assist"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="dd/MM/yyyy • HH:mm"
+                    app:chipIcon="@android:drawable/ic_menu_recent_history"
+                    app:chipIconTint="@color/primary"
+                    app:chipBackgroundColor="@color/primary_light"
+                    app:chipIconVisible="true"/>
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chLugar"
+                    style="@style/Widget.Material3.Chip.Assist"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Lugar"
+                    app:chipIcon="@android:drawable/ic_menu_mylocation"
+                    app:chipIconTint="@color/primary"
+                    app:chipBackgroundColor="@color/primary_light"
+                    app:chipIconVisible="true"/>
+            </com.google.android.material.chip.ChipGroup>
+
+            <!-- Información detallada -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:strokeColor="@color/cardStroke"
+                app:strokeWidth="1dp"
+                app:cardBackgroundColor="@color/card_surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="20dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Información"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:textColor="@color/textPrimary"
+                        android:layout_marginBottom="12dp"/>
+
+                    <TextView
+                        android:id="@+id/tvTipo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Tipo: —"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
+
+                    <TextView
+                        android:id="@+id/tvPeriodicidad"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Periodicidad: —"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
+
+                    <TextView
+                        android:id="@+id/tvCupo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Cupo: —"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
+
+                    <TextView
+                        android:id="@+id/tvOferente"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Oferente: —"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
+
+                    <TextView
+                        android:id="@+id/tvSocio"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Socio comunitario: —"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
+
+                    <TextView
+                        android:id="@+id/tvBeneficiarios"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Beneficiarios: —"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Adjuntos -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:strokeColor="@color/cardStroke"
+                app:strokeWidth="1dp"
+                app:cardBackgroundColor="@color/card_surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="20dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Archivos adjuntos"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:textColor="@color/textPrimary"
+                        android:layout_marginBottom="8dp"/>
+
+                    <LinearLayout
+                        android:id="@+id/llAdjuntos"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"/>
+
+                    <TextView
+                        android:id="@+id/tvNoAdjuntos"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="No hay archivos adjuntos"
+                        android:textSize="14sp"
+                        android:textColor="@color/textSecondary"
+                        android:gravity="center"
+                        android:padding="16dp"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Acciones -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnModificar"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:text="Modificar"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    app:cornerRadius="25dp"
+                    app:strokeColor="@color/primary"
+                    android:textColor="@color/primary"/>
+
+                <Space
+                    android:layout_width="12dp"
+                    android:layout_height="wrap_content"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnReagendar"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:text="Reagendar"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    app:cornerRadius="25dp"
+                    app:strokeColor="@color/primary"
+                    android:textColor="@color/primary"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginTop="12dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAdjuntar"
+                    android:text="Adjuntar"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    app:cornerRadius="25dp"
+                    app:backgroundTint="@color/primary"
+                    android:textColor="@android:color/white"/>
+
+                <Space
+                    android:layout_width="12dp"
+                    android:layout_height="wrap_content"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCancelar"
+                    android:text="Cancelar"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    app:cornerRadius="25dp"
+                    app:backgroundTint="@color/error"
+                    android:textColor="@android:color/white"/>
+            </LinearLayout>
+
+            <!-- Espaciador inferior -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="80dp"/>
+
+        </LinearLayout>
     </LinearLayout>
-
-    <!-- Botonera fila 2: Adjuntar (morado sólido) / Cancelar (rojo sólido) -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnAdjuntar"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:text="Adjuntar"
-            android:textStyle="bold"
-            android:textColor="@android:color/white"
-            app:cornerRadius="24dp"
-            app:backgroundTint="#5B4CC4" />
-
-        <Space
-            android:layout_width="12dp"
-            android:layout_height="wrap_content" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnCancelar"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:text="Cancelar"
-            android:textStyle="bold"
-            android:textColor="@android:color/white"
-            app:cornerRadius="24dp"
-            app:backgroundTint="#D32F2F" />
-    </LinearLayout>
-
-</LinearLayout>
+</ScrollView>

@@ -17,7 +17,7 @@ public class SettingsFragment extends Fragment {
         View v = inf.inflate(R.layout.fragment_settings, c, false);
 
         // Acceso a mantenedores desde configuración
-        v.findViewById(R.id.btnOpenMaintainers).setOnClickListener(
+        v.findViewById(R.id.cardMantenedores).setOnClickListener(
                 x -> Navigation.findNavController(v).navigate(R.id.maintainersFragment));
 
         // Aquí podría ir cerrar sesión, cambiar idioma, etc.
