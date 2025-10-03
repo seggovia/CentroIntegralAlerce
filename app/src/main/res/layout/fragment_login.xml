@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/white">
+    android:fillViewport="true"
+    android:background="@drawable/bg_login_modern">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -11,9 +12,8 @@
         android:orientation="vertical"
         android:padding="24dp"
         android:gravity="center_horizontal"
-        android:background="@android:color/white">
+        android:background="@android:color/transparent">
 
-        <!-- Avatar circular con iniciales -->
         <FrameLayout
             android:layout_width="96dp"
             android:layout_height="96dp"
@@ -29,10 +29,9 @@
                 android:text="CA"
                 android:textStyle="bold"
                 android:textSize="24sp"
-                android:textColor="@color/avatarText"/>
+                android:textColor="@color/greenGradientEnd"/>
         </FrameLayout>
 
-        <!-- Título y subtítulo -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -40,13 +39,13 @@
             android:textStyle="bold"
             android:textSize="28sp"
             android:letterSpacing="0.02"
-            android:textColor="@color/textPrimary"/>
+            android:textColor="@android:color/white"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Bienvenido de nuevo. Introduce tus datos para continuar."
-            android:textColor="@color/textSecondary"
+            android:textColor="@android:color/white"
             android:layout_marginTop="6dp"/>
 
         <!-- Email -->
@@ -60,10 +59,10 @@
             app:boxCornerRadiusTopEnd="22dp"
             app:boxCornerRadiusBottomStart="22dp"
             app:boxCornerRadiusBottomEnd="22dp"
-            app:boxBackgroundColor="@android:color/white"
-            app:boxStrokeColor="@color/divider"
-            app:boxStrokeWidth="1dp"
-            app:boxStrokeWidthFocused="2dp"
+            app:boxBackgroundColor="@color/loginFieldBg"
+            app:boxStrokeColor="@color/loginFieldBorder"
+            app:boxStrokeWidth="0dp"
+            app:boxStrokeWidthFocused="0dp"
             app:hintEnabled="true"
             app:hintTextColor="@color/textSecondary">
 
@@ -72,9 +71,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:hint="Email"
-                android:inputType="textEmailAddress"
+                android:inputType="textEmailAddress|textNoSuggestions"
+                android:imeOptions="actionNext"
                 android:textColor="@android:color/black"
-                android:textColorHint="@color/textSecondary"/>
+                android:textColorHint="@color/textSecondary"
+                android:background="@null"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Password -->
@@ -88,13 +89,12 @@
             app:boxCornerRadiusTopEnd="22dp"
             app:boxCornerRadiusBottomStart="22dp"
             app:boxCornerRadiusBottomEnd="22dp"
-            app:boxBackgroundColor="@android:color/white"
-            app:boxStrokeColor="@color/divider"
-            app:boxStrokeWidth="1dp"
-            app:boxStrokeWidthFocused="2dp"
-            app:passwordToggleEnabled="true"
+            app:boxBackgroundColor="@color/loginFieldBg"
+            app:boxStrokeColor="@color/loginFieldBorder"
+            app:boxStrokeWidth="0dp"
+            app:boxStrokeWidthFocused="0dp"
             app:endIconMode="password_toggle"
-            app:endIconTint="@color/textSecondary"
+            app:endIconTint="@color/greenGradientEnd"
             app:hintTextColor="@color/textSecondary">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -103,21 +103,21 @@
                 android:layout_height="48dp"
                 android:hint="Contraseña"
                 android:inputType="textPassword"
+                android:imeOptions="actionDone"
                 android:textColor="@android:color/black"
-                android:textColorHint="@color/textSecondary"/>
+                android:textColorHint="@color/textSecondary"
+                android:background="@null"/>
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- ¿Olvidaste tu contraseña? -->
         <TextView
             android:id="@+id/tvForgot"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="¿Olvidaste tu contraseña?"
-            android:textColor="@color/primary"
+            android:textColor="@android:color/holo_blue_bright"
             android:layout_gravity="end"
             android:layout_marginTop="12dp"/>
 
-        <!-- Iniciar sesión (deshabilitado hasta tener email+pass) -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnLogin"
             style="@style/Widget.MaterialComponents.Button"
@@ -126,9 +126,10 @@
             android:layout_marginTop="18dp"
             android:text="Iniciar sesión"
             android:enabled="false"
-            app:cornerRadius="28dp"/>
+            app:cornerRadius="28dp"
+            app:backgroundTint="@color/greenGradientEnd"
+            android:textColor="@android:color/white"/>
 
-        <!-- Crear cuenta (estilo bordes redondeados) -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCrearCuenta"
             style="?attr/materialButtonOutlinedStyle"
@@ -137,9 +138,10 @@
             android:layout_marginTop="12dp"
             android:text="Crear cuenta"
             app:cornerRadius="28dp"
-            app:strokeWidth="2dp"/>
+            app:strokeWidth="2dp"
+            app:strokeColor="@color/greenGradientEnd"
+            android:textColor="@android:color/white"/>
 
-        <!-- divisor: "o ingresa con" -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -158,7 +160,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="  o ingresa con  "
-                android:textColor="@color/textSecondary"/>
+                android:textColor="@android:color/white"/>
 
             <View
                 android:layout_width="0dp"
@@ -167,7 +169,6 @@
                 android:background="@color/divider"/>
         </LinearLayout>
 
-        <!-- Botones sociales circulares -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -207,20 +208,27 @@
                 app:cornerRadius="28dp"/>
         </LinearLayout>
 
-        <!-- link inferior "¿Aún no tienes una cuenta? Crear tu cuenta" -->
-        <TextView
-            android:id="@+id/tvCreateFromLink"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            android:textColor="@color/textSecondary"
-            android:text="¿Aún no tienes una cuenta? " />
+            android:orientation="horizontal"
+            android:layout_marginTop="28dp">
 
-        <TextView
-            android:id="@+id/tvCreateInlineLink"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Crear tu cuenta"
-            android:textColor="@color/primary"/>
+            <TextView
+                android:id="@+id/tvCreateFromLink"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@android:color/white"
+                android:text="¿Aún no tienes una cuenta? " />
+
+            <TextView
+                android:id="@+id/tvCreateInlineLink"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Crear tu cuenta"
+                android:textStyle="bold"
+                android:textColor="@android:color/holo_blue_bright"/>
+        </LinearLayout>
+
     </LinearLayout>
 </ScrollView>

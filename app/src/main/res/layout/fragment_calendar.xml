@@ -10,7 +10,7 @@
         android:id="@+id/header"
         android:layout_width="match_parent"
         android:layout_height="140dp"
-        android:background="@drawable/bg_header_gradient"
+        android:background="@drawable/bg_header_gradient_green"
         android:padding="24dp">
 
         <LinearLayout
@@ -45,8 +45,6 @@
                 android:fontFamily="sans-serif"
                 android:letterSpacing="0.02"/>
         </LinearLayout>
-
-
     </FrameLayout>
 
     <!-- Card: Selector semanal -->
@@ -57,7 +55,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:cardCornerRadius="16dp"
-        app:strokeColor="@color/cardStroke"
+        app:strokeColor="@color/greenStroke"
         app:cardBackgroundColor="@android:color/white">
 
         <LinearLayout
@@ -76,7 +74,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Anterior"
-                    android:textColor="@color/primary"
+                    android:textColor="@color/greenPrimary"
                     android:paddingHorizontal="4dp"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
@@ -103,7 +101,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Siguiente"
-                    android:textColor="@color/primary"
+                    android:textColor="@color/greenPrimary"
                     android:paddingHorizontal="4dp"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
@@ -144,7 +142,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:cardCornerRadius="16dp"
-        app:strokeColor="@color/cardStroke"
+        app:strokeColor="@color/greenStroke"
         app:cardBackgroundColor="@android:color/white">
 
         <androidx.recyclerview.widget.RecyclerView
@@ -166,5 +164,7 @@
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
         android:layout_margin="16dp"
-        app:srcCompat="@android:drawable/ic_input_add"/>
+        app:srcCompat="@android:drawable/ic_input_add"
+        app:backgroundTint="@color/greenPrimary"
+        app:tint="@android:color/white"/>
 </RelativeLayout>

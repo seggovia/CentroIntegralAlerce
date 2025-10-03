@@ -18,5 +18,35 @@
     <color name="avatarText">#4662FF</color>
     <color name="purple_700">#6C63FF</color>
     <color name="chipBg">#F2F4F7</color>
+    <color name="greenPrimary">#16A34A</color>        <!-- verde principal -->
+    <color name="greenGradientStart">#22C55E</color>  <!-- degradado: inicio -->
+    <color name="greenGradientEnd">#15803D</color>    <!-- degradado: fin -->
+    <color name="greenStroke">#B7E4C7</color>        <!-- borde suave de cards -->
+    <!-- Blobs suaves (con alpha) -->
+    <color name="greenBlobA">#26FFFFFF</color>        <!-- blanco suave 15% -->
+    <color name="greenBlobB">#3322C55E</color>        <!-- verde con 20% -->
+    <!-- Fondo suave verdoso para mejorar lectura -->
+    <color name="greenScreenBg">#F3FFF7</color>
+
+    <!-- Trazo con más contraste para las cards -->
+    <color name="greenStrokeStrong">#9BD7B2</color>
+    <!-- Fondo de los campos (blanco translúcido tipo “glass”) -->
+    <color name="loginFieldBg">#F2FFFFFF</color>
+    <!-- Borde/línea invisible (transparente) -->
+    <color name="loginFieldBorder">#00FFFFFF</color>
+
+
+    <!-- Verdes suaves (mismos tonos que login pero más claros) -->
+    <color name="greenPrimarySoft">#35C76A</color>
+    <color name="greenPrimarySoftWeak">#6635C76A</color>
+
+    <!-- Fondo suave -->
+    <color name="greenSoftBgStart">#F6FFFB</color>
+    <color name="greenSoftBgEnd">#FFFFFF</color>
+    <color name="greenSoftSpot">#1AF0FFF6</color> <!-- mancha translúcida -->
+
+    <!-- Header suave -->
+    <color name="greenHeaderSoftStart">#33B96A</color>
+    <color name="greenHeaderSoftEnd">#25A157</color>
 
 </resources>

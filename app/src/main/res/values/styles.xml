@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Tema del BottomSheet con fondo blanco -->
+    <style name="BottomSheetDialogThemeWhite" parent="Theme.Material3.Light.BottomSheetDialog">
+        <!-- Hace blanco el fondo del dialog -->
+        <item name="android:background">@color/surface</item>
+
+        <!-- Aplica fondo blanco al contenedor del sheet -->
+        <item name="bottomSheetStyle">@style/App.BottomSheet.White</item>
+    </style>
+
+    <style name="App.BottomSheet.White" parent="Widget.Material3.BottomSheet.Modal">
+        <!-- Para Material3, esta es la forma correcta -->
+        <item name="backgroundTint">@color/surface</item>
+        <!-- Bordes/redondeado material opcional -->
+        <item name="shapeAppearance">@style/ShapeAppearance.Material3.MediumComponent</item>
+    </style>
+
+    <!-- Forma para headers redondeados abajo -->
+    <style name="BottomRoundedHeaderShape" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">0dp</item>
+        <item name="cornerSizeTopRight">0dp</item>
+        <item name="cornerSizeBottomLeft">24dp</item>
+        <item name="cornerSizeBottomRight">24dp</item>
+    </style>
+
+</resources>

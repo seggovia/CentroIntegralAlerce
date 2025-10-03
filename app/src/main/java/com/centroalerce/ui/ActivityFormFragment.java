@@ -518,34 +518,74 @@ public class ActivityFormFragment extends Fragment {
                 });
     }
 
-    /** Revisa conflictos (mismo lugar y mismo startAt). Si encuentra alguno, devuelve true */
-    private Task<Boolean> chequearConflictos(final String lugarNombre, final List<Timestamp> fechas) {
+    /** Revisa conflictos (mismo lugar y mismo startAt) sin índices compuestos y SIN fallar. */
+    private com.google.android.gms.tasks.Task<Boolean> chequearConflictos(
+            final String lugarNombre, final java.util.List<com.google.firebase.Timestamp> fechas) {
+
         if (TextUtils.isEmpty(lugarNombre) || fechas == null || fechas.isEmpty()) {
+            // sin lugar/fechas, no bloquear
             return com.google.android.gms.tasks.Tasks.forResult(false);
         }
 
-        List<Task<QuerySnapshot>> checks = new ArrayList<>();
-        for (Timestamp ts : fechas) {
+        java.util.List<com.google.android.gms.tasks.Task<com.google.firebase.firestore.QuerySnapshot>> checks = new java.util.ArrayList<>();
+        com.google.firebase.firestore.FirebaseFirestore fdb = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+
+        for (com.google.firebase.Timestamp ts : fechas) {
+            // Subcolecciones "citas" (solo por startAt -> sin índice compuesto)
             checks.add(
-                    db.collectionGroup("citas")
-                            .whereEqualTo("lugarNombre", lugarNombre)
+                    fdb.collectionGroup("citas")
                             .whereEqualTo("startAt", ts)
+                            .get()
+            );
+            // Si además usas una colección top-level "citas", probamos ambos nombres de campo
+            checks.add(
+                    fdb.collection("citas")
+                            .whereEqualTo("startAt", ts)
+                            .get()
+            );
+            checks.add(
+                    fdb.collection("citas")
+                            .whereEqualTo("fecha", ts) // por si el campo se llama "fecha" en top-level
                             .get()
             );
         }
 
-        return com.google.android.gms.tasks.Tasks.whenAllSuccess(checks)
+        // IMPORTANTE: whenAllComplete NO falla si alguna tarea falla.
+        return com.google.android.gms.tasks.Tasks.whenAllComplete(checks)
                 .continueWith(task -> {
-                    List<?> results = task.getResult(); // List<Object>
-                    if (results == null) return false;
-                    for (Object o : results) {
-                        if (o instanceof QuerySnapshot) {
-                            if (!((QuerySnapshot) o).isEmpty()) return true;
+                    java.util.List<?> all = task.getResult();
+                    if (all == null || all.isEmpty()) {
+                        // No hubo resultados (o todo falló): no bloqueamos
+                        return false;
+                    }
+
+                    for (Object o : all) {
+                        if (!(o instanceof com.google.android.gms.tasks.Task)) continue;
+                        com.google.android.gms.tasks.Task<?> t = (com.google.android.gms.tasks.Task<?>) o;
+
+                        if (!t.isSuccessful()) {
+                            // Ignora fallas individuales (permiso, colección inexistente, etc.)
+                            continue;
+                        }
+
+                        Object res = t.getResult();
+                        if (!(res instanceof com.google.firebase.firestore.QuerySnapshot)) continue;
+
+                        com.google.firebase.firestore.QuerySnapshot qs = (com.google.firebase.firestore.QuerySnapshot) res;
+                        for (com.google.firebase.firestore.DocumentSnapshot d : qs.getDocuments()) {
+                            // Normaliza nombre de lugar
+                            String lugarDoc = d.getString("lugarNombre");
+                            if (lugarDoc == null) lugarDoc = d.getString("lugar");
+                            if (lugarNombre.equals(lugarDoc)) {
+                                return true; // ⚠️ conflicto
+                            }
                         }
                     }
-                    return false;
+                    return false; // nada conflictivo en las tareas exitosas
                 });
     }
+
+
 
     // ---------- Utilidades ----------
     @Nullable

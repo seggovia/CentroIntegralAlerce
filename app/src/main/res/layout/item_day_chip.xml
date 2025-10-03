@@ -45,7 +45,7 @@
             android:layout_width="8dp"
             android:layout_height="8dp"
             android:layout_marginTop="6dp"
-            android:background="@drawable/bg_dot_blue"
+            android:background="@drawable/bg_header_gradient_green"
             android:visibility="gone"/>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

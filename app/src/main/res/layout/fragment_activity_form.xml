@@ -12,7 +12,7 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="180dp"
-        android:background="@drawable/bg_header_gradient"
+        android:background="@drawable/bg_header_gradient_green"
         app:title=""
         app:titleCentered="true"
         app:navigationIconTint="@android:color/white" />
@@ -361,30 +361,39 @@
                             android:backgroundTint="@android:color/transparent"/>
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <!-- Adjuntos -->
+                    <!-- Sección: Adjuntos -->
                     <LinearLayout
                         android:id="@+id/boxAdjuntos"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:padding="14dp"
-                        android:background="@drawable/bg_attachment_box"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@android:drawable/ic_menu_add"/>
+                        android:orientation="vertical"
+                        android:paddingTop="12dp"
+                        android:paddingBottom="4dp"
+                        android:clickable="true"
+                        android:focusable="true">
 
                         <TextView
                             android:id="@+id/tvAdjuntos"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Agregar archivos adjuntos"
+                            android:textStyle="bold"
+                            android:textSize="14sp"
+                            android:padding="8dp"
+                            android:drawableStart="@android:drawable/ic_menu_add"
+                            android:drawablePadding="8dp" />
+
+                        <!-- (opcional) una nota pequeña -->
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:text="Agregar archivos adjuntos  •  0 seleccionado(s)"
-                            android:textColor="#6B7280"/>
+                            android:text="Toca para seleccionar uno o varios archivos"
+                            android:textSize="12sp"
+                            android:textColor="#6B7280"
+                            android:paddingStart="8dp"
+                            android:paddingBottom="8dp"/>
                     </LinearLayout>
+
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -399,10 +408,11 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnCancelar"
-                    style="?attr/materialButtonOutlinedStyle"
+                    app:backgroundTint="@color/greenStroke"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
+                    android:textColor="@android:color/white"
                     android:text="Cancelar"/>
 
                 <Space
@@ -417,7 +427,7 @@
                     android:text="Guardar actividad"
                     android:enabled="false"
                     app:cornerRadius="12dp"
-                    app:backgroundTint="?attr/colorPrimary"
+                    app:backgroundTint="@color/greenStroke"
                     android:textColor="@android:color/white"/>
             </LinearLayout>
 

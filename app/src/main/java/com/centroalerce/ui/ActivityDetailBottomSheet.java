@@ -4,7 +4,9 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.view.*;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -14,20 +16,27 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
+import com.google.android.material.chip.Chip;
 import com.google.firebase.Timestamp;
-import com.google.firebase.firestore.*;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
-
-// (opcional) logs
-import android.util.Log;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 
 public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
+    // ---------- Factory ----------
     public static ActivityDetailBottomSheet newInstance(String actividadId, String citaId) {
         ActivityDetailBottomSheet f = new ActivityDetailBottomSheet();
         Bundle b = new Bundle();
@@ -37,31 +46,52 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         return f;
     }
 
-    // ---- util ids sin R ----
+    // ---------- Helpers para NO usar R ----------
     private int resId(String name, String defType) {
-        return requireContext().getResources().getIdentifier(name, defType, requireContext().getPackageName());
+        return requireContext()
+                .getResources()
+                .getIdentifier(name, defType, requireContext().getPackageName());
     }
-    private int id(String name)     { return resId(name, "id"); }
-    private int layout(String name) { return resId(name, "layout"); }
+    private int id(String viewIdName) { return resId(viewIdName, "id"); }
+    private int layout(String layoutName) { return resId(layoutName, "layout"); }
 
-    // ---- views ----
-    private TextView tvTitulo, tvTipoYPer, tvHora, tvLugar;
+    // ---------- Views ----------
+    private TextView tvNombre, tvTipoYPer;
+    private Chip chFechaHora, chLugar;
     private TextView tvTipo, tvPeriodicidad, tvCupo, tvOferente, tvSocio, tvBeneficiarios;
-    private TextView tvAdjuntosHeader;
     private LinearLayout llAdjuntos;
     private Button btnModificar, btnCancelar, btnReagendar, btnAdjuntar;
 
-    // ---- data ----
+    // ---------- Data ----------
     private String actividadId, citaId;
-
     private FirebaseFirestore db;
 
+    // Soporte colecciones EN/ES
+    private static final String COL_EN = "activities";
+    private static final String COL_ES = "actividades";
+    private DocumentReference act(String actividadId, boolean preferEN) {
+        return FirebaseFirestore.getInstance()
+                .collection(preferEN ? COL_EN : COL_ES)
+                .document(actividadId);
+    }
+
+    // ---------- Forzar fondo BLANCO sin R de tu app ----------
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (getDialog() == null) return;
+        // usa id de la librería material (no depende de tu R)
+        View sheet = getDialog().findViewById(com.google.android.material.R.id.design_bottom_sheet);
+        if (sheet != null) sheet.setBackgroundColor(android.graphics.Color.WHITE);
+    }
+
+    // ---------- Lifecycle ----------
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle s) {
-        int layoutId = layout("fragment_detalle_actividad");
+        int layoutId = layout("bottomsheet_activity_detail");
         if (layoutId == 0) {
-            Toast.makeText(requireContext(), "No encuentro fragment_detalle_actividad.xml", Toast.LENGTH_LONG).show();
+            Toast.makeText(requireContext(), "No encuentro bottomsheet_activity_detail.xml", Toast.LENGTH_LONG).show();
             return new View(requireContext());
         }
         return inf.inflate(layoutId, c, false);
@@ -74,11 +104,11 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         actividadId = getArg("actividadId");
         citaId      = getArg("citaId");
 
-        // Bind
-        tvTitulo        = root.findViewById(id("tvTitulo"));
+        // Bind por id dinámico (sin R)
+        tvNombre        = root.findViewById(id("tvNombre"));
         tvTipoYPer      = root.findViewById(id("tvTipoYPeriodicidad"));
-        tvHora          = root.findViewById(id("tvHora"));
-        tvLugar         = root.findViewById(id("tvLugar"));
+        chFechaHora     = root.findViewById(id("chFechaHora"));
+        chLugar         = root.findViewById(id("chLugar"));
         tvTipo          = root.findViewById(id("tvTipo"));
         tvPeriodicidad  = root.findViewById(id("tvPeriodicidad"));
         tvCupo          = root.findViewById(id("tvCupo"));
@@ -86,14 +116,12 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         tvSocio         = root.findViewById(id("tvSocio"));
         tvBeneficiarios = root.findViewById(id("tvBeneficiarios"));
         llAdjuntos      = root.findViewById(id("llAdjuntos"));
-        tvAdjuntosHeader= root.findViewById(id("tvAdjuntosHeader"));
+        btnModificar    = root.findViewById(id("btnModificar"));
+        btnCancelar     = root.findViewById(id("btnCancelar"));
+        btnReagendar    = root.findViewById(id("btnReagendar"));
+        btnAdjuntar     = root.findViewById(id("btnAdjuntar"));
 
-        btnModificar = root.findViewById(id("btnModificar"));
-        btnCancelar  = root.findViewById(id("btnCancelar"));
-        btnReagendar = root.findViewById(id("btnReagendar"));
-        btnAdjuntar  = root.findViewById(id("btnAdjuntar"));
-
-        // listeners
+        // Listeners
         if (btnModificar != null) {
             btnModificar.setOnClickListener(v ->
                     ModificarActividadSheet.newInstance(actividadId)
@@ -115,125 +143,141 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                             .show(getParentFragmentManager(), "AdjuntarComunicacionSheet"));
         }
 
-        // carga
-        db = FirebaseFirestore.getInstance();
-        setTextOrDash(tvTitulo, "Actividad");
-        if (tvTipoYPer != null) tvTipoYPer.setText("");
+        // refrescar adjuntos si otro sheet agrega archivos
+        getParentFragmentManager().setFragmentResultListener(
+                "adjuntos_change", this, (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
+        );
 
-        // Inicializa filas con “—”
-        setLabeled(tvTipo,         "Tipo: ",          "—");
-        setLabeled(tvPeriodicidad, "Periodicidad: ",  "—");
-        setLabeled(tvCupo,         "Cupo: ",          "—");
-        setTextOrDash(tvLugar,     "—");
-        setTextOrDash(tvHora,      "—");
-        setLabeled(tvOferente,      "Oferente: ",        "—");
-        setLabeled(tvSocio,         "Socio comunitario: ","—");
-        setLabeled(tvBeneficiarios, "Beneficiarios: ",   "—");
-
-        if (tvAdjuntosHeader != null) tvAdjuntosHeader.setVisibility(View.VISIBLE);
+        // Estado inicial UI
+        setTextOrDash(tvNombre, "Nombre actividad");
+        if (tvTipoYPer != null) tvTipoYPer.setText("Tipo • Periodicidad");
+        if (chFechaHora != null) chFechaHora.setText("dd/MM/yyyy • HH:mm");
+        if (chLugar != null)      chLugar.setText("Lugar");
         if (llAdjuntos != null) {
             llAdjuntos.removeAllViews();
-            addNoFilesRow(); // placeholder
+            addNoFilesRow();
         }
 
+        db = FirebaseFirestore.getInstance();
+
+        // Carga
         loadActividad(actividadId);
         loadCita(actividadId, citaId);
-
-        // ⬅️ clave: usa el loader unificado (cita -> actividad)
         loadAdjuntosAll(actividadId, citaId);
     }
 
-    // ---------- Firestore: actividad (con alias/formatos) ----------
+    // ---------- Actividad ----------
     private void loadActividad(String actividadId) {
         if (TextUtils.isEmpty(actividadId)) return;
 
-        db.collection("activities").document(actividadId).get()
+        act(actividadId, true).get()
                 .addOnSuccessListener(doc -> {
-                    if (doc == null || !doc.exists()) return;
-
-                    String nombre       = pickString(doc, "nombre");
-                    String tipo         = pickString(doc, "tipo", "tipoActividad", "tipo_actividad", "tipoNombre");
-                    String periodicidad = pickString(doc, "periodicidad", "frecuencia", "periodicidadNombre", "frecuenciaNombre");
-                    Long   cupo         = safeLong(doc.get("cupo"));
-
-                    List<String> oferentesList = pickStringList(doc, new String[]{"oferentes", "oferente", "oferentesNombres", "oferenteNombre"});
-                    String oferentes = joinListOrText(oferentesList);
-
-                    String socio = pickString(doc, "socioComunitario", "socio", "socio_nombre");
-
-                    List<String> beneficiariosList = pickStringList(doc, new String[]{"beneficiarios", "beneficiario", "beneficiariosNombres"});
-                    if (beneficiariosList.isEmpty()) {
-                        String beneficiariosTexto = pickString(doc, "beneficiariosTexto");
-                        beneficiariosList = splitToList(beneficiariosTexto);
-                    }
-                    String beneficiarios = joinListOrText(beneficiariosList);
-
-                    setTextOrDash(tvTitulo, nonEmpty(nombre, "Actividad"));
-                    setLabeled(tvTipo,         "Tipo: ",          nonEmpty(tipo, "—"));
-                    setLabeled(tvPeriodicidad, "Periodicidad: ",  nonEmpty(periodicidad, "—"));
-                    setLabeled(tvCupo,         "Cupo: ",          (cupo != null && cupo >= 0) ? String.valueOf(cupo) : "—");
-                    setLabeled(tvOferente,     "Oferente: ",      nonEmpty(oferentes, "—"));
-                    setLabeled(tvSocio,        "Socio comunitario: ", nonEmpty(socio, "—"));
-                    setLabeled(tvBeneficiarios,"Beneficiarios: ", nonEmpty(beneficiarios, "—"));
+                    if (doc != null && doc.exists()) bindActividadDoc(doc);
+                    else act(actividadId, false).get()
+                            .addOnSuccessListener(this::bindActividadDoc)
+                            .addOnFailureListener(e -> toast("No se pudo cargar la actividad"));
                 })
                 .addOnFailureListener(e -> toast("No se pudo cargar la actividad"));
     }
 
-    // ---------- Firestore: cita ----------
+    private void bindActividadDoc(DocumentSnapshot doc) {
+        if (doc == null || !doc.exists()) return;
+
+        String nombre       = pickString(doc, "nombre", "titulo", "name");
+        String tipo         = pickString(doc, "tipo", "tipoActividad", "tipo_actividad", "tipoNombre");
+        String periodicidad = pickString(doc, "periodicidad", "frecuencia", "periodicidadNombre", "frecuenciaNombre");
+        Long cupo           = safeLong(doc.get("cupo"));
+
+        List<String> oferentesList = pickStringList(doc, new String[]{"oferentes", "oferente", "oferentesNombres", "oferenteNombre"});
+        String oferentes = joinListOrText(oferentesList);
+
+        String socio = pickString(doc, "socioComunitario", "socio", "socio_nombre");
+
+        List<String> beneficiariosList = pickStringList(doc, new String[]{"beneficiarios", "beneficiario", "beneficiariosNombres"});
+        if (beneficiariosList.isEmpty()) {
+            String beneficiariosTexto = pickString(doc, "beneficiariosTexto");
+            beneficiariosList = splitToList(beneficiariosTexto);
+        }
+        String beneficiarios = joinListOrText(beneficiariosList);
+
+        setTextOrDash(tvNombre, nonEmpty(nombre, "Nombre actividad"));
+        if (tvTipoYPer != null) tvTipoYPer.setText(nonEmpty(tipo, "—") + " • " + nonEmpty(periodicidad, "—"));
+
+        setLabeled(tvTipo,         "Tipo: ",          nonEmpty(tipo, "—"));
+        setLabeled(tvPeriodicidad, "Periodicidad: ",  nonEmpty(periodicidad, "—"));
+        setLabeled(tvCupo,         "Cupo: ",          (cupo != null && cupo >= 0) ? String.valueOf(cupo) : "—");
+        setLabeled(tvOferente,     "Oferente: ",      nonEmpty(oferentes, "—"));
+        setLabeled(tvSocio,        "Socio comunitario: ", nonEmpty(socio, "—"));
+        setLabeled(tvBeneficiarios,"Beneficiarios: ", nonEmpty(beneficiarios, "—"));
+    }
+
+    // ---------- Cita ----------
     private void loadCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) return;
 
-        db.collection("activities").document(actividadId)
-                .collection("citas").document(citaId)
-                .get()
+        act(actividadId, true).collection("citas").document(citaId).get()
                 .addOnSuccessListener(doc -> {
-                    if (doc == null || !doc.exists()) return;
-
-                    Timestamp ts = doc.getTimestamp("startAt");
-                    if (ts == null) {
-                        String fecha = doc.getString("fecha");      // yyyy-MM-dd
-                        String hora  = doc.getString("horaInicio"); // HH:mm
-                        try {
-                            String[] hhmm = (hora != null) ? hora.split(":") : new String[]{"00","00"};
-                            java.time.LocalDate d = java.time.LocalDate.parse(fecha);
-                            java.time.LocalTime t = java.time.LocalTime.of(Integer.parseInt(hhmm[0]), Integer.parseInt(hhmm[1]));
-                            ZonedDateTime zdt = d.atTime(t).atZone(ZoneId.systemDefault());
-                            ts = new Timestamp(Date.from(zdt.toInstant()));
-                        } catch (Exception ignored) {}
-                    }
-
-                    String lugar = doc.getString("lugarNombre");
-
-                    if (ts != null) {
-                        ZonedDateTime local = ZonedDateTime.ofInstant(
-                                Instant.ofEpochMilli(ts.toDate().getTime()),
-                                ZoneId.systemDefault()
-                        );
-                        String fechaStr = local.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-                        String horaStr  = local.format(DateTimeFormatter.ofPattern("HH:mm"));
-                        setTextOrDash(tvHora,  fechaStr + " • " + horaStr);
-                    } else {
-                        setTextOrDash(tvHora, "—");
-                    }
-                    setTextOrDash(tvLugar, nonEmpty(lugar, "—"));
+                    if (doc != null && doc.exists()) bindCitaDoc(doc);
+                    else act(actividadId, false).collection("citas").document(citaId).get()
+                            .addOnSuccessListener(this::bindCitaDoc)
+                            .addOnFailureListener(e -> toast("No se pudo cargar la cita"));
                 })
                 .addOnFailureListener(e -> toast("No se pudo cargar la cita"));
     }
 
-    // ================== ADJUNTOS: loader unificado ==================
+    private void bindCitaDoc(DocumentSnapshot doc) {
+        if (doc == null || !doc.exists()) return;
 
-    /** Busca adjuntos en: CITA (doc + subcols) y luego ACTIVIDAD (doc + subcols) */
+        Timestamp ts = doc.getTimestamp("startAt");
+        if (ts == null) {
+            String fecha = doc.getString("fecha");      // yyyy-MM-dd
+            String hora  = doc.getString("horaInicio"); // HH:mm
+            try {
+                String[] hhmm = (hora != null) ? hora.split(":") : new String[]{"00","00"};
+                java.time.LocalDate d = java.time.LocalDate.parse(fecha);
+                java.time.LocalTime t = java.time.LocalTime.of(Integer.parseInt(hhmm[0]), Integer.parseInt(hhmm[1]));
+                ZonedDateTime zdt = d.atTime(t).atZone(ZoneId.systemDefault());
+                ts = new Timestamp(Date.from(zdt.toInstant()));
+            } catch (Exception ignored) {}
+        }
+
+        String lugar = firstNonEmpty(doc.getString("lugarNombre"), doc.getString("lugar"));
+        String tituloCita = firstNonEmpty(doc.getString("titulo"), doc.getString("nombre"));
+
+        if (tvNombre != null) {
+            CharSequence cur = tvNombre.getText();
+            if (cur == null || cur.toString().trim().isEmpty() || "Nombre actividad".contentEquals(cur)) {
+                if (!TextUtils.isEmpty(tituloCita)) setTextOrDash(tvNombre, tituloCita);
+            }
+        }
+
+        if (ts != null && chFechaHora != null) {
+            ZonedDateTime local = ZonedDateTime.ofInstant(
+                    Instant.ofEpochMilli(ts.toDate().getTime()),
+                    ZoneId.systemDefault()
+            );
+            String fechaStr = local.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            String horaStr  = local.format(DateTimeFormatter.ofPattern("HH:mm"));
+            chFechaHora.setText(fechaStr + " • " + horaStr);
+        }
+        if (chLugar != null) chLugar.setText(nonEmpty(lugar, "Lugar"));
+    }
+
+    // ---------- Adjuntos ----------
+    private interface Done { void run(); }
+
     private void loadAdjuntosAll(String actividadId, String citaId) {
         if (llAdjuntos == null) return;
-
         llAdjuntos.removeAllViews();
         addNoFilesRow();
 
+        loadAdjuntosAllInCollection(actividadId, citaId, true, () ->
+                loadAdjuntosAllInCollection(actividadId, citaId, false, this::showPlaceholderIfEmpty));
+    }
+
+    private void loadAdjuntosAllInCollection(String actividadId, String citaId, boolean preferEN, Done onEmpty) {
         if (!TextUtils.isEmpty(actividadId) && !TextUtils.isEmpty(citaId)) {
-            // 1) CITA -> campo "adjuntos"
-            db.collection("activities").document(actividadId)
-                    .collection("citas").document(citaId)
-                    .get()
+            act(actividadId, preferEN).collection("citas").document(citaId).get()
                     .addOnSuccessListener(doc -> {
                         boolean any = false;
                         if (doc != null && doc.exists()) {
@@ -246,10 +290,13 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                                         if (o instanceof Map) {
                                             @SuppressWarnings("unchecked")
                                             Map<String, Object> it = (Map<String, Object>) o;
-                                            String nombre = stringOr(it.get("name"), stringOr(it.get("nombre"), "(archivo)"));
-                                            String url    = stringOr(it.get("url"), null);
-                                            String id     = stringOr(it.get("id"), null);
-                                            addAdjuntoRow(nombre, url, TextUtils.isEmpty(id) ? null : id);
+                                            String nombre = firstNonEmpty(
+                                                    stringOr(it.get("name"), null),
+                                                    stringOr(it.get("nombre"), null));
+                                            String url = stringOr(it.get("url"), null);
+                                            String id = stringOr(it.get("id"), null);
+                                            addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url,
+                                                    TextUtils.isEmpty(id) ? null : id);
                                             any = true;
                                         }
                                     }
@@ -258,32 +305,24 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                         }
                         if (any) return;
 
-                        // 2) CITA -> subcolecciones archivos/adjuntos
-                        loadAdjuntosFromCitaSubcollection(actividadId, citaId, "archivos", () ->
-                                loadAdjuntosFromCitaSubcollection(actividadId, citaId, "adjuntos", () -> {
-                                    // 3) ACTIVIDAD -> campo "adjuntos"
-                                    loadAdjuntosActividad(actividadId);
-                                })
-                        );
+                        loadAdjuntosFromCitaSubcollection(actividadId, citaId, "archivos", preferEN, () ->
+                                loadAdjuntosFromCitaSubcollection(actividadId, citaId, "adjuntos", preferEN, () ->
+                                        loadAdjuntosActividad(actividadId, preferEN, onEmpty)));
                     })
-                    .addOnFailureListener(e -> loadAdjuntosActividad(actividadId));
+                    .addOnFailureListener(e -> loadAdjuntosActividad(actividadId, preferEN, onEmpty));
         } else {
-            // sin cita: ir directo a actividad
-            loadAdjuntosActividad(actividadId);
+            loadAdjuntosActividad(actividadId, preferEN, onEmpty);
         }
     }
 
-    /** Lee adjuntos en el DOC de la ACTIVIDAD y luego en sus subcolecciones */
-    private void loadAdjuntosActividad(String actividadId) {
-        if (TextUtils.isEmpty(actividadId)) {
-            showPlaceholderIfEmpty();
-            return;
-        }
-        db.collection("activities").document(actividadId).get()
+    private void loadAdjuntosActividad(String actividadId, boolean preferEN, Done onEmpty) {
+        if (TextUtils.isEmpty(actividadId)) { onEmpty.run(); return; }
+
+        act(actividadId, preferEN).get()
                 .addOnSuccessListener(doc -> {
                     boolean any = false;
                     if (doc != null && doc.exists()) {
-                        Object raw = doc.get("adjuntos"); // <- tu form los guarda aquí y en subcol
+                        Object raw = doc.get("adjuntos");
                         if (raw instanceof List) {
                             List<?> arr = (List<?>) raw;
                             if (!arr.isEmpty()) {
@@ -292,10 +331,13 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                                     if (o instanceof Map) {
                                         @SuppressWarnings("unchecked")
                                         Map<String, Object> it = (Map<String, Object>) o;
-                                        String nombre = stringOr(it.get("name"), stringOr(it.get("nombre"), "(archivo)"));
-                                        String url    = stringOr(it.get("url"), null);
-                                        String id     = stringOr(it.get("id"), null);
-                                        addAdjuntoRow(nombre, url, TextUtils.isEmpty(id) ? null : id);
+                                        String nombre = firstNonEmpty(
+                                                stringOr(it.get("name"), null),
+                                                stringOr(it.get("nombre"), null));
+                                        String url = stringOr(it.get("url"), null);
+                                        String id = stringOr(it.get("id"), null);
+                                        addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url,
+                                                TextUtils.isEmpty(id) ? null : id);
                                         any = true;
                                     }
                                 }
@@ -304,31 +346,23 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                     }
                     if (any) return;
 
-                    // subcolecciones en actividad (tu form también crea /adjuntos)
-                    loadAdjuntosFromSubcollection(actividadId, "archivos", () ->
-                            loadAdjuntosFromSubcollection(actividadId, "adjuntos", this::showPlaceholderIfEmpty)
-                    );
+                    loadAdjuntosFromSubcollection(actividadId, "archivos", preferEN, () ->
+                            loadAdjuntosFromSubcollection(actividadId, "adjuntos", preferEN, onEmpty));
                 })
-                .addOnFailureListener(e -> showPlaceholderIfEmpty());
+                .addOnFailureListener(e -> onEmpty.run());
     }
 
-    /** Lee subcolecciones en la CITA */
-    private void loadAdjuntosFromCitaSubcollection(String actividadId, String citaId, String sub, EmptyFallback onEmpty) {
-        db.collection("activities").document(actividadId)
-                .collection("citas").document(citaId)
+    private void loadAdjuntosFromCitaSubcollection(String actividadId, String citaId, String sub, boolean preferEN, Done onEmpty) {
+        act(actividadId, preferEN).collection("citas").document(citaId)
                 .collection(sub)
-                // quita el orderBy si no tienes 'creadoEn' en la cita
                 .orderBy("creadoEn", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(q -> {
-                    if (q == null || q.isEmpty()) {
-                        onEmpty.run();
-                        return;
-                    }
+                    if (q == null || q.isEmpty()) { onEmpty.run(); return; }
                     llAdjuntos.removeAllViews();
                     int added = 0;
                     for (DocumentSnapshot d : q.getDocuments()) {
-                        String nombre = d.getString("nombre");
+                        String nombre = firstNonEmpty(d.getString("nombre"), d.getString("name"));
                         String url    = d.getString("url");
                         String did    = d.getId();
                         addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, did);
@@ -339,23 +373,16 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .addOnFailureListener(e -> onEmpty.run());
     }
 
-    // ---------- ya existente: subcolecciones en ACTIVIDAD ----------
-    private interface EmptyFallback { void run(); }
-
-    private void loadAdjuntosFromSubcollection(String actividadId, String sub, EmptyFallback onEmpty) {
-        db.collection("activities").document(actividadId)
-                .collection(sub)
+    private void loadAdjuntosFromSubcollection(String actividadId, String sub, boolean preferEN, Done onEmpty) {
+        act(actividadId, preferEN).collection(sub)
                 .orderBy("creadoEn", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(q -> {
-                    if (q == null || q.isEmpty()) {
-                        onEmpty.run();
-                        return;
-                    }
+                    if (q == null || q.isEmpty()) { onEmpty.run(); return; }
                     llAdjuntos.removeAllViews();
                     int added = 0;
                     for (DocumentSnapshot d : q.getDocuments()) {
-                        String nombre = d.getString("nombre");
+                        String nombre = firstNonEmpty(d.getString("nombre"), d.getString("name"));
                         String url    = d.getString("url");
                         String did    = d.getId();
                         addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, did);
@@ -371,10 +398,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (llAdjuntos.getChildCount() == 0) addNoFilesRow();
     }
 
-    // ---- UI rows ----
-    private void addAdjuntoRow(String nombre, @Nullable String url) {
-        addAdjuntoRow(nombre, url, null);
-    }
+    // ---------- UI helpers ----------
+    private void addAdjuntoRow(String nombre, @Nullable String url) { addAdjuntoRow(nombre, url, null); }
 
     private void addAdjuntoRow(String nombre, @Nullable String url, @Nullable String adjuntoId) {
         if (llAdjuntos == null) return;
@@ -427,19 +452,17 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         llAdjuntos.addView(tv);
     }
 
-    // ---- utils ----
+    // ---------- utils ----------
     private void setTextOrDash(@Nullable TextView tv, @NonNull String valueOrDash) {
         if (tv == null) return;
         tv.setText(valueOrDash);
         tv.setVisibility(View.VISIBLE);
     }
-
     private void setLabeled(@Nullable TextView tv, String prefix, String value) {
         if (tv == null) return;
         tv.setText(prefix + value);
         tv.setVisibility(View.VISIBLE);
     }
-
     private String nonEmpty(String v, String def){ return (v == null || v.trim().isEmpty()) ? def : v; }
 
     private @Nullable String pickString(DocumentSnapshot doc, String... keys) {
@@ -449,7 +472,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         }
         return null;
     }
-
     private List<String> pickStringList(DocumentSnapshot doc, String[] keys) {
         for (String k : keys) {
             Object raw = doc.get(k);
@@ -458,7 +480,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         }
         return Collections.emptyList();
     }
-
     private List<String> parseStringList(Object raw) {
         List<String> out = new ArrayList<>();
         if (raw == null) return out;
@@ -475,30 +496,27 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 String[] tokens = s.split("[,;|\\n]+");
                 LinkedHashSet<String> set = new LinkedHashSet<>();
                 for (String t : tokens) {
-                    String ss = t == null ? "" : t.trim();
-                    if (!ss.isEmpty()) set.add(ss);
+                    String st = (t == null) ? "" : t.trim();
+                    if (!st.isEmpty()) set.add(st);
                 }
                 out.addAll(set);
             }
         }
         return out;
     }
-
     private String joinListOrText(List<String> xs) {
         return (xs == null || xs.isEmpty()) ? "" : TextUtils.join(", ", xs);
     }
-
     private String stringOr(Object v, String def) {
         if (v == null) return def;
         String s = String.valueOf(v).trim();
         return s.isEmpty() ? def : s;
     }
-    /** Convierte "A, B; C | D" en ["A","B","C","D"], sin duplicados y con trim */
     private List<String> splitToList(String text) {
         List<String> out = new ArrayList<>();
         if (TextUtils.isEmpty(text)) return out;
         String[] tokens = text.split("[,;|\\n]+");
-        java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
+        LinkedHashSet<String> set = new LinkedHashSet<>();
         for (String t : tokens) {
             String s = (t == null) ? "" : t.trim();
             if (!s.isEmpty()) set.add(s);
@@ -506,11 +524,14 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         out.addAll(set);
         return out;
     }
-
+    private String firstNonEmpty(String... xs) {
+        if (xs == null) return null;
+        for (String s : xs) if (s != null && !s.trim().isEmpty()) return s.trim();
+        return null;
+    }
     private String getArg(String key) {
         return (getArguments() != null) ? getArguments().getString(key, "") : "";
     }
-
     private int dp(int v){ return Math.round(v * getResources().getDisplayMetrics().density); }
     private void toast(String m){ Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }
     private Long safeLong(Object v) { try { if (v instanceof Number) return ((Number) v).longValue(); } catch (Exception ignored) {} return null; }

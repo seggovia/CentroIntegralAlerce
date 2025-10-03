@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,6 +18,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
 
@@ -46,7 +54,6 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
                 result -> {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         fileUri = result.getData().getData();
-                        // Actualiza el TextView del archivo si la vista ya está creada
                         View dialogView = getView();
                         if (dialogView != null) {
                             TextView tv = dialogView.findViewById(id("tvArchivo"));
@@ -90,10 +97,56 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
                 Toast.makeText(requireContext(), "Selecciona un archivo", Toast.LENGTH_SHORT).show();
                 return;
             }
-            // TODO:
-            // - Subir a Firebase Storage: actividades/{actividadId}/comunicaciones/{filename}
-            // - Guardar metadata en Firestore (URL, nombre, fecha)
-            dismiss();
+            if (TextUtils.isEmpty(actividadId)) {
+                Toast.makeText(requireContext(), "Falta actividadId", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            FirebaseStorage storage = FirebaseStorage.getInstance();
+            String fileName = obtenerNombreArchivo(fileUri);
+            StorageReference ref =
+                    storage.getReference().child("activities").child(actividadId).child("adjuntos").child(fileName);
+
+            // Subir a Storage y luego guardar metadata
+            ref.putFile(fileUri)
+                    .continueWithTask(task -> {
+                        if (!task.isSuccessful()) throw task.getException();
+                        return ref.getDownloadUrl();
+                    })
+                    .addOnSuccessListener(download -> {
+                        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+                        Map<String,Object> meta = new HashMap<>();
+                        meta.put("nombre", fileName);
+                        meta.put("url", download.toString());
+                        meta.put("creadoEn", FieldValue.serverTimestamp());
+
+                        // subcolección (para queries ordenadas)
+                        db.collection("activities").document(actividadId)
+                                .collection("adjuntos").add(meta);
+
+                        // espejo en array del doc principal (opcional)
+                        db.collection("activities").document(actividadId)
+                                .update("adjuntos", FieldValue.arrayUnion(meta));
+
+                        // Notifica al detalle para que recargue
+                        Bundle res = new Bundle();
+                        res.putBoolean("adjunto_subido", true);
+                        getParentFragmentManager().setFragmentResult("adjuntos_change", res);
+
+                        Toast.makeText(requireContext(), "Adjunto subido", Toast.LENGTH_SHORT).show();
+                        dismiss();
+                    })
+                    .addOnFailureListener(e ->
+                            Toast.makeText(requireContext(), "Error al subir: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                    );
         });
+    }
+
+    private String obtenerNombreArchivo(Uri uri) {
+        String last = uri.getLastPathSegment();
+        if (last == null) return "archivo";
+        int idx = last.lastIndexOf('/');
+        return idx >= 0 ? last.substring(idx + 1) : last;
     }
 }

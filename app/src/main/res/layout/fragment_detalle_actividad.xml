@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="16dp"
-    android:background="#F7F3FF"> <!-- fondo lila suave -->
+    android:background="@android:color/white">
 
     <!-- Cabecera -->
     <TextView
