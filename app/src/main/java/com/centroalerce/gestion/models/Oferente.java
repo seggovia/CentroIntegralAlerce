@@ -4,7 +4,7 @@ import com.google.firebase.firestore.DocumentId;
 import com.google.firebase.firestore.IgnoreExtraProperties;
 
 @IgnoreExtraProperties
-public class Oferente {
+public class Oferente implements java.io.Serializable {
 
     @DocumentId
     private String id;

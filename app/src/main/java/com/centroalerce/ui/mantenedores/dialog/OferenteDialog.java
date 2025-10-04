@@ -2,6 +2,7 @@ package com.centroalerce.ui.mantenedores.dialog;
 
 import android.app.Dialog;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -33,13 +34,13 @@ public class OferenteDialog extends DialogFragment {
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         View v = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_oferente, null, false);
 
+        TextInputLayout tilNombre   = v.findViewById(R.id.tilNombre); // ✅ usar id del XML
         TextInputEditText etNombre  = v.findViewById(R.id.etNombre);
         TextInputEditText etDocente = v.findViewById(R.id.etDocente);
         TextInputEditText etCarrera = v.findViewById(R.id.etCarrera);
         MaterialButton btnCancelar  = v.findViewById(R.id.btnCancelar);
         MaterialButton btnGuardar   = v.findViewById(R.id.btnGuardar);
 
-        // Prefill si estás editando
         if (original != null) {
             if (original.getNombre() != null) etNombre.setText(original.getNombre());
             if (original.getDocenteResponsable() != null) etDocente.setText(original.getDocenteResponsable());
@@ -50,6 +51,13 @@ public class OferenteDialog extends DialogFragment {
                 .setView(v)
                 .create();
 
+        // Habilitar/validar
+        btnGuardar.setEnabled(!TextUtils.isEmpty(safeText(etNombre)));
+        etNombre.addTextChangedListener(new SimpleWatcher(() -> {
+            if (tilNombre != null) tilNombre.setError(null);
+            btnGuardar.setEnabled(!TextUtils.isEmpty(safeText(etNombre)));
+        }));
+
         btnCancelar.setOnClickListener(x -> d.dismiss());
 
         btnGuardar.setOnClickListener(x -> {
@@ -57,10 +65,7 @@ public class OferenteDialog extends DialogFragment {
             String docente = safeText(etDocente);
             String carrera = safeText(etCarrera);
 
-            TextInputLayout tilNombre = (TextInputLayout) etNombre.getParent().getParent();
             if (tilNombre != null) tilNombre.setError(null);
-
-            // ✅ Validación: nombre obligatorio
             if (TextUtils.isEmpty(nombre)) {
                 if (tilNombre != null) tilNombre.setError("Obligatorio");
                 etNombre.requestFocus();
@@ -72,6 +77,11 @@ public class OferenteDialog extends DialogFragment {
             o.setDocenteResponsable(docente);
             o.setCarrera(carrera);
 
+            // ✅ nuevos por defecto activos
+            if (original == null) {
+                o.setActivo(true);
+            }
+
             callback.onGuardar(o);
             d.dismiss();
         });
@@ -81,5 +91,13 @@ public class OferenteDialog extends DialogFragment {
 
     private String safeText(TextInputEditText et) {
         return et != null && et.getText() != null ? et.getText().toString().trim() : "";
+    }
+
+    private static class SimpleWatcher implements android.text.TextWatcher {
+        private final Runnable onAfter;
+        SimpleWatcher(Runnable onAfter) { this.onAfter = onAfter; }
+        @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+        @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+        @Override public void afterTextChanged(Editable s) { onAfter.run(); }
     }
 }

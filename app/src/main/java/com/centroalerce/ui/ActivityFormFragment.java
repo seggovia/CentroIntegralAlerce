@@ -79,14 +79,12 @@ public class ActivityFormFragment extends Fragment {
     private FirebaseFirestore db;
     private FirebaseStorage storage;
 
-    // 👇👇👇 NUEVO: inicializa antes por si recargamos combos en onResume
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (db == null) db = FirebaseFirestore.getInstance();
         if (storage == null) storage = FirebaseStorage.getInstance();
     }
-    // ☝️☝️☝️ NUEVO
 
     // SAF – seleccionar varios archivos
     private final ActivityResultLauncher<String[]> pickFilesLauncher =
@@ -143,33 +141,21 @@ public class ActivityFormFragment extends Fragment {
         db       = FirebaseFirestore.getInstance();
         storage  = FirebaseStorage.getInstance();
 
-        // (Opcional) Ping debuggable
-        boolean isDebuggable = (0 != (requireContext().getApplicationInfo().flags
-                & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE));
-        if (isDebuggable) {
-            Map<String, Object> ping = new HashMap<>();
-            ping.put("mensaje", "Hola Firestore 👋");
-            ping.put("ts", com.google.firebase.Timestamp.now());
-            db.collection("test").add(ping)
-                    .addOnSuccessListener(ref -> android.util.Log.d("FS", "OK doc=" + ref.getId()))
-                    .addOnFailureListener(e -> android.util.Log.e("FS", "ERROR Firestore", e));
-        }
-
-        // 👇 NUEVO: Configurar comportamiento de dropdowns ANTES de cargar datos
+        // Configurar dropdowns
         setupDropdownBehavior(acTipoActividad);
         setupDropdownBehavior(acLugar);
         setupDropdownBehavior(acOferente);
         setupDropdownBehavior(acSocio);
         setupDropdownBehavior(acProyecto);
 
-        // Cargar catálogos desde mantenedores
-        cargarTiposActividad();  // tipos_actividad
-        cargarLugares();         // lugares
-        cargarOferentes();       // oferentes
-        cargarSocios();          // socios_comunitarios
-        cargarProyectos();       // proyectos
+        // Cargar catálogos
+        cargarTiposActividad();
+        cargarLugares();
+        cargarOferentes();
+        cargarSocios();       // ← ⭐ NUEVO (SOCIO) robusto
+        cargarProyectos();
 
-        // 👇 CAMBIO: fallback seguro (null-check + getContext)
+        // Fallback tipos
         if (acTipoActividad != null && acTipoActividad.getAdapter() == null) {
             android.content.Context ctx = getContext();
             if (ctx != null) {
@@ -207,7 +193,6 @@ public class ActivityFormFragment extends Fragment {
         return v;
     }
 
-    // 👇👇👇 NUEVO: refrescar combos cada vez que vuelves al fragment
     @Override
     public void onResume() {
         super.onResume();
@@ -219,35 +204,16 @@ public class ActivityFormFragment extends Fragment {
         cargarTiposActividad();
         cargarLugares();
         cargarOferentes();
-        cargarSocios();
+        cargarSocios();     // ← ⭐ NUEVO (SOCIO) vuelve a recargar al regresar
         cargarProyectos();
     }
-    // ☝️☝️☝️ NUEVO
 
-    // ---------- Cargar catálogos de mantenedores ----------
-    private void cargarTiposActividad() {
-        db.collection("tipos_actividad").orderBy("nombre")
-                .get()
-                .addOnSuccessListener(qs -> {
-                    if (!isAdded()) return; // 👈 NUEVO guard
-                    List<String> items = new ArrayList<>();
-                    for (DocumentSnapshot d : qs.getDocuments()) {
-                        Boolean activo = d.getBoolean("activo");
-                        if (activo != null && !activo) continue;
-                        String nombre = d.getString("nombre");
-                        if (nombre != null && !nombre.trim().isEmpty()) items.add(nombre.trim());
-                    }
-                    setComboAdapter(acTipoActividad, items);
-                })
-                .addOnFailureListener(e ->
-                        android.util.Log.e("CATALOG", "tipos_actividad: " + e.getMessage(), e));
-    }
-
+    // ---------- Cargar catálogos ----------
     private void cargarLugares() {
         db.collection("lugares").orderBy("nombre")
                 .get()
                 .addOnSuccessListener(qs -> {
-                    if (!isAdded()) return; // 👈 NUEVO guard
+                    if (!isAdded()) return;
                     List<String> items = new ArrayList<>();
                     for (DocumentSnapshot d : qs.getDocuments()) {
                         Boolean activo = d.getBoolean("activo");
@@ -261,47 +227,11 @@ public class ActivityFormFragment extends Fragment {
                         android.util.Log.e("CATALOG", "lugares: " + e.getMessage(), e));
     }
 
-    private void cargarOferentes() {
-        db.collection("oferentes").orderBy("nombre")
-                .get()
-                .addOnSuccessListener(qs -> {
-                    if (!isAdded()) return; // 👈 NUEVO guard
-                    List<String> items = new ArrayList<>();
-                    for (DocumentSnapshot d : qs.getDocuments()) {
-                        Boolean activo = d.getBoolean("activo");
-                        if (activo != null && !activo) continue;
-                        String nombre = d.getString("nombre");
-                        if (nombre != null && !nombre.trim().isEmpty()) items.add(nombre.trim());
-                    }
-                    setComboAdapter(acOferente, items);
-                })
-                .addOnFailureListener(e ->
-                        android.util.Log.e("CATALOG", "oferentes: " + e.getMessage(), e));
-    }
-
-    private void cargarSocios() {
-        db.collection("socios_comunitarios").orderBy("nombre")
-                .get()
-                .addOnSuccessListener(qs -> {
-                    if (!isAdded()) return; // 👈 NUEVO guard
-                    List<String> items = new ArrayList<>();
-                    for (DocumentSnapshot d : qs.getDocuments()) {
-                        Boolean activo = d.getBoolean("activo");
-                        if (activo != null && !activo) continue;
-                        String nombre = d.getString("nombre");
-                        if (nombre != null && !nombre.trim().isEmpty()) items.add(nombre.trim());
-                    }
-                    setComboAdapter(acSocio, items);
-                })
-                .addOnFailureListener(e ->
-                        android.util.Log.e("CATALOG", "socios_comunitarios: " + e.getMessage(), e));
-    }
-
     private void cargarProyectos() {
         db.collection("proyectos").orderBy("nombre")
                 .get()
                 .addOnSuccessListener(qs -> {
-                    if (!isAdded()) return; // 👈 NUEVO guard
+                    if (!isAdded()) return;
                     List<String> items = new ArrayList<>();
                     for (DocumentSnapshot d : qs.getDocuments()) {
                         Boolean activo = d.getBoolean("activo");
@@ -315,23 +245,220 @@ public class ActivityFormFragment extends Fragment {
                         android.util.Log.e("CATALOG", "proyectos: " + e.getMessage(), e));
     }
 
-    // 👇 NUEVO: Configura el comportamiento del dropdown UNA SOLA VEZ
+    // Picker de nombre genérico
+    private interface DocNamePicker { @Nullable String pick(DocumentSnapshot d); }
+
+    private void loadComboWithFallback(
+            @NonNull List<String> collectionCandidates,
+            @NonNull AutoCompleteTextView combo,
+            @NonNull String humanLabelForErrors,
+            @Nullable DocNamePicker customPicker // ← ⭐ NUEVO (SOCIO) permite picker específico
+    ) {
+        if (!isAdded()) return;
+
+        final DocNamePicker defaultPicker = d -> {
+            String nombre   = d.getString("nombre");
+            String docente  = d.getString("docenteResponsable");
+            String display  = d.getString("displayName");
+            String titulo   = d.getString("titulo");
+            String name     = d.getString("name");
+
+            String base = !TextUtils.isEmpty(nombre) ? nombre :
+                    !TextUtils.isEmpty(display) ? display :
+                            !TextUtils.isEmpty(titulo)  ? titulo  :
+                                    !TextUtils.isEmpty(name)    ? name    :
+                                            !TextUtils.isEmpty(docente) ? docente : null;
+
+            if (base == null) return null;
+            if (!TextUtils.isEmpty(nombre) && !TextUtils.isEmpty(docente)) {
+                return (nombre.trim() + " — " + docente.trim());
+            }
+            return base.trim();
+        };
+
+        DocNamePicker picker = (customPicker != null) ? customPicker : defaultPicker;
+        tryLoadNextCollection(collectionCandidates, 0, combo, humanLabelForErrors, picker);
+    }
+
+    // Sobrecarga para casos genéricos (sin picker custom)
+    private void loadComboWithFallback(
+            @NonNull List<String> collectionCandidates,
+            @NonNull AutoCompleteTextView combo,
+            @NonNull String humanLabelForErrors
+    ) {
+        loadComboWithFallback(collectionCandidates, combo, humanLabelForErrors, null);
+    }
+
+    private void tryLoadNextCollection(
+            @NonNull List<String> candidates, int index,
+            @NonNull AutoCompleteTextView combo,
+            @NonNull String label,
+            @NonNull DocNamePicker namePicker
+    ) {
+        if (index >= candidates.size()) {
+            setComboAdapter(combo, new ArrayList<>());
+            Snackbar.make(requireView(), "No pude cargar " + label, Snackbar.LENGTH_LONG).show();
+            return;
+        }
+
+        final String col = candidates.get(index);
+
+        db.collection(col).whereEqualTo("activo", true).get()
+                .addOnSuccessListener(qs -> {
+                    List<String> items = mapNames(qs.getDocuments(), namePicker);
+                    if (!items.isEmpty()) { setComboAdapter(combo, items); return; }
+
+                    db.collection(col).get()
+                            .addOnSuccessListener(qs2 -> {
+                                List<String> items2 = mapNames(qs2.getDocuments(), namePicker);
+                                if (!items2.isEmpty()) { setComboAdapter(combo, items2); return; }
+
+                                db.collection(col).orderBy("nombre").whereEqualTo("activo", true).get()
+                                        .addOnSuccessListener(qs3 -> {
+                                            List<String> items3 = mapNames(qs3.getDocuments(), namePicker);
+                                            if (!items3.isEmpty()) { setComboAdapter(combo, items3); return; }
+
+                                            db.collection(col).orderBy("nombre").get()
+                                                    .addOnSuccessListener(qs4 -> {
+                                                        List<String> items4 = mapNames(qs4.getDocuments(), namePicker);
+                                                        if (!items4.isEmpty()) { setComboAdapter(combo, items4); }
+                                                        else { tryLoadNextCollection(candidates, index + 1, combo, label, namePicker); }
+                                                    })
+                                                    .addOnFailureListener(e4 -> {
+                                                        android.util.Log.e("CATALOG", col + " orderBy(nombre): " + e4.getMessage(), e4);
+                                                        tryLoadNextCollection(candidates, index + 1, combo, label, namePicker);
+                                                    });
+
+                                        })
+                                        .addOnFailureListener(e3 -> {
+                                            android.util.Log.e("CATALOG", col + " orderBy+activo: " + e3.getMessage(), e3);
+                                            tryLoadNextCollection(candidates, index + 1, combo, label, namePicker);
+                                        });
+                            })
+                            .addOnFailureListener(e2 -> {
+                                android.util.Log.e("CATALOG", col + " get(): " + e2.getMessage(), e2);
+                                tryLoadNextCollection(candidates, index + 1, combo, label, namePicker);
+                            });
+                })
+                .addOnFailureListener(e1 -> {
+                    android.util.Log.e("CATALOG", col + " activo==true: " + e1.getMessage(), e1);
+                    tryLoadNextCollection(candidates, index + 1, combo, label, namePicker);
+                });
+    }
+
+    @NonNull
+    private List<String> mapNames(@NonNull List<DocumentSnapshot> docs, @NonNull DocNamePicker picker) {
+        List<String> out = new ArrayList<>();
+        for (DocumentSnapshot d : docs) {
+            Boolean activo = d.getBoolean("activo");
+            if (activo != null && !activo) continue;
+            String n = picker.pick(d);
+            if (!TextUtils.isEmpty(n)) out.add(n);
+        }
+        return out;
+    }
+
+    private void setEmptyState(@Nullable AutoCompleteTextView combo, @NonNull String hint) {
+        if (combo == null || !isAdded()) return;
+        android.content.Context ctx = getContext();
+        if (ctx == null) return;
+        ArrayAdapter<String> ad = new ArrayAdapter<>(ctx, android.R.layout.simple_list_item_1, new ArrayList<>());
+        combo.setAdapter(ad);
+        View p = (View) combo.getParent();
+        if (p != null) p = (View) p.getParent();
+        if (p instanceof TextInputLayout) ((TextInputLayout) p).setHelperText(hint);
+    }
+
+    private void cargarTiposActividad() {
+        List<String> cols = new ArrayList<>();
+        cols.add("tipos_actividad");
+        cols.add("tiposActividad");
+        cols.add("tipo_actividad");
+        cols.add("tipoActividad");
+        loadComboWithFallback(cols, acTipoActividad, "tipos de actividad");
+    }
+
+    private void cargarOferentes() {
+        List<String> cols = new ArrayList<>();
+        cols.add("oferentes");
+        cols.add("Oferentes");
+        cols.add("oferente");
+        cols.add("Oferente");
+        loadComboWithFallback(cols, acOferente, "oferentes"); // usa picker por defecto (con docenteResponsable)
+    }
+
+    // ⭐ NUEVO (SOCIO): Picker específico para socios comunitarios
+    // Reemplaza COMPLETO tu método cargarSocios() por este:
+    private void cargarSocios() {
+        if (!isAdded()) return;
+
+        // 1) intenta como en tu SociosFragment (root/socios + orderBy nombre)
+        db.collection("socios").orderBy("nombre")
+                .get()
+                .addOnSuccessListener(qs -> {
+                    List<String> items = new ArrayList<>();
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        Boolean activo = d.getBoolean("activo");
+                        if (activo != null && !activo) continue; // si tienes flag, respétalo
+                        String nombre = d.getString("nombre");
+
+                        // Fallbacks muy comunes por si algunos docs viejos no tienen "nombre"
+                        if (TextUtils.isEmpty(nombre)) nombre = d.getString("organizacion");
+                        if (TextUtils.isEmpty(nombre)) nombre = d.getString("institucion");
+                        if (TextUtils.isEmpty(nombre)) nombre = d.getString("razonSocial");
+                        if (TextUtils.isEmpty(nombre)) nombre = d.getString("displayName");
+                        if (TextUtils.isEmpty(nombre)) nombre = d.getString("name");
+                        if (TextUtils.isEmpty(nombre)) nombre = d.getString("titulo");
+
+                        if (!TextUtils.isEmpty(nombre)) items.add(nombre.trim());
+                    }
+                    setComboAdapter(acSocio, items);
+                })
+                .addOnFailureListener(e -> {
+                    // 2) si falla el índice/orden, prueba sin orderBy
+                    android.util.Log.w("CATALOG", "socios orderBy(nombre) falló: " + e.getMessage() + " — reintentando sin ordenar");
+                    db.collection("socios").get()
+                            .addOnSuccessListener(qs2 -> {
+                                List<String> items = new ArrayList<>();
+                                for (DocumentSnapshot d : qs2.getDocuments()) {
+                                    Boolean activo = d.getBoolean("activo");
+                                    if (activo != null && !activo) continue;
+                                    String nombre = d.getString("nombre");
+                                    if (TextUtils.isEmpty(nombre)) nombre = d.getString("organizacion");
+                                    if (TextUtils.isEmpty(nombre)) nombre = d.getString("institucion");
+                                    if (TextUtils.isEmpty(nombre)) nombre = d.getString("razonSocial");
+                                    if (TextUtils.isEmpty(nombre)) nombre = d.getString("displayName");
+                                    if (TextUtils.isEmpty(nombre)) nombre = d.getString("name");
+                                    if (TextUtils.isEmpty(nombre)) nombre = d.getString("titulo");
+                                    if (!TextUtils.isEmpty(nombre)) items.add(nombre.trim());
+                                }
+                                setComboAdapter(acSocio, items);
+                            })
+                            .addOnFailureListener(e2 -> {
+                                android.util.Log.e("CATALOG", "socios get(): " + e2.getMessage(), e2);
+                                setComboAdapter(acSocio, new ArrayList<>()); // deja adapter vacío y helper
+                                if (isAdded()) {
+                                    com.google.android.material.snackbar.Snackbar
+                                            .make(requireView(), "No pude cargar socios comunitarios", com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
+                                            .show();
+                                }
+                            });
+                });
+    }
+
+
     private void setupDropdownBehavior(@Nullable AutoCompleteTextView combo) {
         if (combo == null) return;
 
-        combo.setThreshold(0); // Muestra sugerencias desde el primer carácter
-
-        // Vincular el endIcon para abrir el dropdown
+        combo.setThreshold(0);
         linkEndIconToDropdown(combo);
 
-        // Abrir dropdown al hacer clic en el campo
         combo.setOnClickListener(v -> {
             if (combo.getAdapter() != null && combo.getAdapter().getCount() > 0) {
                 combo.showDropDown();
             }
         });
 
-        // Abrir dropdown al enfocar
         combo.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus && combo.getAdapter() != null && combo.getAdapter().getCount() > 0) {
                 combo.showDropDown();
@@ -339,26 +466,28 @@ public class ActivityFormFragment extends Fragment {
         });
     }
 
-    // 👇 CAMBIO: adapter seguro (isAdded + getContext) y refresco si enfocado
     private void setComboAdapter(@Nullable AutoCompleteTextView combo, @NonNull List<String> items) {
-        if (combo == null || items.isEmpty()) return;
-        if (!isAdded()) return;
+        if (combo == null || !isAdded()) return;
         android.content.Context ctx = getContext();
         if (ctx == null) return;
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                ctx,
-                android.R.layout.simple_list_item_1,
-                items
-        );
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx, android.R.layout.simple_list_item_1, items);
         combo.setAdapter(adapter);
+
+        if (items.isEmpty()) {
+            View p = (View) combo.getParent();
+            if (p != null) p = (View) p.getParent();
+            if (p instanceof TextInputLayout) {
+                ((TextInputLayout) p).setHelperText("Sin datos disponibles");
+            }
+            return;
+        }
 
         if (combo.hasFocus()) {
             combo.showDropDown();
         }
     }
 
-    // 👇 NUEVO: hace que el endIcon del TextInputLayout abra el dropdown del combo
     private void linkEndIconToDropdown(@Nullable AutoCompleteTextView ac) {
         if (ac == null) return;
         View p = (View) ac.getParent();
@@ -426,7 +555,6 @@ public class ActivityFormFragment extends Fragment {
         ).show();
     }
 
-    /** Periódica: pide fecha+hora y agrega a la lista */
     private void showPickerSecuencialYAgregar() {
         Calendar c = Calendar.getInstance();
         new DatePickerDialog(
@@ -583,7 +711,6 @@ public class ActivityFormFragment extends Fragment {
                 });
     }
 
-    /** Sube a Storage y luego guarda actividad+citas en un batch */
     private void subirAdjuntosYGuardar(View root,
                                        String nombre, String tipoActividad, Integer cupo,
                                        String oferente, String socio, String beneficiarios,
@@ -656,7 +783,6 @@ public class ActivityFormFragment extends Fragment {
                 });
     }
 
-    /** Escribe en Firestore: actividad + sus citas (NORMALIZADO) */
     private void escribirActividadYCitas(View root, String activityId,
                                          String nombre, String tipoActividad, Integer cupo,
                                          String oferente, String socio, String beneficiarios,
@@ -774,7 +900,6 @@ public class ActivityFormFragment extends Fragment {
                 });
     }
 
-    /** Revisa conflictos (mismo lugar y mismo startAt) sin índices compuestos y SIN fallar. */
     private com.google.android.gms.tasks.Task<Boolean> chequearConflictos(
             final String lugarNombre, final List<com.google.firebase.Timestamp> fechas) {
 
@@ -787,7 +912,6 @@ public class ActivityFormFragment extends Fragment {
 
         for (com.google.firebase.Timestamp ts : fechas) {
             checks.add(fdb.collectionGroup("citas").whereEqualTo("startAt", ts).get());
-            // colecciones alternativas por compat
             checks.add(fdb.collection("citas").whereEqualTo("startAt", ts).get());
             checks.add(fdb.collection("citas").whereEqualTo("fecha", ts).get());
         }
@@ -809,14 +933,13 @@ public class ActivityFormFragment extends Fragment {
                         for (com.google.firebase.firestore.DocumentSnapshot d : qs.getDocuments()) {
                             String lugarDoc = d.getString("lugarNombre");
                             if (lugarDoc == null) lugarDoc = d.getString("lugar");
-                            if (lugarNombre.equals(lugarDoc)) return true; // ⚠️ conflicto
+                            if (lugarNombre.equals(lugarDoc)) return true;
                         }
                     }
                     return false;
                 });
     }
 
-    // ---------- Utilidades ----------
     @Nullable
     private Timestamp toStartAtTimestamp(@NonNull String yyyyMMdd, @NonNull String HHmm) {
         try {
