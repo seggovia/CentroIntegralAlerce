@@ -44,10 +44,17 @@ public class MainActivity extends AppCompatActivity {
                     id == R.id.loginFragment ||
                             id == R.id.signupFragment ||
                             id == R.id.contactSupportFragment ||
+                            id == R.id.forgotPasswordFragment ||
                             id == R.id.activityFormFragment ||
                             id == R.id.activityRescheduleFragment ||
                             id == R.id.detalleActividadFragment ||
-                            id == R.id.maintainersFragment;
+                            id == R.id.perfilFragment ||
+                            id == R.id.maintainersFragment ||
+                            id == R.id.tiposActividadFragment ||
+                            id == R.id.lugaresFragment ||
+                            id == R.id.oferentesFragment ||
+                            id == R.id.sociosFragment ||
+                            id == R.id.proyectosFragment;
 
             bottomNav.setVisibility(hide ? View.GONE : View.VISIBLE);
         });

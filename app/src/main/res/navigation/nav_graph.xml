@@ -21,8 +21,25 @@
             app:destination="@id/signupFragment" />
 
         <action
+            android:id="@+id/action_loginFragment_to_forgotPasswordFragment"
+            app:destination="@id/forgotPasswordFragment" />
+
+        <action
             android:id="@+id/action_loginFragment_to_contactSupportFragment"
             app:destination="@id/contactSupportFragment" />
+    </fragment>
+
+    <!-- FORGOT PASSWORD -->
+    <fragment
+        android:id="@+id/forgotPasswordFragment"
+        android:name="com.centroalerce.auth.ForgotPasswordFragment"
+        android:label="Recuperar contraseña">
+
+        <action
+            android:id="@+id/action_forgotPasswordFragment_to_loginFragment"
+            app:destination="@id/loginFragment"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="false" />
     </fragment>
 
     <!-- SIGNUP -->
@@ -31,7 +48,6 @@
         android:name="com.centroalerce.auth.SignupFragment"
         android:label="Registro">
 
-        <!-- ✅ NUEVO: permitir prellenar el email al abrir Signup -->
         <argument
             android:name="prefillEmail"
             app:argType="string"
@@ -117,18 +133,22 @@
             android:id="@+id/action_settingsFragment_to_maintainersFragment"
             app:destination="@id/maintainersFragment" />
 
-        <!-- Nueva acción para ir al perfil -->
         <action
             android:id="@+id/action_settingsFragment_to_perfilFragment"
             app:destination="@id/perfilFragment" />
 
-        <!-- ✅ Nueva acción: cerrar sesión (lleva al login y limpia el backstack) -->
         <action
             android:id="@+id/action_settingsFragment_to_loginFragment"
             app:destination="@id/loginFragment"
             app:popUpTo="@id/loginFragment"
             app:popUpToInclusive="true" />
     </fragment>
+
+    <!-- PERFIL -->
+    <fragment
+        android:id="@+id/perfilFragment"
+        android:name="com.centroalerce.ui.PerfilFragment"
+        android:label="Mi Perfil" />
 
     <!-- DETALLE ACTIVIDAD -->
     <fragment
@@ -179,7 +199,6 @@
         android:name="com.centroalerce.ui.MaintainersFragment"
         android:label="Mantenedores">
 
-        <!-- NUEVO: acciones de navegación a cada mantenedor -->
         <action
             android:id="@+id/action_maintainers_to_tiposActividadFragment"
             app:destination="@id/tiposActividadFragment" />
@@ -197,7 +216,7 @@
             app:destination="@id/proyectosFragment" />
     </fragment>
 
-    <!-- NUEVO: destinos de cada mantenedor -->
+    <!-- MANTENEDORES INDIVIDUALES -->
     <fragment
         android:id="@+id/tiposActividadFragment"
         android:name="com.centroalerce.ui.mantenedores.TiposActividadFragment"
@@ -222,11 +241,5 @@
         android:id="@+id/proyectosFragment"
         android:name="com.centroalerce.ui.mantenedores.ProyectosFragment"
         android:label="Proyectos" />
-
-    <!-- PERFIL -->
-    <fragment
-        android:id="@+id/perfilFragment"
-        android:name="com.centroalerce.ui.PerfilFragment"
-        android:label="Mi Perfil" />
 
 </navigation>

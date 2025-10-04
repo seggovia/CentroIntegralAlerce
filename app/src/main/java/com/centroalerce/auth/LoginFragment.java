@@ -67,7 +67,9 @@ public class LoginFragment extends Fragment {
         auth.setLanguageCode("es");
 
         btnLogin.setOnClickListener(x -> doLogin(v));
-        tvForgot.setOnClickListener(x -> doForgot());
+        tvForgot.setOnClickListener(x ->
+                Navigation.findNavController(v).navigate(R.id.action_loginFragment_to_forgotPasswordFragment)
+        );
 
         // Navegar a contacto/soporte
         if (tvContacto != null) {
@@ -161,35 +163,7 @@ public class LoginFragment extends Fragment {
                 });
     }
 
-    private void doForgot(){
-        String email = etEmail.getText()==null ? "" : etEmail.getText().toString().trim();
-        if (email.isEmpty()){
-            Toast.makeText(getContext(),"Ingresa tu email para recuperar", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        // 👉 NUEVO: valida formato antes de enviar
-        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()){
-            etEmail.setError("Correo no válido");
-            etEmail.requestFocus();
-            return;
-        }
 
-        // 👉 NUEVO: envío real del correo de restablecimiento
-        if (auth == null) auth = FirebaseAuth.getInstance();
-        Toast.makeText(getContext(),"Enviando correo de recuperación…", Toast.LENGTH_SHORT).show();
-        auth.sendPasswordResetEmail(email)
-                .addOnSuccessListener(v -> {
-                    Toast.makeText(getContext(),
-                            "Te enviamos un correo para restablecer tu contraseña. "
-                                    + "Revisa también la carpeta de spam.",
-                            Toast.LENGTH_LONG).show();
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(),
-                            "No se pudo enviar el correo: " + e.getMessage(),
-                            Toast.LENGTH_LONG).show();
-                });
-    }
 
     private void openSignup(View root){
         Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_signupFragment);
