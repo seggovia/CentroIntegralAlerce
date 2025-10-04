@@ -1,4 +1,7 @@
 package com.centroalerce.auth;
+import com.google.firebase.auth.FirebaseAuth;      // ya lo tenías / confírmalo
+import com.google.firebase.auth.FirebaseUser;      // ⭐ requerido
+import com.google.android.gms.tasks.Task;          // para los callbacks de Task
 
 import android.os.Bundle;
 import android.text.Editable;
@@ -14,13 +17,18 @@ import com.centroalerce.gestion.R;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 // Firebase (opcional si ya configuraste BoM)
-// import com.google.firebase.auth.FirebaseAuth;
+ import com.google.firebase.auth.FirebaseAuth;
+// 👉 NUEVO
+import com.google.firebase.auth.FirebaseAuth;
+import android.util.Patterns;
 
 public class LoginFragment extends Fragment {
 
     private TextInputEditText etEmail, etPass;
     private MaterialButton btnLogin;
     // private FirebaseAuth auth;
+    // 👉 NUEVO
+    private FirebaseAuth auth;
 
     public LoginFragment(){}
 
@@ -34,6 +42,14 @@ public class LoginFragment extends Fragment {
         TextView tvForgot = v.findViewById(R.id.tvForgot);
         TextView tvContacto = v.findViewById(R.id.tvContacto);
 
+        // 👉 NUEVO: referencia al botón "Crear cuenta"
+        com.google.android.material.button.MaterialButton btnSignup = v.findViewById(R.id.btnSignup);
+        if (btnSignup != null) {
+            btnSignup.setOnClickListener(x ->
+                    Navigation.findNavController(v).navigate(R.id.action_loginFragment_to_signupFragment)
+            );
+        }
+
         TextWatcher watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -46,6 +62,9 @@ public class LoginFragment extends Fragment {
         etPass.addTextChangedListener(watcher);
 
         // auth = FirebaseAuth.getInstance();
+        // 👉 NUEVO: inicializa Auth y fuerza idioma español para el email
+        if (auth == null) auth = FirebaseAuth.getInstance();
+        auth.setLanguageCode("es");
 
         btnLogin.setOnClickListener(x -> doLogin(v));
         tvForgot.setOnClickListener(x -> doForgot());
@@ -63,27 +82,83 @@ public class LoginFragment extends Fragment {
     }
 
     private void doLogin(View root){
-        String email = etEmail.getText().toString().trim();
-        String pass  = etPass.getText().toString();
+        String email = etEmail.getText()==null ? "" : etEmail.getText().toString().trim();
+        String pass  = etPass.getText()==null ? "" : etPass.getText().toString();
 
-        // TODO: descomenta si tienes Firebase configurado:
-        /*
+        boolean ok = true;
+        if (email.isEmpty()){ etEmail.setError("Ingresa tu correo"); ok = false; }
+        if (pass.isEmpty()){ etPass.setError("Ingresa tu contraseña"); ok = false; }
+        if (!ok){
+            Toast.makeText(getContext(), "Revisa los campos ❌", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (auth == null) auth = FirebaseAuth.getInstance();
+        auth.setLanguageCode("es"); // 🔹 Fuerza idioma español para correos y mensajes
         btnLogin.setEnabled(false);
+
         auth.signInWithEmailAndPassword(email, pass)
-            .addOnCompleteListener(task -> {
-                btnLogin.setEnabled(true);
-                if (task.isSuccessful()) {
-                    // Navegar a Home
-                    Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_homeFragment);
-                } else {
-                    Toast.makeText(getContext(), "Error: " +
-                        task.getException().getMessage(), Toast.LENGTH_LONG).show();
-                }
-            });
-        */
-        // DEMO sin Firebase:
-        Toast.makeText(getContext(),"Login demo", Toast.LENGTH_SHORT).show();
-        Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_homeFragment);
+                .addOnCompleteListener(task -> {
+                    btnLogin.setEnabled(true);
+
+                    if (!task.isSuccessful()){
+                        // 🔹 Traduce los errores más comunes al español
+                        String error = task.getException() != null ? task.getException().getMessage() : "";
+                        String msg;
+                        if (error.contains("password is invalid") || error.contains("INVALID_PASSWORD")) {
+                            msg = "Contraseña incorrecta";
+                        } else if (error.contains("no user record") || error.contains("EMAIL_NOT_FOUND")) {
+                            msg = "No existe una cuenta con este correo";
+                        } else if (error.contains("network error") || error.contains("network")) {
+                            msg = "Error de red, verifica tu conexión a Internet";
+                        } else if (error.contains("too many requests")) {
+                            msg = "Demasiados intentos fallidos. Intenta nuevamente más tarde";
+                        } else if (error.contains("email address is badly formatted") || error.contains("INVALID_EMAIL")) {
+                            msg = "El formato del correo es inválido";
+                        } else {
+                            msg = "Error al iniciar sesión: " + error;
+                        }
+                        Toast.makeText(getContext(), msg, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    FirebaseUser user = auth.getCurrentUser();
+                    if (user == null) {
+                        Toast.makeText(getContext(), "Error: usuario no encontrado", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    // Refresca info antes de verificar
+                    user.reload().addOnCompleteListener((Task<Void> r) -> {
+                        if (!r.isSuccessful()) {
+                            Toast.makeText(getContext(), "Error al verificar estado de correo", Toast.LENGTH_LONG).show();
+                            auth.signOut();
+                            return;
+                        }
+
+                        if (!user.isEmailVerified()) {
+                            Toast.makeText(getContext(),
+                                    "Tu cuenta aún no está verificada. Revisa tu correo (incluye carpeta de spam).",
+                                    Toast.LENGTH_LONG).show();
+
+                            user.sendEmailVerification()
+                                    .addOnSuccessListener(x ->
+                                            Toast.makeText(getContext(),
+                                                    "Te reenviamos el enlace de verificación ✅",
+                                                    Toast.LENGTH_SHORT).show())
+                                    .addOnFailureListener(e ->
+                                            Toast.makeText(getContext(),
+                                                    "No se pudo reenviar el correo: " + e.getMessage(),
+                                                    Toast.LENGTH_LONG).show());
+
+                            auth.signOut();
+                            return;
+                        }
+
+                        // ✅ Solo si está verificado
+                        Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_homeFragment);
+                    });
+                });
     }
 
     private void doForgot(){
@@ -92,11 +167,28 @@ public class LoginFragment extends Fragment {
             Toast.makeText(getContext(),"Ingresa tu email para recuperar", Toast.LENGTH_SHORT).show();
             return;
         }
-        // TODO: Firebase reset:
-        // auth.sendPasswordResetEmail(email).addOnSuccessListener(v ->
-        //   Toast.makeText(getContext(),"Email de recuperación enviado", Toast.LENGTH_LONG).show());
+        // 👉 NUEVO: valida formato antes de enviar
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()){
+            etEmail.setError("Correo no válido");
+            etEmail.requestFocus();
+            return;
+        }
 
-        Toast.makeText(getContext(),"(Demo) Se enviaría email de recuperación", Toast.LENGTH_SHORT).show();
+        // 👉 NUEVO: envío real del correo de restablecimiento
+        if (auth == null) auth = FirebaseAuth.getInstance();
+        Toast.makeText(getContext(),"Enviando correo de recuperación…", Toast.LENGTH_SHORT).show();
+        auth.sendPasswordResetEmail(email)
+                .addOnSuccessListener(v -> {
+                    Toast.makeText(getContext(),
+                            "Te enviamos un correo para restablecer tu contraseña. "
+                                    + "Revisa también la carpeta de spam.",
+                            Toast.LENGTH_LONG).show();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(),
+                            "No se pudo enviar el correo: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                });
     }
 
     private void openSignup(View root){

@@ -1,5 +1,21 @@
 <resources>
     <string name="app_name">Centro Integral Alerce</string>
     <string name="rango_semana">%1$s – %2$s</string>
+    <string name="edit">Editar</string>
+    <string name="delete">Eliminar</string>
+
+        <!-- ya existentes... -->
+
+        <string name="lugares">Lugares</string>
+        <string name="agregar_lugar">Agregar lugar</string>
+
+    <string name="oferentes_actividad">Oferentes de la actividad</string>
+    <string name="agregar_oferente">Agregar oferente</string>
+    <string name="titulo_proyectos">Proyectos</string>
+    <string name="agregar_proyecto">Agregar proyecto</string>
+    <string name="titulo_socios">Socios comunitarios</string>
+    <string name="agregar_socio">Agregar socio comunitario</string>
+    <string name="titulo_tipos_actividad">Tipos de actividad</string>
+    <string name="agregar_tipo_actividad">Agregar tipo de actividad</string>
 
 </resources>

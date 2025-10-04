@@ -13,12 +13,10 @@
         android:padding="24dp"
         android:gravity="center_horizontal">
 
-        <!-- Espaciador superior -->
         <View
             android:layout_width="1dp"
             android:layout_height="40dp"/>
 
-        <!-- Avatar circular con iniciales -->
         <FrameLayout
             android:layout_width="96dp"
             android:layout_height="96dp"
@@ -35,7 +33,6 @@
                 android:textColor="@color/avatarText"/>
         </FrameLayout>
 
-        <!-- Título y subtítulo -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -54,7 +51,6 @@
             android:textSize="15sp"
             android:layout_marginTop="6dp"/>
 
-        <!-- Email -->
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
@@ -72,18 +68,16 @@
                 android:textColor="@color/textPrimary"/>
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Password -->
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:hint="Contraseña"
             app:boxStrokeColor="@color/primary"
             app:hintTextColor="@color/primary"
-            app:passwordToggleEnabled="true"
             app:endIconMode="password_toggle"
-            app:endIconTint="@color/textSecondary">
+            app:endIconTint="@color/primary">   <!-- 💜 morado -->
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etPass"
@@ -93,7 +87,6 @@
                 android:textColor="@color/textPrimary"/>
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- ¿Olvidaste tu contraseña? -->
         <TextView
             android:id="@+id/tvForgot"
             android:layout_width="wrap_content"
@@ -104,7 +97,6 @@
             android:layout_marginTop="12dp"
             android:padding="8dp"/>
 
-        <!-- Iniciar sesión -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnLogin"
             android:layout_width="match_parent"
@@ -117,13 +109,26 @@
             app:cornerRadius="28dp"
             app:backgroundTint="@color/primary"/>
 
-        <!-- Espaciador -->
+        <!-- NUEVO: Crear cuenta -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSignup"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="12dp"
+            android:text="Crear cuenta"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary"
+            app:cornerRadius="28dp"
+            app:backgroundTint="@android:color/transparent"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/primary"/>
+
         <View
             android:layout_width="1dp"
             android:layout_height="0dp"
             android:layout_weight="1"/>
 
-        <!-- Pie de página -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

@@ -31,6 +31,13 @@
         android:name="com.centroalerce.auth.SignupFragment"
         android:label="Registro">
 
+        <!-- ✅ NUEVO: permitir prellenar el email al abrir Signup -->
+        <argument
+            android:name="prefillEmail"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+
         <action
             android:id="@+id/action_signupFragment_to_loginFragment"
             app:destination="@id/loginFragment"
@@ -114,6 +121,13 @@
         <action
             android:id="@+id/action_settingsFragment_to_perfilFragment"
             app:destination="@id/perfilFragment" />
+
+        <!-- ✅ Nueva acción: cerrar sesión (lleva al login y limpia el backstack) -->
+        <action
+            android:id="@+id/action_settingsFragment_to_loginFragment"
+            app:destination="@id/loginFragment"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true" />
     </fragment>
 
     <!-- DETALLE ACTIVIDAD -->
@@ -163,7 +177,51 @@
     <fragment
         android:id="@+id/maintainersFragment"
         android:name="com.centroalerce.ui.MaintainersFragment"
-        android:label="Mantenedores" />
+        android:label="Mantenedores">
+
+        <!-- NUEVO: acciones de navegación a cada mantenedor -->
+        <action
+            android:id="@+id/action_maintainers_to_tiposActividadFragment"
+            app:destination="@id/tiposActividadFragment" />
+        <action
+            android:id="@+id/action_maintainers_to_lugaresFragment"
+            app:destination="@id/lugaresFragment" />
+        <action
+            android:id="@+id/action_maintainers_to_oferentesFragment"
+            app:destination="@id/oferentesFragment" />
+        <action
+            android:id="@+id/action_maintainers_to_sociosFragment"
+            app:destination="@id/sociosFragment" />
+        <action
+            android:id="@+id/action_maintainers_to_proyectosFragment"
+            app:destination="@id/proyectosFragment" />
+    </fragment>
+
+    <!-- NUEVO: destinos de cada mantenedor -->
+    <fragment
+        android:id="@+id/tiposActividadFragment"
+        android:name="com.centroalerce.ui.mantenedores.TiposActividadFragment"
+        android:label="Tipos de actividad" />
+
+    <fragment
+        android:id="@+id/lugaresFragment"
+        android:name="com.centroalerce.ui.mantenedores.LugaresFragment"
+        android:label="Lugares" />
+
+    <fragment
+        android:id="@+id/oferentesFragment"
+        android:name="com.centroalerce.ui.mantenedores.OferentesFragment"
+        android:label="Oferentes de la actividad" />
+
+    <fragment
+        android:id="@+id/sociosFragment"
+        android:name="com.centroalerce.ui.mantenedores.SociosFragment"
+        android:label="Socios comunitarios" />
+
+    <fragment
+        android:id="@+id/proyectosFragment"
+        android:name="com.centroalerce.ui.mantenedores.ProyectosFragment"
+        android:label="Proyectos" />
 
     <!-- PERFIL -->
     <fragment
