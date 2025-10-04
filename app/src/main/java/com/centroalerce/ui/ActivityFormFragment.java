@@ -3,11 +3,11 @@ package com.centroalerce.ui;
 
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
-import android.content.Intent; // 👈 NUEVO
-import android.database.Cursor; // 👈 NUEVO
+import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.OpenableColumns; // 👈 NUEVO
+import android.provider.OpenableColumns;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -15,8 +15,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
-import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.AutoCompleteTextView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -33,9 +33,9 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.WriteBatch;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
@@ -49,20 +49,26 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 public class ActivityFormFragment extends Fragment {
 
-    private TextInputEditText etNombre, etCupo, etLugar, etOferente, etSocio, etFecha, etHora, etBeneficiarios;
-    private TextInputLayout tilFecha, tilHora;
+    // EditTexts que SÍ existen en tu XML
+    private TextInputEditText etNombre, etCupo, etFecha, etHora, etBeneficiarios;
+    private TextInputLayout   tilFecha, tilHora;
+
     private MaterialButtonToggleGroup tgPeriodicidad;
     private MaterialButton btnPuntual, btnPeriodica, btnCancelar, btnGuardar;
-    private android.widget.AutoCompleteTextView acTipoActividad;
 
+    // Combos que existen en tu XML
+    private AutoCompleteTextView acTipoActividad;
+    private AutoCompleteTextView acLugar, acOferente, acSocio, acProyecto;
+
+    // Adjuntos
     private com.google.android.material.card.MaterialCardView boxAdjuntos;
-
     private TextView tvAdjuntos;
 
     private final List<Timestamp> citasPeriodicas = new ArrayList<>();
@@ -73,11 +79,19 @@ public class ActivityFormFragment extends Fragment {
     private FirebaseFirestore db;
     private FirebaseStorage storage;
 
+    // 👇👇👇 NUEVO: inicializa antes por si recargamos combos en onResume
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        if (db == null) db = FirebaseFirestore.getInstance();
+        if (storage == null) storage = FirebaseStorage.getInstance();
+    }
+    // ☝️☝️☝️ NUEVO
+
     // SAF – seleccionar varios archivos
     private final ActivityResultLauncher<String[]> pickFilesLauncher =
             registerForActivityResult(new ActivityResultContracts.OpenMultipleDocuments(), uris -> {
                 if (uris != null && !uris.isEmpty()) {
-                    // 👇 NUEVO: persistir permisos para evitar fallas si el usuario demora
                     for (Uri u : uris) {
                         try {
                             requireContext().getContentResolver()
@@ -95,41 +109,45 @@ public class ActivityFormFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle b) {
         View v = inf.inflate(R.layout.fragment_activity_form, c, false);
 
-        // Inputs
-        etNombre = v.findViewById(R.id.etNombre);
-        etCupo = v.findViewById(R.id.etCupo);
-        etLugar = v.findViewById(R.id.etLugar);
-        etOferente = v.findViewById(R.id.etOferente);
-        etSocio = v.findViewById(R.id.etSocio);
-        etBeneficiarios = v.findViewById(R.id.etBeneficiarios);
-        etFecha = v.findViewById(R.id.etFecha);
-        etHora = v.findViewById(R.id.etHora);
-        tilFecha = (TextInputLayout) etFecha.getParent().getParent();
-        tilHora = (TextInputLayout) etHora.getParent().getParent();
+        // Inputs del layout
+        etNombre         = v.findViewById(R.id.etNombre);
+        etCupo           = v.findViewById(R.id.etCupo);
+        etBeneficiarios  = v.findViewById(R.id.etBeneficiarios);
+        etFecha          = v.findViewById(R.id.etFecha);
+        etHora           = v.findViewById(R.id.etHora);
+        tilFecha         = (TextInputLayout) etFecha.getParent().getParent();
+        tilHora          = (TextInputLayout) etHora.getParent().getParent();
 
-        acTipoActividad = v.findViewById(R.id.acTipoActividad);
+        // Combos del layout
+        acTipoActividad  = v.findViewById(R.id.acTipoActividad);
+        acLugar          = v.findViewById(R.id.acLugar);
+        acOferente       = v.findViewById(R.id.acOferente);
+        acSocio          = v.findViewById(R.id.acSocio);
+        acProyecto       = v.findViewById(R.id.acProyecto);
 
         // Toggle
-        tgPeriodicidad = v.findViewById(R.id.tgPeriodicidad);
-        btnPuntual = v.findViewById(R.id.btnPuntual);
-        btnPeriodica = v.findViewById(R.id.btnPeriodica);
+        tgPeriodicidad   = v.findViewById(R.id.tgPeriodicidad);
+        btnPuntual       = v.findViewById(R.id.btnPuntual);
+        btnPeriodica     = v.findViewById(R.id.btnPeriodica);
         tgPeriodicidad.check(R.id.btnPuntual);
 
         // Botones
-        btnCancelar = v.findViewById(R.id.btnCancelar);
-        btnGuardar = v.findViewById(R.id.btnGuardar);
+        btnCancelar      = v.findViewById(R.id.btnCancelar);
+        btnGuardar       = v.findViewById(R.id.btnGuardar);
         btnGuardar.setEnabled(false);
 
         // Adjuntos UI
-        boxAdjuntos = v.findViewById(R.id.boxAdjuntos);
-        tvAdjuntos = v.findViewById(R.id.tvAdjuntos);
+        boxAdjuntos      = v.findViewById(R.id.boxAdjuntos);
+        tvAdjuntos       = v.findViewById(R.id.tvAdjuntos);
 
-        db = FirebaseFirestore.getInstance();
-        // Ping de prueba para verificar conexión con Firestore (solo en builds debuggables)
+        db       = FirebaseFirestore.getInstance();
+        storage  = FirebaseStorage.getInstance();
+
+        // (Opcional) Ping debuggable
         boolean isDebuggable = (0 != (requireContext().getApplicationInfo().flags
                 & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE));
         if (isDebuggable) {
-            java.util.Map<String, Object> ping = new java.util.HashMap<>();
+            Map<String, Object> ping = new HashMap<>();
             ping.put("mensaje", "Hola Firestore 👋");
             ping.put("ts", com.google.firebase.Timestamp.now());
             db.collection("test").add(ping)
@@ -137,15 +155,33 @@ public class ActivityFormFragment extends Fragment {
                     .addOnFailureListener(e -> android.util.Log.e("FS", "ERROR Firestore", e));
         }
 
-        storage = FirebaseStorage.getInstance();
+        // 👇 NUEVO: Configurar comportamiento de dropdowns ANTES de cargar datos
+        setupDropdownBehavior(acTipoActividad);
+        setupDropdownBehavior(acLugar);
+        setupDropdownBehavior(acOferente);
+        setupDropdownBehavior(acSocio);
+        setupDropdownBehavior(acProyecto);
 
-        // Dropdown “Tipo de actividad”
-        String[] tipos = new String[]{
-                "Capacitación", "Taller", "Charlas", "Atenciones",
-                "Operativo en oficina", "Operativo rural", "Operativo",
-                "Práctica profesional", "Diagnostico"
-        };
-        acTipoActividad.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, tipos));
+        // Cargar catálogos desde mantenedores
+        cargarTiposActividad();  // tipos_actividad
+        cargarLugares();         // lugares
+        cargarOferentes();       // oferentes
+        cargarSocios();          // socios_comunitarios
+        cargarProyectos();       // proyectos
+
+        // 👇 CAMBIO: fallback seguro (null-check + getContext)
+        if (acTipoActividad != null && acTipoActividad.getAdapter() == null) {
+            android.content.Context ctx = getContext();
+            if (ctx != null) {
+                String[] tiposFallback = new String[]{
+                        "Capacitación", "Taller", "Charlas", "Atenciones",
+                        "Operativo en oficina", "Operativo rural", "Operativo",
+                        "Práctica profesional", "Diagnostico"
+                };
+                acTipoActividad.setAdapter(new ArrayAdapter<>(ctx,
+                        android.R.layout.simple_list_item_1, tiposFallback));
+            }
+        }
 
         // Listeners
         etFecha.setOnClickListener(view -> onFechaClick());
@@ -169,6 +205,172 @@ public class ActivityFormFragment extends Fragment {
 
         aplicarModo();
         return v;
+    }
+
+    // 👇👇👇 NUEVO: refrescar combos cada vez que vuelves al fragment
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (!isAdded() || getView() == null) return;
+        recargarCombos();
+    }
+
+    private void recargarCombos() {
+        cargarTiposActividad();
+        cargarLugares();
+        cargarOferentes();
+        cargarSocios();
+        cargarProyectos();
+    }
+    // ☝️☝️☝️ NUEVO
+
+    // ---------- Cargar catálogos de mantenedores ----------
+    private void cargarTiposActividad() {
+        db.collection("tipos_actividad").orderBy("nombre")
+                .get()
+                .addOnSuccessListener(qs -> {
+                    if (!isAdded()) return; // 👈 NUEVO guard
+                    List<String> items = new ArrayList<>();
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        Boolean activo = d.getBoolean("activo");
+                        if (activo != null && !activo) continue;
+                        String nombre = d.getString("nombre");
+                        if (nombre != null && !nombre.trim().isEmpty()) items.add(nombre.trim());
+                    }
+                    setComboAdapter(acTipoActividad, items);
+                })
+                .addOnFailureListener(e ->
+                        android.util.Log.e("CATALOG", "tipos_actividad: " + e.getMessage(), e));
+    }
+
+    private void cargarLugares() {
+        db.collection("lugares").orderBy("nombre")
+                .get()
+                .addOnSuccessListener(qs -> {
+                    if (!isAdded()) return; // 👈 NUEVO guard
+                    List<String> items = new ArrayList<>();
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        Boolean activo = d.getBoolean("activo");
+                        if (activo != null && !activo) continue;
+                        String nombre = d.getString("nombre");
+                        if (nombre != null && !nombre.trim().isEmpty()) items.add(nombre.trim());
+                    }
+                    setComboAdapter(acLugar, items);
+                })
+                .addOnFailureListener(e ->
+                        android.util.Log.e("CATALOG", "lugares: " + e.getMessage(), e));
+    }
+
+    private void cargarOferentes() {
+        db.collection("oferentes").orderBy("nombre")
+                .get()
+                .addOnSuccessListener(qs -> {
+                    if (!isAdded()) return; // 👈 NUEVO guard
+                    List<String> items = new ArrayList<>();
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        Boolean activo = d.getBoolean("activo");
+                        if (activo != null && !activo) continue;
+                        String nombre = d.getString("nombre");
+                        if (nombre != null && !nombre.trim().isEmpty()) items.add(nombre.trim());
+                    }
+                    setComboAdapter(acOferente, items);
+                })
+                .addOnFailureListener(e ->
+                        android.util.Log.e("CATALOG", "oferentes: " + e.getMessage(), e));
+    }
+
+    private void cargarSocios() {
+        db.collection("socios_comunitarios").orderBy("nombre")
+                .get()
+                .addOnSuccessListener(qs -> {
+                    if (!isAdded()) return; // 👈 NUEVO guard
+                    List<String> items = new ArrayList<>();
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        Boolean activo = d.getBoolean("activo");
+                        if (activo != null && !activo) continue;
+                        String nombre = d.getString("nombre");
+                        if (nombre != null && !nombre.trim().isEmpty()) items.add(nombre.trim());
+                    }
+                    setComboAdapter(acSocio, items);
+                })
+                .addOnFailureListener(e ->
+                        android.util.Log.e("CATALOG", "socios_comunitarios: " + e.getMessage(), e));
+    }
+
+    private void cargarProyectos() {
+        db.collection("proyectos").orderBy("nombre")
+                .get()
+                .addOnSuccessListener(qs -> {
+                    if (!isAdded()) return; // 👈 NUEVO guard
+                    List<String> items = new ArrayList<>();
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        Boolean activo = d.getBoolean("activo");
+                        if (activo != null && !activo) continue;
+                        String nombre = d.getString("nombre");
+                        if (nombre != null && !nombre.trim().isEmpty()) items.add(nombre.trim());
+                    }
+                    setComboAdapter(acProyecto, items);
+                })
+                .addOnFailureListener(e ->
+                        android.util.Log.e("CATALOG", "proyectos: " + e.getMessage(), e));
+    }
+
+    // 👇 NUEVO: Configura el comportamiento del dropdown UNA SOLA VEZ
+    private void setupDropdownBehavior(@Nullable AutoCompleteTextView combo) {
+        if (combo == null) return;
+
+        combo.setThreshold(0); // Muestra sugerencias desde el primer carácter
+
+        // Vincular el endIcon para abrir el dropdown
+        linkEndIconToDropdown(combo);
+
+        // Abrir dropdown al hacer clic en el campo
+        combo.setOnClickListener(v -> {
+            if (combo.getAdapter() != null && combo.getAdapter().getCount() > 0) {
+                combo.showDropDown();
+            }
+        });
+
+        // Abrir dropdown al enfocar
+        combo.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus && combo.getAdapter() != null && combo.getAdapter().getCount() > 0) {
+                combo.showDropDown();
+            }
+        });
+    }
+
+    // 👇 CAMBIO: adapter seguro (isAdded + getContext) y refresco si enfocado
+    private void setComboAdapter(@Nullable AutoCompleteTextView combo, @NonNull List<String> items) {
+        if (combo == null || items.isEmpty()) return;
+        if (!isAdded()) return;
+        android.content.Context ctx = getContext();
+        if (ctx == null) return;
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                ctx,
+                android.R.layout.simple_list_item_1,
+                items
+        );
+        combo.setAdapter(adapter);
+
+        if (combo.hasFocus()) {
+            combo.showDropDown();
+        }
+    }
+
+    // 👇 NUEVO: hace que el endIcon del TextInputLayout abra el dropdown del combo
+    private void linkEndIconToDropdown(@Nullable AutoCompleteTextView ac) {
+        if (ac == null) return;
+        View p = (View) ac.getParent();
+        if (p != null) p = (View) p.getParent();
+        if (p instanceof TextInputLayout) {
+            TextInputLayout til = (TextInputLayout) p;
+            til.setEndIconOnClickListener(v -> {
+                if (ac.getAdapter() != null && ac.getAdapter().getCount() > 0) {
+                    ac.showDropDown();
+                }
+            });
+        }
     }
 
     // ---------- UX/Modo ----------
@@ -213,7 +415,7 @@ public class ActivityFormFragment extends Fragment {
 
     private void showTimePickerPuntual() {
         if (esPeriodica) {
-            com.google.android.material.snackbar.Snackbar.make(requireView(), "En 'Periódica' la hora se define con cada fecha agregada.", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show();
+            Snackbar.make(requireView(), "En 'Periódica' la hora se define con cada fecha agregada.", Snackbar.LENGTH_SHORT).show();
             return;
         }
         Calendar c = Calendar.getInstance();
@@ -238,11 +440,11 @@ public class ActivityFormFragment extends Fragment {
                                 Timestamp ts = toStartAtTimestamp(ld, LocalTime.of(h, min));
                                 citasPeriodicas.add(ts);
                                 etFecha.setText("Fechas agregadas: " + citasPeriodicas.size());
-                                com.google.android.material.snackbar.Snackbar.make(requireView(),
+                                Snackbar.make(requireView(),
                                         "Agregada: " + String.format(Locale.getDefault(),
                                                 "%04d-%02d-%02d %02d:%02d",
                                                 ld.getYear(), ld.getMonthValue(), ld.getDayOfMonth(), h, min),
-                                        com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show();
+                                        Snackbar.LENGTH_SHORT).show();
                                 validarMinimos();
                             },
                             ch.get(Calendar.HOUR_OF_DAY), ch.get(Calendar.MINUTE), true
@@ -267,11 +469,11 @@ public class ActivityFormFragment extends Fragment {
             if (citasPeriodicas.isEmpty()) tilFecha.setError("Agrega al menos una fecha + hora");
         } else {
             boolean fechaOk = !TextUtils.isEmpty(getText(etFecha));
-            boolean horaOk = !TextUtils.isEmpty(getText(etHora));
+            boolean horaOk  = !TextUtils.isEmpty(getText(etHora));
             ok = nombreOk && fechaOk && horaOk;
             if (!nombreOk) ((TextInputLayout) etNombre.getParent().getParent()).setError("Obligatorio");
-            if (!fechaOk) tilFecha.setError("Requerido");
-            if (!horaOk) tilHora.setError("Requerido");
+            if (!fechaOk)  tilFecha.setError("Requerido");
+            if (!horaOk)   tilHora.setError("Requerido");
         }
         btnGuardar.setEnabled(ok);
     }
@@ -279,12 +481,8 @@ public class ActivityFormFragment extends Fragment {
     private boolean validarCupoOpcional() {
         String c = getText(etCupo);
         if (TextUtils.isEmpty(c)) return true;
-        try {
-            Integer.parseInt(c);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
+        try { Integer.parseInt(c); return true; }
+        catch (NumberFormatException e) { return false; }
     }
 
     // ---------- Guardar ----------
@@ -305,7 +503,7 @@ public class ActivityFormFragment extends Fragment {
 
         boolean modoPeriodica = (tgPeriodicidad.getCheckedButtonId() == R.id.btnPeriodica);
         String fecha = getText(etFecha);
-        String hora = getText(etHora);
+        String hora  = getText(etHora);
 
         if (!modoPeriodica && (TextUtils.isEmpty(fecha) || TextUtils.isEmpty(hora))) {
             Snackbar.make(root, "Completa Fecha y Hora", Snackbar.LENGTH_LONG).show();
@@ -318,17 +516,18 @@ public class ActivityFormFragment extends Fragment {
             return;
         }
 
-        String tipoActividad = acTipoActividad.getText() != null ? acTipoActividad.getText().toString().trim() : "";
+        String tipoActividad = getText(acTipoActividad);
         Integer cupo = null;
         try {
             String s = getText(etCupo);
             if (!s.isEmpty()) cupo = Integer.parseInt(s);
-        } catch (Exception ignored) {
-        }
-        String lugar = getText(etLugar);
-        String oferente = getText(etOferente);
-        String socio = getText(etSocio);
+        } catch (Exception ignored) { }
+
+        String lugar         = getText(acLugar);
+        String oferente      = getText(acOferente);
+        String socio         = getText(acSocio);
         String beneficiarios = getText(etBeneficiarios);
+        String proyecto      = getText(acProyecto);
 
         Timestamp startAtPuntual = null;
         if (!modoPeriodica) {
@@ -340,15 +539,16 @@ public class ActivityFormFragment extends Fragment {
             }
         }
 
-        final boolean modoPeriodicaFinal = modoPeriodica;
-        final String lugarFinal = lugar;
-        final String nombreFinal = nombre;
-        final String tipoActividadFinal = tipoActividad;
-        final Integer cupoFinal = cupo;
-        final String oferenteFinal = oferente;
-        final String socioFinal = socio;
-        final String beneficiariosFinal = beneficiarios;
-        final Timestamp startAtPuntualFinal = startAtPuntual;
+        final boolean   modoPeriodicaFinal   = modoPeriodica;
+        final String    lugarFinal           = lugar;
+        final String    nombreFinal          = nombre;
+        final String    tipoActividadFinal   = tipoActividad;
+        final Integer   cupoFinal            = cupo;
+        final String    oferenteFinal        = oferente;
+        final String    socioFinal           = socio;
+        final String    beneficiariosFinal   = beneficiarios;
+        final String    proyectoFinal        = proyecto;
+        final Timestamp startAtPuntualFinal  = startAtPuntual;
 
         final ArrayList<Timestamp> aRevisar = new ArrayList<>();
         if (modoPeriodicaFinal) aRevisar.addAll(citasPeriodicas);
@@ -365,7 +565,8 @@ public class ActivityFormFragment extends Fragment {
                                 nombreFinal, tipoActividadFinal, cupoFinal,
                                 oferenteFinal, socioFinal, beneficiariosFinal,
                                 lugarFinal, modoPeriodicaFinal,
-                                startAtPuntualFinal, aRevisar
+                                startAtPuntualFinal, aRevisar,
+                                proyectoFinal
                         );
                     }
                 })
@@ -376,7 +577,8 @@ public class ActivityFormFragment extends Fragment {
                             nombreFinal, tipoActividadFinal, cupoFinal,
                             oferenteFinal, socioFinal, beneficiariosFinal,
                             lugarFinal, modoPeriodicaFinal,
-                            startAtPuntualFinal, aRevisar
+                            startAtPuntualFinal, aRevisar,
+                            proyectoFinal
                     );
                 });
     }
@@ -387,23 +589,22 @@ public class ActivityFormFragment extends Fragment {
                                        String oferente, String socio, String beneficiarios,
                                        String lugar, boolean modoPeriodica,
                                        @Nullable Timestamp startAtPuntual,
-                                       List<Timestamp> timestamps) {
+                                       List<Timestamp> timestamps,
+                                       @Nullable String proyecto) {
 
         String activityId = db.collection("activities").document().getId();
 
         if (attachmentUris.isEmpty()) {
             escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
-                    beneficiarios, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>());
+                    beneficiarios, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto);
             return;
         }
 
         StorageReference baseRef = storage.getReference().child("activities").child(activityId).child("attachments");
 
-        // --- Mapeo indexado 1:1 para evitar desalineo ---
         List<Task<Uri>> urlTasks = new ArrayList<>();
         List<Uri> srcs = new ArrayList<>();
         for (Uri uri : attachmentUris) {
-            // 👇 NUEVO: nombre real y contentType
             String fileName = getDisplayName(uri);
             String mime = getMime(uri);
 
@@ -415,7 +616,6 @@ public class ActivityFormFragment extends Fragment {
                             .build();
 
             UploadTask up = fileRef.putFile(uri, md);
-            // 👇 NUEVO: log por archivo
             up.addOnFailureListener(e ->
                     android.util.Log.e("FS-UPLOAD", "Falló subir " + fileName + ": " + e.getMessage(), e));
 
@@ -436,8 +636,8 @@ public class ActivityFormFragment extends Fragment {
                             Uri download = (Uri) t.getResult();
                             Uri src = srcs.get(j);
                             Map<String, Object> item = new HashMap<>();
-                            item.put("name", getDisplayName(src)); // 👈 NUEVO
-                            String mime = getMime(src);            // 👈 NUEVO
+                            item.put("name", getDisplayName(src));
+                            String mime = getMime(src);
                             if (mime != null) item.put("mime", mime);
                             item.put("url", download.toString());
                             adj.add(item);
@@ -447,12 +647,12 @@ public class ActivityFormFragment extends Fragment {
                         Snackbar.make(root, "Algunos archivos no se pudieron subir. Se guardará el resto.", Snackbar.LENGTH_LONG).show();
                     }
                     escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
-                            beneficiarios, lugar, modoPeriodica, startAtPuntual, timestamps, adj);
+                            beneficiarios, lugar, modoPeriodica, startAtPuntual, timestamps, adj, proyecto);
                 })
                 .addOnFailureListener(e -> {
                     Snackbar.make(root, "No se pudieron subir los adjuntos (" + e.getMessage() + "). Guardando sin archivos.", Snackbar.LENGTH_LONG).show();
                     escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
-                            beneficiarios, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>());
+                            beneficiarios, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto);
                 });
     }
 
@@ -463,9 +663,9 @@ public class ActivityFormFragment extends Fragment {
                                          String lugar, boolean modoPeriodica,
                                          @Nullable Timestamp startAtPuntual,
                                          List<Timestamp> timestamps,
-                                         List<Map<String, Object>> adjuntos) {
+                                         List<Map<String, Object>> adjuntos,
+                                         @Nullable String proyecto) {
 
-        // Normalizar a listas
         List<String> oferentesList = splitToList(oferente);
         List<String> beneficiariosList = splitToList(beneficiarios);
 
@@ -476,6 +676,9 @@ public class ActivityFormFragment extends Fragment {
         if (!TextUtils.isEmpty(tipoActividad)) {
             activityDoc.put("tipo", tipoActividad);
             activityDoc.put("tipoActividad", tipoActividad);
+        }
+        if (!TextUtils.isEmpty(proyecto)) {
+            activityDoc.put("proyecto", proyecto);
         }
 
         if (cupo != null) activityDoc.put("cupo", cupo);
@@ -492,16 +695,16 @@ public class ActivityFormFragment extends Fragment {
             activityDoc.put("beneficiariosTexto", TextUtils.join(", ", beneficiariosList));
         }
 
+        if (!TextUtils.isEmpty(lugar)) activityDoc.put("lugarNombre", lugar);
+
         if (!adjuntos.isEmpty()) activityDoc.put("adjuntos", adjuntos);
         activityDoc.put("diasAvisoPrevio", 1);
         activityDoc.put("createdAt", FieldValue.serverTimestamp());
         activityDoc.put("updatedAt", FieldValue.serverTimestamp());
 
         WriteBatch batch = db.batch();
-        // Doc de actividad
         batch.set(db.collection("activities").document(activityId), activityDoc);
 
-        // Espejo de adjuntos en subcolección de la ACTIVIDAD
         if (!adjuntos.isEmpty()) {
             for (Map<String, Object> a : adjuntos) {
                 Map<String, Object> sub = new HashMap<>(a);
@@ -514,10 +717,8 @@ public class ActivityFormFragment extends Fragment {
             }
         }
 
-        // Guardamos refs de las citas para espejar adjuntos dentro de cada cita
         List<com.google.firebase.firestore.DocumentReference> citaRefs = new ArrayList<>();
 
-        // Citas
         if (modoPeriodica) {
             for (Timestamp ts : timestamps) {
                 Map<String, Object> cita = new HashMap<>();
@@ -546,7 +747,6 @@ public class ActivityFormFragment extends Fragment {
             batch.set(citaRef, cita);
         }
 
-        // Espejo de adjuntos dentro de CADA CITA
         if (!adjuntos.isEmpty()) {
             for (com.google.firebase.firestore.DocumentReference citaRef : citaRefs) {
                 for (Map<String, Object> a : adjuntos) {
@@ -576,58 +776,40 @@ public class ActivityFormFragment extends Fragment {
 
     /** Revisa conflictos (mismo lugar y mismo startAt) sin índices compuestos y SIN fallar. */
     private com.google.android.gms.tasks.Task<Boolean> chequearConflictos(
-            final String lugarNombre, final java.util.List<com.google.firebase.Timestamp> fechas) {
+            final String lugarNombre, final List<com.google.firebase.Timestamp> fechas) {
 
         if (TextUtils.isEmpty(lugarNombre) || fechas == null || fechas.isEmpty()) {
             return com.google.android.gms.tasks.Tasks.forResult(false);
         }
 
-        java.util.List<com.google.android.gms.tasks.Task<com.google.firebase.firestore.QuerySnapshot>> checks = new java.util.ArrayList<>();
-        com.google.firebase.firestore.FirebaseFirestore fdb = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+        List<com.google.android.gms.tasks.Task<com.google.firebase.firestore.QuerySnapshot>> checks = new ArrayList<>();
+        FirebaseFirestore fdb = FirebaseFirestore.getInstance();
 
         for (com.google.firebase.Timestamp ts : fechas) {
-            checks.add(
-                    fdb.collectionGroup("citas")
-                            .whereEqualTo("startAt", ts)
-                            .get()
-            );
-            checks.add(
-                    fdb.collection("citas")
-                            .whereEqualTo("startAt", ts)
-                            .get()
-            );
-            checks.add(
-                    fdb.collection("citas")
-                            .whereEqualTo("fecha", ts)
-                            .get()
-            );
+            checks.add(fdb.collectionGroup("citas").whereEqualTo("startAt", ts).get());
+            // colecciones alternativas por compat
+            checks.add(fdb.collection("citas").whereEqualTo("startAt", ts).get());
+            checks.add(fdb.collection("citas").whereEqualTo("fecha", ts).get());
         }
 
         return com.google.android.gms.tasks.Tasks.whenAllComplete(checks)
                 .continueWith(task -> {
-                    java.util.List<?> all = task.getResult();
-                    if (all == null || all.isEmpty()) {
-                        return false;
-                    }
+                    List<?> all = task.getResult();
+                    if (all == null || all.isEmpty()) return false;
 
                     for (Object o : all) {
                         if (!(o instanceof com.google.android.gms.tasks.Task)) continue;
                         com.google.android.gms.tasks.Task<?> t = (com.google.android.gms.tasks.Task<?>) o;
-
-                        if (!t.isSuccessful()) {
-                            continue;
-                        }
+                        if (!t.isSuccessful()) continue;
 
                         Object res = t.getResult();
                         if (!(res instanceof com.google.firebase.firestore.QuerySnapshot)) continue;
-
                         com.google.firebase.firestore.QuerySnapshot qs = (com.google.firebase.firestore.QuerySnapshot) res;
+
                         for (com.google.firebase.firestore.DocumentSnapshot d : qs.getDocuments()) {
                             String lugarDoc = d.getString("lugarNombre");
                             if (lugarDoc == null) lugarDoc = d.getString("lugar");
-                            if (lugarNombre.equals(lugarDoc)) {
-                                return true; // ⚠️ conflicto
-                            }
+                            if (lugarNombre.equals(lugarDoc)) return true; // ⚠️ conflicto
                         }
                     }
                     return false;
@@ -660,7 +842,6 @@ public class ActivityFormFragment extends Fragment {
         return idx >= 0 ? last.substring(idx + 1) : last;
     }
 
-    // 👇 NUEVO: nombre real (DISPLAY_NAME) del SAF con fallback
     private String getDisplayName(Uri uri) {
         String fallback = obtenerNombreArchivo(uri);
         try (Cursor c = requireContext().getContentResolver()
@@ -673,7 +854,6 @@ public class ActivityFormFragment extends Fragment {
         return fallback == null ? "archivo" : fallback;
     }
 
-    // 👇 NUEVO: MIME type seguro
     @Nullable
     private String getMime(Uri uri) {
         try { return requireContext().getContentResolver().getType(uri); }
@@ -681,15 +861,18 @@ public class ActivityFormFragment extends Fragment {
     }
 
     private String getText(TextInputEditText et) {
-        return et.getText() == null ? "" : et.getText().toString().trim();
+        return (et == null || et.getText() == null) ? "" : et.getText().toString().trim();
     }
 
-    /** Convierte "a, b; c | d" en lista ["a","b","c","d"], sin duplicados y con trim */
+    private String getText(AutoCompleteTextView ac) {
+        return (ac == null || ac.getText() == null) ? "" : ac.getText().toString().trim();
+    }
+
     private List<String> splitToList(String text) {
         List<String> out = new ArrayList<>();
         if (TextUtils.isEmpty(text)) return out;
         String[] tokens = text.split("[,;|\\n]+");
-        java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
+        LinkedHashSet<String> set = new LinkedHashSet<>();
         for (String t : tokens) {
             String s = t == null ? "" : t.trim();
             if (!s.isEmpty()) set.add(s);

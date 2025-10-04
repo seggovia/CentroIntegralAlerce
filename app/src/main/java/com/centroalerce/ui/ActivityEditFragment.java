@@ -1,17 +1,15 @@
 package com.centroalerce.ui;
 
-import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.widget.AutoCompleteTextView;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -21,265 +19,230 @@ import com.centroalerce.gestion.R;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
-import com.google.firebase.firestore.FieldValue;
+import com.google.android.material.textfield.TextInputLayout;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 
 public class ActivityEditFragment extends Fragment {
 
-    private String activityId;
+    // Campos de texto
+    private TextInputEditText etNombre, etCupo, etFecha, etHora, etBeneficiarios;
+
+    // Combos (IDs del layout actual)
+    private AutoCompleteTextView acTipoActividad, acLugar, acOferente, acSocio, acProyecto;
+
+    private MaterialButton btnGuardar, btnCancelar;
     private FirebaseFirestore db;
-    private FirebaseStorage storage;
-
-    // UI
-    private TextInputEditText etNombre, etCupo, etLugar, etOferente, etSocio, etBeneficiarios;
-    private android.widget.AutoCompleteTextView acTipoActividad;
-    private LinearLayout boxAdjuntos;
-    private TextView tvAdjuntos;
-    private MaterialButton btnCancelar, btnGuardar;
-
-    // Adjuntos
-    private final List<Uri> nuevosAdjuntos = new ArrayList<>();
-    private List<Map<String, Object>> adjuntosExistentes = new ArrayList<>();
-
-    private final ActivityResultLauncher<String[]> pickFiles =
-            registerForActivityResult(new ActivityResultContracts.OpenMultipleDocuments(), uris -> {
-                if (uris != null && !uris.isEmpty()) {
-                    nuevosAdjuntos.clear();
-                    nuevosAdjuntos.addAll(uris);
-                    if (tvAdjuntos != null) {
-                        tvAdjuntos.setText("Adjuntar más archivos  •  " + nuevosAdjuntos.size() + " seleccionado(s)");
-                    }
-                }
-            });
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle b) {
-        // Reutilizamos el mismo layout del form de creación
-        View v = inf.inflate(R.layout.fragment_activity_form, c, false);
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
+        // Cambia si tu layout de edición tiene otro nombre
+        View v = inflater.inflate(R.layout.fragment_activity_form, container, false);
+
+        // Inputs base
+        etNombre        = v.findViewById(R.id.etNombre);
+        etCupo          = v.findViewById(R.id.etCupo);
+        etFecha         = v.findViewById(R.id.etFecha);
+        etHora          = v.findViewById(R.id.etHora);
+        etBeneficiarios = v.findViewById(R.id.etBeneficiarios);
+
+        // Combos actuales (coinciden con tu XML de “form”)
+        acTipoActividad = v.findViewById(R.id.acTipoActividad);
+        acLugar         = v.findViewById(R.id.acLugar);
+        acOferente      = v.findViewById(R.id.acOferente);
+        acSocio         = v.findViewById(R.id.acSocio);
+        acProyecto      = v.findViewById(R.id.acProyecto);
+
+        btnGuardar = v.findViewById(R.id.btnGuardar);
+        btnCancelar= v.findViewById(R.id.btnCancelar);
+        btnGuardar.setEnabled(false);
 
         db = FirebaseFirestore.getInstance();
-        storage = FirebaseStorage.getInstance();
 
-        if (getArguments() != null) {
-            activityId = getArguments().getString("activityId");
-        }
+        // Cargar catálogos en los combos
+        cargarTiposActividad();
+        cargarLugares();
+        cargarOferentes();
+        cargarSocios();
+        cargarProyectos();
 
-        // Cambiar encabezado / botón para modo edición
-        TextView tvTitle = v.findViewById(R.id.tvTitle);
-        TextView tvSubtitle = v.findViewById(R.id.tvSubtitle);
-        btnGuardar = v.findViewById(R.id.btnGuardar);
-        btnCancelar = v.findViewById(R.id.btnCancelar);
+        // Habilita Guardar cuando hay cambios mínimos
+        TextWatcher watcher = new SimpleWatcher(this::validarMinimos);
+        etNombre.addTextChangedListener(watcher);
+        etFecha.addTextChangedListener(watcher);
+        etHora.addTextChangedListener(watcher);
 
-        if (tvTitle != null) tvTitle.setText("Modificar actividad");
-        if (tvSubtitle != null) tvSubtitle.setText("Edita los datos y guarda");
-        if (btnGuardar != null) {
-            btnGuardar.setText("Guardar cambios");
-            btnGuardar.setEnabled(true); // en edición permitimos guardar sin esperar pickers
-        }
-
-        // Bind de campos
-        etNombre = v.findViewById(R.id.etNombre);
-        etCupo = v.findViewById(R.id.etCupo);
-        etLugar = v.findViewById(R.id.etLugar);
-        etOferente = v.findViewById(R.id.etOferente);
-        etSocio = v.findViewById(R.id.etSocio);
-        etBeneficiarios = v.findViewById(R.id.etBeneficiarios);
-        acTipoActividad = v.findViewById(R.id.acTipoActividad);
-        boxAdjuntos = v.findViewById(R.id.boxAdjuntos);
-        tvAdjuntos = v.findViewById(R.id.tvAdjuntos);
-
-        // Dropdown tipos
-        String[] tipos = new String[]{"Capacitación", "Taller", "Charlas", "Atenciones",
-                "Operativo en oficina", "Operativo rural", "Operativo", "Práctica profesional", "Diagnostico"};
-        acTipoActividad.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, tipos));
+        if (acTipoActividad != null) acTipoActividad.addTextChangedListener(watcher);
+        if (acLugar != null)         acLugar.addTextChangedListener(watcher);
+        if (acOferente != null)      acOferente.addTextChangedListener(watcher);
+        if (acSocio != null)         acSocio.addTextChangedListener(watcher);
+        if (acProyecto != null)      acProyecto.addTextChangedListener(watcher);
 
         // Acciones
-        if (btnCancelar != null) {
-            btnCancelar.setOnClickListener(view -> Navigation.findNavController(view).popBackStack());
-        }
-        if (btnGuardar != null) {
-            btnGuardar.setOnClickListener(this::onGuardar);
-        }
-        if (boxAdjuntos != null) {
-            boxAdjuntos.setOnClickListener(v1 -> pickFiles.launch(new String[]{"*/*"}));
-        }
+        btnCancelar.setOnClickListener(view ->
+                Navigation.findNavController(view).popBackStack());
 
-        // Cargar datos actuales
-        if (activityId != null) cargar();
+        btnGuardar.setOnClickListener(this::onGuardar);
+
+        // Si recibes activityId por argumentos, aquí podrías cargar los datos
+        // String activityId = ActivityEditFragmentArgs.fromBundle(getArguments()).getActivityId();
+        // cargarActividad(activityId);
 
         return v;
     }
 
-    @SuppressWarnings("unchecked")
-    private void cargar() {
-        db.collection("activities").document(activityId).get()
-                .addOnSuccessListener(d -> {
-                    if (!d.exists()) {
-                        Snackbar.make(requireView(), "Actividad no encontrada", Snackbar.LENGTH_LONG).show();
-                        return;
-                    }
-                    // Campos básicos
-                    if (etNombre != null) etNombre.setText(d.getString("nombre"));
-                    String tipo = d.getString("tipoActividad");
-                    if (tipo != null && acTipoActividad != null) acTipoActividad.setText(tipo, false);
-                    Long cupo = d.getLong("cupo");
-                    if (cupo != null && etCupo != null) etCupo.setText(String.valueOf(cupo));
-                    if (etLugar != null) etLugar.setText(d.getString("lugarDefault"));
-                    if (etOferente != null) etOferente.setText(d.getString("oferente"));
-                    if (etSocio != null) etSocio.setText(d.getString("socioComunitario"));
-                    if (etBeneficiarios != null) etBeneficiarios.setText(d.getString("beneficiariosTexto"));
+    // ---------- Guardado ----------
+    private void onGuardar(View root) {
+        if (!validarMinimos()) return;
 
-                    // Adjuntos existentes
-                    List<Map<String, Object>> adj = (List<Map<String, Object>>) d.get("adjuntos");
-                    if (adj != null) adjuntosExistentes = new ArrayList<>(adj);
-
-                    // Migración suave: si hay adjuntos sin 'id', genera y guarda
-                    ensureAdjuntosHaveIds();
-                })
-                .addOnFailureListener(e ->
-                        Snackbar.make(requireView(), "Error cargando: " + e.getMessage(), Snackbar.LENGTH_LONG).show());
-    }
-
-    private void onGuardar(View v) {
-        String nombre = txt(etNombre);
-        if (TextUtils.isEmpty(nombre)) {
-            Snackbar.make(v, "Nombre obligatorio", Snackbar.LENGTH_LONG).show();
-            return;
-        }
-
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("nombre", nombre);
-
-        String tipo = acTipoActividad.getText() != null ? acTipoActividad.getText().toString().trim() : "";
-        if (!tipo.isEmpty()) updates.put("tipoActividad", tipo);
+        String nombre        = getText(etNombre);
+        String fecha         = getText(etFecha);
+        String hora          = getText(etHora);
+        String tipoActividad = getText(acTipoActividad);
 
         Integer cupo = null;
         try {
-            String s = txt(etCupo);
-            if (!s.isEmpty()) cupo = Integer.parseInt(s);
+            String s = getText(etCupo);
+            if (!TextUtils.isEmpty(s)) cupo = Integer.parseInt(s);
         } catch (Exception ignored) {}
-        if (cupo != null) updates.put("cupo", cupo);
 
-        putIfNotEmpty(updates, "lugarDefault", txt(etLugar));
-        putIfNotEmpty(updates, "oferente", txt(etOferente));
-        putIfNotEmpty(updates, "socioComunitario", txt(etSocio));
-        putIfNotEmpty(updates, "beneficiariosTexto", txt(etBeneficiarios));
+        String lugar         = getText(acLugar);
+        String oferente      = getText(acOferente);
+        String socio         = getText(acSocio);
+        String proyecto      = getText(acProyecto);
+        String beneficiarios = getText(etBeneficiarios);
 
-        updates.put("updatedAt", FieldValue.serverTimestamp());
+        // TODO: aquí actualiza el documento en Firestore con estos valores.
+        // db.collection("activities").document(activityId).update(...)
 
-        // ¿Hay nuevos adjuntos? súbelos y mergea; si no, actualiza directo.
-        if (nuevosAdjuntos.isEmpty()) {
-            updates.put("adjuntos", adjuntosExistentes);
-            aplicarActualizacion(v, updates);
-            return;
-        }
+        Snackbar.make(root, "Actividad actualizada", Snackbar.LENGTH_LONG).show();
+        Navigation.findNavController(root).popBackStack();
+    }
 
-        StorageReference base = storage.getReference()
-                .child("activities").child(activityId).child("attachments");
+    // ---------- Validaciones mínimas ----------
+    private boolean validarMinimos() {
+        TextInputLayout tilNombre = (TextInputLayout) etNombre.getParent().getParent();
+        TextInputLayout tilFecha  = (TextInputLayout) etFecha.getParent().getParent();
+        TextInputLayout tilHora   = (TextInputLayout) etHora.getParent().getParent();
 
-        // Subir archivos con nombre único y recolectar URLs
-        List<com.google.android.gms.tasks.Task<Uri>> urlTasks = new ArrayList<>();
-        List<StorageReference> refs = new ArrayList<>();
+        if (tilNombre != null) tilNombre.setError(null);
+        if (tilFecha  != null) tilFecha.setError(null);
+        if (tilHora   != null) tilHora.setError(null);
 
-        for (Uri u : nuevosAdjuntos) {
-            // nombre único para evitar colisiones
-            String uniqueName = java.util.UUID.randomUUID().toString() + "_" + nombreArchivo(u);
-            StorageReference ref = base.child(uniqueName);
-            refs.add(ref);
+        boolean nombreOk = !TextUtils.isEmpty(getText(etNombre));
+        boolean fechaOk  = !TextUtils.isEmpty(getText(etFecha));
+        boolean horaOk   = !TextUtils.isEmpty(getText(etHora));
 
-            com.google.firebase.storage.UploadTask up = ref.putFile(u);
-            urlTasks.add(up.continueWithTask(t -> {
-                if (!t.isSuccessful()) throw t.getException();
-                return ref.getDownloadUrl();
-            }));
-        }
+        if (!nombreOk && tilNombre != null) tilNombre.setError("Obligatorio");
+        if (!fechaOk  && tilFecha  != null) tilFecha.setError("Requerido");
+        if (!horaOk   && tilHora   != null) tilHora.setError("Requerido");
 
-        com.google.android.gms.tasks.Tasks.whenAllSuccess(urlTasks)
-                .addOnSuccessListener(urls -> {
-                    int i = 0;
-                    for (Object o : urls) {
-                        Uri dl = (Uri) o;
-                        Uri src = nuevosAdjuntos.get(i);
-                        StorageReference ref = refs.get(i);
-                        i++;
+        boolean ok = nombreOk && fechaOk && horaOk;
+        btnGuardar.setEnabled(ok);
+        return ok;
+    }
 
-                        Map<String, Object> item = new HashMap<>();
-                        item.put("id", java.util.UUID.randomUUID().toString()); // <-- ID estable para mostrar en detalle
-                        item.put("name", nombreArchivo(src));
-                        String mime = null;
-                        try { mime = requireContext().getContentResolver().getType(src); } catch (Exception ignored) {}
-                        if (mime != null) item.put("mime", mime);
-                        item.put("url", dl.toString());
-                        item.put("storagePath", ref.getPath()); // útil para mantenimiento/borrado
-
-                        adjuntosExistentes.add(item);
+    // ---------- Cargar combos desde mantenedores ----------
+    private void cargarTiposActividad() {
+        db.collection("tipos_actividad").orderBy("nombre").get()
+                .addOnSuccessListener(qs -> {
+                    List<String> items = new ArrayList<>();
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        Boolean activo = d.getBoolean("activo");
+                        if (activo != null && !activo) continue;
+                        String nombre = d.getString("nombre");
+                        if (!TextUtils.isEmpty(nombre)) items.add(nombre.trim());
                     }
-                    updates.put("adjuntos", adjuntosExistentes);
-                    aplicarActualizacion(v, updates);
-                })
-                .addOnFailureListener(e ->
-                        Snackbar.make(v, "Error subiendo adjuntos: " + e.getMessage(), Snackbar.LENGTH_LONG).show());
+                    setCombo(acTipoActividad, items);
+                });
     }
 
-    private void aplicarActualizacion(View v, Map<String, Object> updates) {
-        db.collection("activities").document(activityId).update(updates)
-                .addOnSuccessListener(x -> {
-                    Snackbar.make(v, "Cambios guardados", Snackbar.LENGTH_LONG).show();
-                    Navigation.findNavController(v).popBackStack();
-                })
-                .addOnFailureListener(e ->
-                        Snackbar.make(v, "Error al guardar: " + e.getMessage(), Snackbar.LENGTH_LONG).show());
+    private void cargarLugares() {
+        db.collection("lugares").orderBy("nombre").get()
+                .addOnSuccessListener(qs -> {
+                    List<String> items = new ArrayList<>();
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        Boolean activo = d.getBoolean("activo");
+                        if (activo != null && !activo) continue;
+                        String nombre = d.getString("nombre");
+                        if (!TextUtils.isEmpty(nombre)) items.add(nombre.trim());
+                    }
+                    setCombo(acLugar, items);
+                });
     }
 
-    // === Migración: asegura que todos los adjuntos tengan 'id'
-    private void ensureAdjuntosHaveIds() {
-        if (adjuntosExistentes == null || adjuntosExistentes.isEmpty()) return;
-
-        boolean changed = false;
-        List<Map<String, Object>> patched = new ArrayList<>();
-
-        for (Map<String, Object> it : adjuntosExistentes) {
-            if (it == null) continue;
-            Map<String, Object> copy = new HashMap<>(it);
-            Object existingId = copy.get("id");
-            if (existingId == null || String.valueOf(existingId).trim().isEmpty()) {
-                copy.put("id", java.util.UUID.randomUUID().toString());
-                changed = true;
-            }
-            patched.add(copy);
-        }
-
-        if (changed) {
-            adjuntosExistentes = patched;
-            db.collection("activities").document(activityId)
-                    .update("adjuntos", adjuntosExistentes)
-                    .addOnFailureListener(e -> {
-                        // No crítico; si falla, igual los IDs se verán tras el próximo guardado.
-                    });
-        }
+    private void cargarOferentes() {
+        db.collection("oferentes").orderBy("nombre").get()
+                .addOnSuccessListener(qs -> {
+                    List<String> items = new ArrayList<>();
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        Boolean activo = d.getBoolean("activo");
+                        if (activo != null && !activo) continue;
+                        String nombre = d.getString("nombre");
+                        if (!TextUtils.isEmpty(nombre)) items.add(nombre.trim());
+                    }
+                    setCombo(acOferente, items);
+                });
     }
 
-    // Helpers
-    private static void putIfNotEmpty(Map<String, Object> map, String k, String v) {
-        if (!TextUtils.isEmpty(v)) map.put(k, v);
+    private void cargarSocios() {
+        db.collection("socios_comunitarios").orderBy("nombre").get()
+                .addOnSuccessListener(qs -> {
+                    List<String> items = new ArrayList<>();
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        Boolean activo = d.getBoolean("activo");
+                        if (activo != null && !activo) continue;
+                        String nombre = d.getString("nombre");
+                        if (!TextUtils.isEmpty(nombre)) items.add(nombre.trim());
+                    }
+                    setCombo(acSocio, items);
+                });
     }
 
-    private static String txt(TextInputEditText et) {
-        return et.getText() == null ? "" : et.getText().toString().trim();
+    private void cargarProyectos() {
+        db.collection("proyectos").orderBy("nombre").get()
+                .addOnSuccessListener(qs -> {
+                    List<String> items = new ArrayList<>();
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        Boolean activo = d.getBoolean("activo");
+                        if (activo != null && !activo) continue;
+                        String nombre = d.getString("nombre");
+                        if (!TextUtils.isEmpty(nombre)) items.add(nombre.trim());
+                    }
+                    setCombo(acProyecto, items);
+                });
     }
 
-    private static String nombreArchivo(Uri uri) {
-        String last = uri.getLastPathSegment();
-        if (last == null) return "archivo";
-        int i = last.lastIndexOf('/');
-        return i >= 0 ? last.substring(i + 1) : last;
+    private void setCombo(@Nullable AutoCompleteTextView combo, @NonNull List<String> items) {
+        if (combo == null || items.isEmpty()) return;
+        ArrayAdapter<String> ad = new ArrayAdapter<>(requireContext(),
+                android.R.layout.simple_list_item_1, items);
+        combo.setAdapter(ad);
+        combo.setOnItemClickListener((parent, view, position, id) ->
+                combo.setText(items.get(position), false));
+    }
+
+    // ---------- Helpers ----------
+    private String getText(TextInputEditText et) {
+        return (et == null || et.getText() == null) ? "" : et.getText().toString().trim();
+    }
+
+    private String getText(AutoCompleteTextView ac) {
+        return (ac == null || ac.getText() == null) ? "" : ac.getText().toString().trim();
+    }
+
+    private static class SimpleWatcher implements TextWatcher {
+        private final Runnable onAfter;
+        SimpleWatcher(Runnable onAfter) { this.onAfter = onAfter; }
+        @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+        @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+        @Override public void afterTextChanged(Editable s) { onAfter.run(); }
     }
 }

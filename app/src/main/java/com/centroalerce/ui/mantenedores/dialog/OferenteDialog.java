@@ -1,9 +1,8 @@
 package com.centroalerce.ui.mantenedores.dialog;
 
 import android.app.Dialog;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 
@@ -16,67 +15,71 @@ import com.centroalerce.gestion.models.Oferente;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 public class OferenteDialog extends DialogFragment {
 
-    public interface OnSave { void save(Oferente o); }
+    public interface OnGuardar { void onGuardar(Oferente o); }
 
-    @Nullable private final Oferente original;
-    @NonNull  private final OnSave onSave;
+    private final @Nullable Oferente original;
+    private final @NonNull OnGuardar callback;
 
-    public OferenteDialog(@Nullable Oferente original, @NonNull OnSave onSave){
+    public OferenteDialog(@Nullable Oferente original, @NonNull OnGuardar callback) {
         this.original = original;
-        this.onSave = onSave;
+        this.callback = callback;
     }
 
-    @NonNull
-    @Override
-    public Dialog onCreateDialog(@Nullable Bundle b) {
+    @NonNull @Override
+    public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         View v = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_oferente, null, false);
 
-        final TextInputEditText etNombre = v.findViewById(R.id.etNombre);
-        final TextInputEditText etDocente = v.findViewById(R.id.etDocente);
-        final MaterialButton btnCancelar = v.findViewById(R.id.btnCancelar);
-        final MaterialButton btnGuardar = v.findViewById(R.id.btnGuardar);
+        TextInputEditText etNombre  = v.findViewById(R.id.etNombre);
+        TextInputEditText etDocente = v.findViewById(R.id.etDocente);
+        TextInputEditText etCarrera = v.findViewById(R.id.etCarrera);
+        MaterialButton btnCancelar  = v.findViewById(R.id.btnCancelar);
+        MaterialButton btnGuardar   = v.findViewById(R.id.btnGuardar);
 
+        // Prefill si estás editando
         if (original != null) {
-            if (etNombre != null) etNombre.setText(original.getNombre());
-            if (etDocente != null) etDocente.setText(original.getDocenteResponsable());
+            if (original.getNombre() != null) etNombre.setText(original.getNombre());
+            if (original.getDocenteResponsable() != null) etDocente.setText(original.getDocenteResponsable());
+            if (original.getCarrera() != null) etCarrera.setText(original.getCarrera());
         }
 
-        final Dialog dialog = new MaterialAlertDialogBuilder(requireContext())
+        final Dialog d = new MaterialAlertDialogBuilder(requireContext())
                 .setView(v)
                 .create();
 
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        }
+        btnCancelar.setOnClickListener(x -> d.dismiss());
 
-        if (btnCancelar != null) {
-            btnCancelar.setOnClickListener(view -> dialog.dismiss());
-        }
+        btnGuardar.setOnClickListener(x -> {
+            String nombre  = safeText(etNombre);
+            String docente = safeText(etDocente);
+            String carrera = safeText(etCarrera);
 
-        if (btnGuardar != null) {
-            btnGuardar.setOnClickListener(view -> {
-                String nombre = "";
-                if (etNombre != null && etNombre.getText() != null) {
-                    nombre = etNombre.getText().toString().trim();
-                }
+            TextInputLayout tilNombre = (TextInputLayout) etNombre.getParent().getParent();
+            if (tilNombre != null) tilNombre.setError(null);
 
-                String docente = "";
-                if (etDocente != null && etDocente.getText() != null) {
-                    docente = etDocente.getText().toString().trim();
-                }
+            // ✅ Validación: nombre obligatorio
+            if (TextUtils.isEmpty(nombre)) {
+                if (tilNombre != null) tilNombre.setError("Obligatorio");
+                etNombre.requestFocus();
+                return;
+            }
 
-                Oferente o = (original == null)
-                        ? new Oferente(null, nombre, docente, true)
-                        : new Oferente(original.getId(), nombre, docente, original.isActivo());
+            Oferente o = (original != null) ? original : new Oferente();
+            o.setNombre(nombre);
+            o.setDocenteResponsable(docente);
+            o.setCarrera(carrera);
 
-                onSave.save(o);
-                dialog.dismiss();
-            });
-        }
+            callback.onGuardar(o);
+            d.dismiss();
+        });
 
-        return dialog;
+        return d;
+    }
+
+    private String safeText(TextInputEditText et) {
+        return et != null && et.getText() != null ? et.getText().toString().trim() : "";
     }
 }
