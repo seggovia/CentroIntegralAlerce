@@ -1,59 +1,93 @@
-// app/src/main/java/com/centroalerce/ui/HomeFragment.java
 package com.centroalerce.ui;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.navigation.fragment.NavHostFragment;
+import androidx.navigation.Navigation;
+
+import com.google.android.material.card.MaterialCardView;
 
 public class HomeFragment extends Fragment {
 
-    private int resId(View v, String name, String defType) {
-        return v.getResources().getIdentifier(name, defType, v.getContext().getPackageName());
+    private int resId(String name, String defType) {
+        return requireContext().getResources()
+                .getIdentifier(name, defType, requireContext().getPackageName());
     }
-    private int id(View v, String name) { return resId(v, name, "id"); }
+
+    private int id(String name) {
+        return resId(name, "id");
+    }
+
+    private int layout(String name) {
+        return resId(name, "layout");
+    }
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle b) {
-        int layoutId = requireContext().getResources()
-                .getIdentifier("fragment_home", "layout", requireContext().getPackageName());
-        return inf.inflate(layoutId, c, false);
+        return inf.inflate(layout("fragment_home"), c, false);
     }
 
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle b) {
-        LinearLayout btnCrearActividad = v.findViewById(id(v, "btnCrearActividad"));
-        LinearLayout btnMantenedores   = v.findViewById(id(v, "btnMantenedores"));
-        LinearLayout btnCalendario     = v.findViewById(id(v, "btnCalendario"));
-        TextView     btnVerTodas       = v.findViewById(id(v, "btnVerTodas"));
+        super.onViewCreated(v, b);
 
-        if (btnCrearActividad != null)
-            btnCrearActividad.setOnClickListener(x -> navigateByName(v, "activityFormFragment"));
+        // USAR MaterialCardView en lugar de LinearLayout
+        MaterialCardView btnCrearActividad = v.findViewById(id("btnCrearActividad"));
+        MaterialCardView btnMantenedores   = v.findViewById(id("btnMantenedores"));
+        MaterialCardView btnCalendario     = v.findViewById(id("btnCalendario"));
+        MaterialCardView btnActividades    = v.findViewById(id("btnActividades"));
+        TextView btnVerTodas = v.findViewById(id("btnVerTodas"));
 
-        if (btnMantenedores != null)
-            btnMantenedores.setOnClickListener(x -> navigateByName(v, "maintainersFragment"));
+        if (btnCrearActividad != null) {
+            btnCrearActividad.setOnClickListener(x -> {
+                int destId = id("activityFormFragment");
+                if (destId != 0) {
+                    Navigation.findNavController(v).navigate(destId);
+                }
+            });
+        }
 
-        if (btnCalendario != null)
-            btnCalendario.setOnClickListener(x -> navigateByName(v, "calendarFragment"));
+        if (btnMantenedores != null) {
+            btnMantenedores.setOnClickListener(x -> {
+                int destId = id("maintainersFragment");
+                if (destId != 0) {
+                    Navigation.findNavController(v).navigate(destId);
+                }
+            });
+        }
 
-        if (btnVerTodas != null)
-            btnVerTodas.setOnClickListener(x -> navigateByName(v, "activitiesListFragment"));
-    }
+        if (btnCalendario != null) {
+            btnCalendario.setOnClickListener(x -> {
+                int destId = id("calendarFragment");
+                if (destId != 0) {
+                    Navigation.findNavController(v).navigate(destId);
+                }
+            });
+        }
 
-    private void navigateByName(View v, String destName) {
-        int destId = resId(v, destName, "id");
-        if (destId != 0) {
-            NavHostFragment.findNavController(this).navigate(destId);
-        } else {
-            // Si quieres, muestra un log/toast aquí para depurar
+        if (btnActividades != null) {
+            btnActividades.setOnClickListener(x -> {
+                int destId = id("activitiesListFragment");
+                if (destId != 0) {
+                    Navigation.findNavController(v).navigate(destId);
+                }
+            });
+        }
+
+        if (btnVerTodas != null) {
+            btnVerTodas.setOnClickListener(x -> {
+                int destId = id("activitiesListFragment");
+                if (destId != 0) {
+                    Navigation.findNavController(v).navigate(destId);
+                }
+            });
         }
     }
 }

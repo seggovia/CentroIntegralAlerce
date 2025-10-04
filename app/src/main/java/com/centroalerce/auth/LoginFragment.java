@@ -32,9 +32,7 @@ public class LoginFragment extends Fragment {
         etPass  = v.findViewById(R.id.etPass);
         btnLogin= v.findViewById(R.id.btnLogin);
         TextView tvForgot = v.findViewById(R.id.tvForgot);
-        //MaterialButton btnCrear = v.findViewById(R.id.btnCrearCuenta);
-        //TextView tvCreateFromLink = v.findViewById(R.id.tvCreateFromLink);
-        //TextView tvCreateInlineLink = v.findViewById(R.id.tvCreateInlineLink);
+        TextView tvContacto = v.findViewById(R.id.tvContacto);
 
         TextWatcher watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -51,8 +49,11 @@ public class LoginFragment extends Fragment {
 
         btnLogin.setOnClickListener(x -> doLogin(v));
         tvForgot.setOnClickListener(x -> doForgot());
-        //btnCrear.setOnClickListener(x -> openSignup(v));
-        //tvCreateInlineLink.setOnClickListener(x -> openSignup(v));
+
+        // Navegar a contacto/soporte
+        if (tvContacto != null) {
+            tvContacto.setOnClickListener(x -> openContactSupport(v));
+        }
 
         return v;
     }
@@ -73,7 +74,7 @@ public class LoginFragment extends Fragment {
                 btnLogin.setEnabled(true);
                 if (task.isSuccessful()) {
                     // Navegar a Home
-                    Navigation.findNavController(root).navigate(R.id.homeFragment);
+                    Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_homeFragment);
                 } else {
                     Toast.makeText(getContext(), "Error: " +
                         task.getException().getMessage(), Toast.LENGTH_LONG).show();
@@ -82,7 +83,7 @@ public class LoginFragment extends Fragment {
         */
         // DEMO sin Firebase:
         Toast.makeText(getContext(),"Login demo", Toast.LENGTH_SHORT).show();
-        Navigation.findNavController(root).navigate(R.id.homeFragment);
+        Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_homeFragment);
     }
 
     private void doForgot(){
@@ -99,8 +100,10 @@ public class LoginFragment extends Fragment {
     }
 
     private void openSignup(View root){
-        // TODO: navegar a SignupFragment cuando lo tengas
-        Toast.makeText(getContext(),"Abrir Crear cuenta (por implementar)", Toast.LENGTH_SHORT).show();
-        // Navigation.findNavController(root).navigate(R.id.signupFragment);
+        Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_signupFragment);
+    }
+
+    private void openContactSupport(View root){
+        Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_contactSupportFragment);
     }
 }

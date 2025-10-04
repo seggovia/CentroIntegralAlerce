@@ -4,19 +4,19 @@
     <item>
         <shape android:shape="rectangle">
             <gradient
-                android:startColor="@color/greenSoftBgStart"
-                android:endColor="@color/greenSoftBgEnd"
+                android:startColor="@color/background"
+                android:endColor="@color/surface"
                 android:angle="135" />
         </shape>
     </item>
 
-    <!-- mancha diagonal clara para darle “onda” -->
+    <!-- mancha diagonal clara para darle "onda" -->
     <item android:gravity="top|end">
         <shape android:shape="rectangle">
             <size android:width="320dp" android:height="320dp"/>
             <corners android:radius="48dp"/>
             <gradient
-                android:startColor="@color/greenSoftSpot"
+                android:startColor="@color/avatarBg"
                 android:endColor="@android:color/transparent"
                 android:angle="315" />
         </shape>

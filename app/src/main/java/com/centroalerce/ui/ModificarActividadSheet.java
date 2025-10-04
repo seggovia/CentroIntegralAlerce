@@ -54,6 +54,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     private int layout(String layoutName) { return resId(layoutName, "layout"); }
 
     private DocumentReference actRef(boolean preferEN) {
+        // VALIDACIÓN CRÍTICA: asegurar que actividadId no sea null o vacío
+        if (actividadId == null || actividadId.trim().isEmpty()) {
+            throw new IllegalStateException("actividadId no puede ser null o vacío");
+        }
         return FirebaseFirestore.getInstance()
                 .collection(preferEN ? COL_EN : COL_ES)
                 .document(actividadId);
@@ -72,7 +76,20 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
 
-        actividadId = (getArguments() != null) ? getArguments().getString("actividadId", "") : "";
+        // OBTENER actividadId ANTES de usarlo
+        if (getArguments() != null) {
+            actividadId = getArguments().getString("actividadId", "");
+        } else {
+            actividadId = "";
+        }
+
+        // VALIDAR que existe el ID antes de continuar
+        if (actividadId == null || actividadId.trim().isEmpty()) {
+            toast("Error: ID de actividad no válido");
+            dismiss();
+            return;
+        }
+
         db = FirebaseFirestore.getInstance();
 
         // Bind
@@ -84,7 +101,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         actOferente    = v.findViewById(id("actOferente"));
         btnGuardar     = v.findViewById(id("btnGuardarCambios"));
 
-        // Opciones simples (si usas adapters propios, puedes quitarlos)
+        // Opciones simples
         setSimpleDropdown(actTipo, Arrays.asList(
                 "Capacitación", "Taller", "Charlas", "Atenciones",
                 "Operativo en oficina", "Operativo rural", "Operativo",
@@ -94,11 +111,17 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
         // Carga datos (intenta EN→ES)
         actRef(true).get().addOnSuccessListener(doc -> {
-            if (doc != null && doc.exists()) bindDoc(doc);
-            else actRef(false).get().addOnSuccessListener(this::bindDoc);
-        }).addOnFailureListener(e -> toast("No se pudo cargar la actividad"));
+            if (doc != null && doc.exists()) {
+                bindDoc(doc);
+            } else {
+                actRef(false).get().addOnSuccessListener(this::bindDoc)
+                        .addOnFailureListener(e -> toast("Actividad no encontrada"));
+            }
+        }).addOnFailureListener(e -> toast("No se pudo cargar la actividad: " + e.getMessage()));
 
-        btnGuardar.setOnClickListener(view -> guardarCambios());
+        if (btnGuardar != null) {
+            btnGuardar.setOnClickListener(view -> guardarCambios());
+        }
     }
 
     private void bindDoc(DocumentSnapshot doc) {
@@ -128,12 +151,12 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 doc.getString("oferenteNombre")
         );
 
-        if (nombre != null) etNombre.setText(nombre);
-        if (cupo != null)   etCupo.setText(String.valueOf(cupo));
-        if (tipo != null)   actTipo.setText(tipo, false);
-        if (periodicidad != null) actPeriodicidad.setText(periodicidad, false);
-        if (lugar != null)  actLugar.setText(lugar, false);
-        if (oferente != null) actOferente.setText(oferente, false);
+        if (nombre != null && etNombre != null) etNombre.setText(nombre);
+        if (cupo != null && etCupo != null)   etCupo.setText(String.valueOf(cupo));
+        if (tipo != null && actTipo != null)   actTipo.setText(tipo, false);
+        if (periodicidad != null && actPeriodicidad != null) actPeriodicidad.setText(periodicidad, false);
+        if (lugar != null && actLugar != null)  actLugar.setText(lugar, false);
+        if (oferente != null && actOferente != null) actOferente.setText(oferente, false);
     }
 
     private void guardarCambios() {
@@ -164,7 +187,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         if (cupo != null) updates.put("cupo", cupo);
         if (!TextUtils.isEmpty(lugar)) updates.put("lugarNombre", lugar);
         if (!TextUtils.isEmpty(oferente)) {
-            // mantenemos ambos por compatibilidad
             updates.put("oferente", oferente);
             updates.put("oferentes", Arrays.asList(oferente));
         }
@@ -176,14 +198,13 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             ref.update(updates)
                     .addOnSuccessListener(unused -> {
                         toast("Actividad actualizada");
-                        // Notifica para que quien abrió el sheet refresque (si quiere escuchar)
                         Bundle res = new Bundle();
                         res.putBoolean("actividad_modificada", true);
                         getParentFragmentManager().setFragmentResult("actividad_change", res);
                         dismiss();
                     })
                     .addOnFailureListener(e -> toast("Error al actualizar: " + e.getMessage()));
-        }).addOnFailureListener(e -> toast("Error al localizar la actividad"));
+        }).addOnFailureListener(e -> toast("Error al localizar la actividad: " + e.getMessage()));
     }
 
     // ---- utils ----
@@ -195,9 +216,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     }
 
     private String textOf(EditText et) {
-        return et.getText() == null ? "" : et.getText().toString().trim();
+        return et == null || et.getText() == null ? "" : et.getText().toString().trim();
     }
     private String textOf(AutoCompleteTextView act) {
+        if (act == null) return "";
         CharSequence cs = act.getText();
         return cs == null ? "" : cs.toString().trim();
     }
@@ -208,5 +230,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         return null;
     }
 
-    private void toast(String m) { Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }
+    private void toast(String m) {
+        Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show();
+    }
 }

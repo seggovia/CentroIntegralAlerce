@@ -61,7 +61,8 @@ public class ActivityFormFragment extends Fragment {
     private MaterialButton btnPuntual, btnPeriodica, btnCancelar, btnGuardar;
     private android.widget.AutoCompleteTextView acTipoActividad;
 
-    private LinearLayout boxAdjuntos;
+    private com.google.android.material.card.MaterialCardView boxAdjuntos;
+
     private TextView tvAdjuntos;
 
     private final List<Timestamp> citasPeriodicas = new ArrayList<>();

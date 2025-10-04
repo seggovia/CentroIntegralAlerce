@@ -43,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
             boolean hide =
                     id == R.id.loginFragment ||
                             id == R.id.signupFragment ||
+                            id == R.id.contactSupportFragment ||
                             id == R.id.activityFormFragment ||
                             id == R.id.activityRescheduleFragment ||
                             id == R.id.detalleActividadFragment ||

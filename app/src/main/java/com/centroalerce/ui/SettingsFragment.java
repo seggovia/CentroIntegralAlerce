@@ -19,6 +19,9 @@ public class SettingsFragment extends Fragment {
         // Acceso a mantenedores desde configuración
         v.findViewById(R.id.cardMantenedores).setOnClickListener(
                 x -> Navigation.findNavController(v).navigate(R.id.maintainersFragment));
+        v.findViewById(R.id.cardPerfil).setOnClickListener(view -> {
+            Navigation.findNavController(v).navigate(R.id.perfilFragment);
+        });
 
         // Aquí podría ir cerrar sesión, cambiar idioma, etc.
         return v;
