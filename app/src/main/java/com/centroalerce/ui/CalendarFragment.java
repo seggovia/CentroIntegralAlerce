@@ -1,5 +1,6 @@
 package com.centroalerce.ui;
 
+import android.content.res.ColorStateList; // 👈 NUEVO
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -9,6 +10,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat; // 👈 NUEVO
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -17,7 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.centroalerce.gestion.R;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-// ===== NUEVO: Firebase / Firestore =====
+// ===== Firebase / Firestore =====
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -31,7 +33,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*; // List, Map, HashMap, etc.
+import java.util.*;
 
 public class CalendarFragment extends Fragment {
 
@@ -48,7 +50,11 @@ public class CalendarFragment extends Fragment {
     // Firestore
     private FirebaseFirestore db;
     private ListenerRegistration weekListener;
+
+    // Cache de nombres de actividad
     private final Map<String, String> activityNameCache = new HashMap<>();
+    // listeners por actividad para refrescar nombres al vuelo
+    private final Map<String, ListenerRegistration> activityNameRegs = new HashMap<>();
 
     @Nullable
     @Override
@@ -87,7 +93,6 @@ public class CalendarFragment extends Fragment {
         rvEventos.setItemAnimator(null);
 
         eventAdapter = new EventAdapter(new ArrayList<>(), event -> {
-            // ✅ ahora pasamos los IDs correctos
             ActivityDetailBottomSheet sheet = ActivityDetailBottomSheet.newInstance(
                     event.activityId,
                     event.citaId
@@ -109,6 +114,27 @@ public class CalendarFragment extends Fragment {
         // FAB crear actividad
         fab.setOnClickListener(x -> Navigation.findNavController(v).navigate(R.id.activityFormFragment));
 
+        // 👇 NUEVO: refrescar calendario y lista al guardar cambios en otra pantalla
+        getParentFragmentManager().setFragmentResultListener(
+                "calendar_refresh", getViewLifecycleOwner(),
+                (req, bundle) -> refreshFromExternalChange()
+        );
+        // También si algún sitio solo emite "actividad_change"
+        getParentFragmentManager().setFragmentResultListener(
+                "actividad_change", getViewLifecycleOwner(),
+                (req, bundle) -> refreshFromExternalChange()
+        );
+
+        // 👇 NUEVO: escuchar también los eventos emitidos a nivel de Activity
+        requireActivity().getSupportFragmentManager().setFragmentResultListener(
+                "calendar_refresh", getViewLifecycleOwner(),
+                (req, bundle) -> refreshFromExternalChange()
+        );
+        requireActivity().getSupportFragmentManager().setFragmentResultListener(
+                "actividad_change", getViewLifecycleOwner(),
+                (req, bundle) -> refreshFromExternalChange()
+        );
+
         fillWeek();
         return v;
     }
@@ -120,6 +146,21 @@ public class CalendarFragment extends Fragment {
             weekListener.remove();
             weekListener = null;
         }
+        clearActivityNameListeners();
+    }
+
+    private void refreshFromExternalChange() {
+        // Limpia caches y vuelve a suscribirse a la semana actual para pintar cambios al instante
+        activityNameCache.clear();
+        clearActivityNameListeners();
+        fillWeek();
+    }
+
+    private void clearActivityNameListeners() {
+        for (ListenerRegistration r : activityNameRegs.values()) {
+            try { r.remove(); } catch (Exception ignore) {}
+        }
+        activityNameRegs.clear();
     }
 
     private void applyAdaptiveLayoutForWeek() {
@@ -221,7 +262,11 @@ public class CalendarFragment extends Fragment {
                     if (snap == null) return;
 
                     Map<LocalDate, List<EventItem>> map = new HashMap<>();
-                    mapSnapshotToWeekEvents(snap, map);
+                    Set<String> activityIdsInWeek = new HashSet<>();
+
+                    mapSnapshotToWeekEvents(snap, map, activityIdsInWeek);
+
+                    ensureActivityNameListeners(activityIdsInWeek);
 
                     weekEvents.clear();
                     weekEvents.putAll(map);
@@ -230,8 +275,75 @@ public class CalendarFragment extends Fragment {
                 });
     }
 
+    // crea/actualiza listeners para actividades referenciadas en la semana
+    private void ensureActivityNameListeners(Set<String> activityIdsInWeek) {
+        // Eliminar listeners de actividades que ya no están visibles esta semana
+        Iterator<Map.Entry<String, ListenerRegistration>> it = activityNameRegs.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, ListenerRegistration> e = it.next();
+            String key = e.getKey(); // formato "EN:ID" o "ES:ID"
+            String id = key.substring(3);
+            if (!activityIdsInWeek.contains(id)) {
+                try { e.getValue().remove(); } catch (Exception ignore) {}
+                it.remove();
+            }
+        }
+
+        // Crear listeners para nuevas actividades (EN y ES)
+        for (String actId : activityIdsInWeek) {
+            if (actId == null) continue;
+
+            String keyEN = "EN:" + actId;
+            String keyES = "ES:" + actId;
+
+            if (!activityNameRegs.containsKey(keyEN)) {
+                ListenerRegistration regEN = db.collection("activities").document(actId)
+                        .addSnapshotListener((doc, e) -> {
+                            if (e != null) return;
+                            if (doc != null && doc.exists()) {
+                                String name = firstNonEmpty(doc.getString("nombre"),
+                                        doc.getString("titulo"),
+                                        doc.getString("name"));
+                                if (name != null && !name.equals(activityNameCache.get(actId))) {
+                                    activityNameCache.put(actId, name);
+                                    loadEventsFor(selectedDay);
+                                }
+                            }
+                        });
+                activityNameRegs.put(keyEN, regEN);
+            }
+
+            if (!activityNameRegs.containsKey(keyES)) {
+                ListenerRegistration regES = db.collection("actividades").document(actId)
+                        .addSnapshotListener((doc, e) -> {
+                            if (e != null) return;
+                            if (doc != null && doc.exists()) {
+                                String name = firstNonEmpty(doc.getString("nombre"),
+                                        doc.getString("titulo"),
+                                        doc.getString("name"));
+                                if (name != null && !name.equals(activityNameCache.get(actId))) {
+                                    activityNameCache.put(actId, name);
+                                    loadEventsFor(selectedDay);
+                                }
+                            }
+                        });
+                activityNameRegs.put(keyES, regES);
+            }
+        }
+    }
+
+
     private void mapSnapshotToWeekEvents(@NonNull QuerySnapshot snap,
                                          @NonNull Map<LocalDate, List<EventItem>> map) {
+        // método viejo preservado para compatibilidad
+        Set<String> ignore = new HashSet<>();
+        mapSnapshotToWeekEvents(snap, map, ignore);
+    }
+
+    // versión que también colecta activityIds para listeners de nombres
+    private void mapSnapshotToWeekEvents(@NonNull QuerySnapshot snap,
+                                         @NonNull Map<LocalDate, List<EventItem>> map,
+                                         @NonNull Set<String> activityIdsOut) {
         for (DocumentSnapshot doc : snap.getDocuments()) {
             Timestamp startTs = doc.getTimestamp("startAt");
 
@@ -239,7 +351,7 @@ public class CalendarFragment extends Fragment {
                 String fecha = doc.getString("fecha");
                 String hora  = doc.getString("horaInicio");
                 try {
-                    LocalDate d = LocalDate.parse(fecha);
+                    java.time.LocalDate d = java.time.LocalDate.parse(fecha);
                     String[] hhmm = (hora != null) ? hora.split(":") : new String[]{"00","00"};
                     ZonedDateTime zdt = d.atTime(
                             Integer.parseInt(hhmm[0]),
@@ -262,16 +374,21 @@ public class CalendarFragment extends Fragment {
             if (lugarNombre == null) lugarNombre = "Lugar";
 
             String activityId = getActivityIdFromRef(doc.getReference());
-            String citaId = doc.getId(); // ✅
+            String citaId = doc.getId();
 
+            // Título: 'titulo' de la cita si existe, si no, nombre de la actividad (cache/listener lo actualizarán)
             String titulo = doc.getString("titulo");
             if (titulo == null) titulo = getActivityNameSync(activityId);
 
-            // ✅ EventItem ahora incluye activityId y citaId
-            EventItem item = new EventItem(horaStr, titulo, lugarNombre, activityId, citaId);
+            String estado = doc.getString("estado");
+            if (estado == null) estado = "programada";
+
+            EventItem item = new EventItem(horaStr, titulo, lugarNombre, estado, activityId, citaId);
 
             LocalDate key = local.toLocalDate();
             map.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
+
+            if (activityId != null) activityIdsOut.add(activityId);
         }
     }
 
@@ -285,31 +402,44 @@ public class CalendarFragment extends Fragment {
         }
     }
 
+    @Nullable
     private String getActivityNameSync(@Nullable String activityId) {
         if (activityId == null) return "Actividad";
         String cached = activityNameCache.get(activityId);
         if (cached != null) return cached;
 
+        // Consulta puntual EN y luego ES
         db.collection("activities").document(activityId).get()
                 .addOnSuccessListener(doc -> {
-                    String name = doc.getString("nombre");
+                    String name = firstNonEmpty(doc.getString("nombre"), doc.getString("titulo"), doc.getString("name"));
                     if (name != null) {
                         activityNameCache.put(activityId, name);
                         loadEventsFor(selectedDay);
+                    } else {
+                        db.collection("actividades").document(activityId).get()
+                                .addOnSuccessListener(docEs -> {
+                                    String nameEs = firstNonEmpty(docEs.getString("nombre"), docEs.getString("titulo"), docEs.getString("name"));
+                                    if (nameEs != null) {
+                                        activityNameCache.put(activityId, nameEs);
+                                        loadEventsFor(selectedDay);
+                                    }
+                                });
                     }
                 });
         return "Actividad";
     }
 
+
     // ----------------- MODELOS / ADAPTERS -----------------
 
     public static class EventItem {
-        public final String hora, titulo, lugar;
-        public final String activityId, citaId; // ✅ nuevos
-        public EventItem(String h, String t, String l, String activityId, String citaId){
+        public final String hora, titulo, lugar, estado;
+        public final String activityId, citaId;
+        public EventItem(String h, String t, String l, String e, String activityId, String citaId){
             this.hora = h;
             this.titulo = t;
             this.lugar = l;
+            this.estado = e;
             this.activityId = activityId;
             this.citaId = citaId;
         }
@@ -320,7 +450,7 @@ public class CalendarFragment extends Fragment {
         interface OnClick { void onTap(EventItem it); }
         private final OnClick cb;
         EventAdapter(List<EventItem> d, OnClick c){data=d;cb=c;}
-        void submit(List<EventItem> d){ data.clear(); data.addAll(d); notifyDataSetChanged();}
+        void submit(List<EventItem> d){ data.clear(); data.addAll(d); notifyDataSetChanged(); }
         @NonNull @Override public EventVH onCreateViewHolder(@NonNull ViewGroup p, int vtype){
             View v = LayoutInflater.from(p.getContext()).inflate(R.layout.item_event, p, false);
             return new EventVH(v);
@@ -330,6 +460,45 @@ public class CalendarFragment extends Fragment {
             h.tvHora.setText(it.hora);
             h.tvTitulo.setText(it.titulo);
             h.tvLugar.setText(it.lugar);
+
+            String estado = it.estado == null ? "programada" : it.estado.toLowerCase(Locale.ROOT);
+            switch (estado) {
+                case "cancelada":
+                    h.tvEstado.setText("Cancelada");
+                    h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_pill)
+                    ));
+                    h.containerGradient.setBackgroundColor(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_bg)
+                    );
+                    break;
+                case "reagendada":
+                    h.tvEstado.setText("Reagendada");
+                    h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_pill)
+                    ));
+                    h.containerGradient.setBackgroundColor(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_bg)
+                    );
+                    break;
+                case "finalizada":
+                    h.tvEstado.setText("Finalizada");
+                    h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_pill)
+                    ));
+                    h.containerGradient.setBackgroundColor(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_bg)
+                    );
+                    break;
+                default:
+                    h.tvEstado.setText("Programada");
+                    h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_programada_stroke)
+                    ));
+                    h.containerGradient.setBackgroundResource(R.drawable.bg_header_gradient);
+                    break;
+            }
+
             h.itemView.setOnClickListener(x -> cb.onTap(it));
         }
         @Override public int getItemCount(){ return data.size(); }
@@ -337,11 +506,15 @@ public class CalendarFragment extends Fragment {
 
     static class EventVH extends RecyclerView.ViewHolder {
         TextView tvHora, tvTitulo, tvLugar;
+        TextView tvEstado;
+        View containerGradient;
         EventVH(@NonNull View v){
             super(v);
             tvHora  = v.findViewById(R.id.tvHora);
             tvTitulo= v.findViewById(R.id.tvNombre);
             tvLugar = v.findViewById(R.id.tvLugar);
+            tvEstado = v.findViewById(R.id.tvEstado);
+            containerGradient = v.findViewById(R.id.containerGradient);
         }
     }
 
@@ -354,7 +527,7 @@ public class CalendarFragment extends Fragment {
 
         DayAdapter(List<LocalDate> d, DayClick c){days=d;cb=c;}
 
-        void submit(List<LocalDate> d){ days.clear(); days.addAll(d); notifyDataSetChanged();}
+        void submit(List<LocalDate> d){ days.clear(); days.addAll(d); notifyDataSetChanged(); }
         void setEventDays(Set<LocalDate> set){
             eventDays.clear();
             if (set != null) eventDays.addAll(set);
@@ -399,5 +572,11 @@ public class CalendarFragment extends Fragment {
             tvNum.setText(String.valueOf(d.getDayOfMonth()));
             viewDot.setVisibility(hasEvents ? View.VISIBLE : View.GONE);
         }
+    }
+
+    private static String firstNonEmpty(String... xs) {
+        if (xs == null) return null;
+        for (String s : xs) if (s != null && !s.trim().isEmpty()) return s.trim();
+        return null;
     }
 }

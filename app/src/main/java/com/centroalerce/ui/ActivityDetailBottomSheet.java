@@ -4,15 +4,15 @@ package com.centroalerce.ui;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.text.TextUtils;
-import android.util.Log; // 👈 NUEVO
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -20,13 +20,20 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+// 👇 NUEVO: para aplicar insets de la barra de navegación
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
+import com.google.android.material.button.MaterialButton; // 👈 ya lo tenías
 import com.google.android.material.chip.Chip;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
+// 👇 NUEVO: para escuchar updates en vivo
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -41,10 +48,8 @@ import java.util.Map;
 
 public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
-    // ---------- LOG TAG ----------
-    private static final String TAG = "DetalleAdjuntos"; // 👈 NUEVO
+    private static final String TAG = "DetalleAdjuntos";
 
-    // ---------- Factory ----------
     public static ActivityDetailBottomSheet newInstance(String actividadId, String citaId) {
         ActivityDetailBottomSheet f = new ActivityDetailBottomSheet();
         Bundle b = new Bundle();
@@ -54,36 +59,41 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         return f;
     }
 
-    // ---------- Helpers para NO usar R ----------
     private int resId(String name, String defType) {
-        return requireContext()
-                .getResources()
-                .getIdentifier(name, defType, requireContext().getPackageName());
+        return requireContext().getResources().getIdentifier(name, defType, requireContext().getPackageName());
     }
     private int id(String viewIdName) { return resId(viewIdName, "id"); }
     private int layout(String layoutName) { return resId(layoutName, "layout"); }
 
     // ---------- Views ----------
     private TextView tvNombre, tvTipoYPer;
-    private Chip chFechaHora, chLugar;
+    private Chip chFechaHora, chLugar, chEstado;
     private TextView tvTipo, tvPeriodicidad, tvCupo, tvOferente, tvSocio, tvBeneficiarios;
+    private TextView tvProyecto, tvDiasAviso, tvMotivoReagendo, tvFechaReagendo, tvMotivoCancelacion, tvFechaCancelacion;
+
     private LinearLayout llAdjuntos;
-    private Button btnModificar, btnCancelar, btnReagendar, btnAdjuntar;
+    // 👇 NUEVO: tipar como MaterialButton para estilarlos correctamente
+    private MaterialButton btnModificar, btnCancelar, btnReagendar, btnAdjuntar;
 
     // ---------- Data ----------
     private String actividadId, citaId;
     private FirebaseFirestore db;
 
-    // Soporte colecciones EN/ES
+    private boolean actividadCancelada = false;
+    private boolean citaCancelada = false;
+    private String estadoActual = "programada";
+    private String actividadLugarFallback = null;
+
+    // 👇 NUEVO: listeners para datos en vivo
+    private ListenerRegistration actReg;   // escucha de actividad
+    private ListenerRegistration citaReg;  // escucha de cita
+
     private static final String COL_EN = "activities";
     private static final String COL_ES = "actividades";
     private DocumentReference act(String actividadId, boolean preferEN) {
-        return FirebaseFirestore.getInstance()
-                .collection(preferEN ? COL_EN : COL_ES)
-                .document(actividadId);
+        return FirebaseFirestore.getInstance().collection(preferEN ? COL_EN : COL_ES).document(actividadId);
     }
 
-    // ---------- Forzar fondo BLANCO sin R de tu app ----------
     @Override
     public void onStart() {
         super.onStart();
@@ -92,7 +102,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (sheet != null) sheet.setBackgroundColor(android.graphics.Color.WHITE);
     }
 
-    // ---------- Lifecycle ----------
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle s) {
@@ -115,63 +124,217 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         tvTipoYPer      = root.findViewById(id("tvTipoYPeriodicidad"));
         chFechaHora     = root.findViewById(id("chFechaHora"));
         chLugar         = root.findViewById(id("chLugar"));
+        chEstado        = root.findViewById(id("chEstado"));
+
         tvTipo          = root.findViewById(id("tvTipo"));
         tvPeriodicidad  = root.findViewById(id("tvPeriodicidad"));
         tvCupo          = root.findViewById(id("tvCupo"));
         tvOferente      = root.findViewById(id("tvOferente"));
         tvSocio         = root.findViewById(id("tvSocio"));
         tvBeneficiarios = root.findViewById(id("tvBeneficiarios"));
+
+        tvProyecto          = root.findViewById(id("tvProyecto"));
+        tvDiasAviso         = root.findViewById(id("tvDiasAviso"));
+        tvMotivoReagendo    = root.findViewById(id("tvMotivoReagendo"));
+        tvFechaReagendo     = root.findViewById(id("tvFechaReagendo"));
+        tvMotivoCancelacion = root.findViewById(id("tvMotivoCancelacion"));
+        tvFechaCancelacion  = root.findViewById(id("tvFechaCancelacion"));
+
         llAdjuntos      = root.findViewById(id("llAdjuntos"));
         btnModificar    = root.findViewById(id("btnModificar"));
         btnCancelar     = root.findViewById(id("btnCancelar"));
         btnReagendar    = root.findViewById(id("btnReagendar"));
         btnAdjuntar     = root.findViewById(id("btnAdjuntar"));
 
+        // 👇 NUEVO: reservar espacio real para la barra de navegación (usa el View con id navBarSpacer del XML)
+        View spacer = root.findViewById(id("navBarSpacer"));
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            int bottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
+            if (spacer != null) {
+                ViewGroup.LayoutParams lp = spacer.getLayoutParams();
+                lp.height = Math.max(dp(16), bottom);
+                spacer.setLayoutParams(lp);
+            }
+            return insets;
+        });
+
         if (btnModificar != null) {
-            btnModificar.setOnClickListener(v ->
-                    ModificarActividadSheet.newInstance(actividadId)
-                            .show(getParentFragmentManager(), "ModificarActividadSheet"));
+            View.OnClickListener l = v -> ModificarActividadSheet.newInstance(actividadId)
+                    .show(getParentFragmentManager(), "ModificarActividadSheet");
+            rememberClickListener(btnModificar, l);
+            btnModificar.setOnClickListener(l);
         }
         if (btnCancelar != null) {
-            btnCancelar.setOnClickListener(v ->
-                    CancelarActividadSheet.newInstance(actividadId, citaId)
-                            .show(getParentFragmentManager(), "CancelarActividadSheet"));
+            View.OnClickListener l = v -> CancelarActividadSheet.newInstance(actividadId, citaId)
+                    .show(getParentFragmentManager(), "CancelarActividadSheet");
+            rememberClickListener(btnCancelar, l);
+            btnCancelar.setOnClickListener(l);
         }
         if (btnReagendar != null) {
-            btnReagendar.setOnClickListener(v ->
-                    ReagendarActividadSheet.newInstance(actividadId, citaId)
-                            .show(getParentFragmentManager(), "ReagendarActividadSheet"));
+            View.OnClickListener l = v -> ReagendarActividadSheet.newInstance(actividadId, citaId)
+                    .show(getParentFragmentManager(), "ReagendarActividadSheet");
+            rememberClickListener(btnReagendar, l);
+            btnReagendar.setOnClickListener(l);
         }
         if (btnAdjuntar != null) {
-            btnAdjuntar.setOnClickListener(v ->
-                    AdjuntarComunicacionSheet.newInstance(actividadId)
-                            .show(getParentFragmentManager(), "AdjuntarComunicacionSheet"));
+            View.OnClickListener l = v -> AdjuntarComunicacionSheet.newInstance(actividadId)
+                    .show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
+            rememberClickListener(btnAdjuntar, l);
+            btnAdjuntar.setOnClickListener(l);
         }
 
+        // 👇 Fuerza estilos iniciales (por si el tema Material2/3 no pinta bien)
+        restyleButtonsActive();
+
+        // Listeners de resultados en el Parent FragmentManager
         getParentFragmentManager().setFragmentResultListener(
-                "adjuntos_change", this, (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
+                "adjuntos_change", getViewLifecycleOwner(),
+                (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
+        );
+
+        getParentFragmentManager().setFragmentResultListener(
+                "actividad_change", getViewLifecycleOwner(),
+                (req, bundle) -> {
+                    loadActividad(actividadId);
+                    loadCita(actividadId, citaId);
+                    loadAdjuntosAll(actividadId, citaId);
+                }
+        );
+
+        // 🔊 NUEVO: también escuchar en el SupportFragmentManager de la Activity
+        requireActivity().getSupportFragmentManager().setFragmentResultListener(
+                "adjuntos_change", getViewLifecycleOwner(),
+                (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
+        );
+
+        requireActivity().getSupportFragmentManager().setFragmentResultListener(
+                "actividad_change", getViewLifecycleOwner(),
+                (req, bundle) -> {
+                    loadActividad(actividadId);
+                    loadCita(actividadId, citaId);
+                    loadAdjuntosAll(actividadId, citaId);
+                }
         );
 
         setTextOrDash(tvNombre, "Nombre actividad");
         if (tvTipoYPer != null) tvTipoYPer.setText("Tipo • Periodicidad");
         if (chFechaHora != null) chFechaHora.setText("dd/MM/yyyy • HH:mm");
-        if (chLugar != null)      chLugar.setText("Lugar");
-        if (llAdjuntos != null) {
-            llAdjuntos.removeAllViews();
-            addNoFilesRow();
-        }
+        if (chLugar != null) chLugar.setText("Lugar");
+        if (chEstado != null) chEstado.setText("Programada");
+        if (llAdjuntos != null) { llAdjuntos.removeAllViews(); addNoFilesRow(); }
 
         db = FirebaseFirestore.getInstance();
 
-        loadActividad(actividadId);
-        loadCita(actividadId, citaId);
+        // 👇 NUEVO: suscripciones en vivo + carga inicial
+        subscribeActividad(actividadId);    // escucha cambios actividad
+        subscribeCita(actividadId, citaId); // escucha cambios cita
+        loadActividad(actividadId);         // carga inicial
+        loadCita(actividadId, citaId);      // carga inicial
         loadAdjuntosAll(actividadId, citaId);
     }
+
+    // 👇 NUEVO: liberar listeners para evitar fugas
+    @Override
+    public void onDestroyView() {
+        if (actReg != null) { actReg.remove(); actReg = null; }
+        if (citaReg != null) { citaReg.remove(); citaReg = null; }
+        super.onDestroyView();
+    }
+
+    // ====== ESTILOS BOTONES (forzar visibilidad/contraste) ======
+    private static final int COLOR_PRIMARY = 0xFF6366F1; // Indigo-500 aprox
+    private static final int COLOR_ERROR   = 0xFFDC2626; // Red-600
+    private static final int COLOR_TEXT    = 0xFF111827; // Gray-900
+    private static final int COLOR_OUTLINE = 0xFF94A3B8; // Slate-400 para deshabilitado
+
+    private void styleOutlined(MaterialButton b, int color){
+        if (b == null) return;
+        b.setStrokeColor(ColorStateList.valueOf(color));
+        b.setStrokeWidth(dp(1));
+        b.setTextColor(color);
+        b.setRippleColor(ColorStateList.valueOf((color & 0x00FFFFFF) | 0x33000000));
+        b.setIconTint(ColorStateList.valueOf(color));
+        b.setBackgroundTintList(ColorStateList.valueOf(0x00000000)); // transparente
+    }
+    private void styleFilled(MaterialButton b, int bg){
+        if (b == null) return;
+        b.setBackgroundTintList(ColorStateList.valueOf(bg));
+        b.setTextColor(0xFFFFFFFF);
+        b.setRippleColor(ColorStateList.valueOf((bg & 0x00FFFFFF) | 0x33000000));
+    }
+    private void styleOutlinedDisabled(MaterialButton b){
+        if (b == null) return;
+        b.setEnabled(false);
+        b.setAlpha(1f); // mantenemos 1f para que se "vea"; contrastamos con gris
+        styleOutlined(b, COLOR_OUTLINE);
+    }
+
+    private void restyleButtonsActive(){
+        try {
+            styleOutlined(btnModificar, COLOR_PRIMARY);
+            styleOutlined(btnReagendar, COLOR_PRIMARY);
+            styleFilled(btnAdjuntar,  COLOR_PRIMARY);
+            styleFilled(btnCancelar,  COLOR_ERROR);
+        } catch (Exception ignored) {}
+    }
+    private void restyleButtonsCanceled(){
+        try {
+            styleOutlinedDisabled(btnModificar);
+            styleOutlinedDisabled(btnReagendar);
+            // Adjuntar también bloqueado pero visible gris
+            styleOutlinedDisabled(btnAdjuntar);
+            // Cancelar permanece rojo y habilitado (si quieres bloquear, comenta abajo)
+            styleFilled(btnCancelar, COLOR_ERROR);
+            btnCancelar.setEnabled(true);
+            btnCancelar.setAlpha(1f);
+        } catch (Exception ignored) {}
+    }
+    // ====== FIN estilos ======
+
+    // ---------- Escuchas en vivo (NUEVO) ----------
+    private void subscribeActividad(String actividadId) { // 👈 NUEVO
+        if (TextUtils.isEmpty(actividadId)) return;
+        // intentamos EN, si no existe caemos a ES
+        actReg = act(actividadId, true).addSnapshotListener((doc, e) -> {
+            if (e != null) { Log.w(TAG, "listen actividad EN error", e); return; }
+            Log.d(TAG, "actividad EN snapshot recibido");
+            if (doc != null && doc.exists()) {
+                bindActividadDoc(doc);
+            } else {
+                if (actReg != null) { actReg.remove(); actReg = null; }
+                actReg = act(actividadId, false).addSnapshotListener((doc2, e2) -> {
+                    if (e2 != null) { Log.w(TAG, "listen actividad ES error", e2); return; }
+                    Log.d(TAG, "actividad ES snapshot recibido");
+                    if (doc2 != null && doc2.exists()) bindActividadDoc(doc2);
+                });
+            }
+        });
+    }
+
+    private void subscribeCita(String actividadId, String citaId) { // 👈 NUEVO
+        if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) return;
+        citaReg = act(actividadId, true).collection("citas").document(citaId)
+                .addSnapshotListener((doc, e) -> {
+                    if (e != null) { Log.w(TAG, "listen cita EN error", e); return; }
+                    Log.d(TAG, "cita EN snapshot recibido");
+                    if (doc != null && doc.exists()) {
+                        bindCitaDoc(doc);
+                    } else {
+                        if (citaReg != null) { citaReg.remove(); citaReg = null; }
+                        citaReg = act(actividadId, false).collection("citas").document(citaId)
+                                .addSnapshotListener((doc2, e2) -> {
+                                    if (e2 != null) { Log.w(TAG, "listen cita ES error", e2); return; }
+                                    Log.d(TAG, "cita ES snapshot recibido");
+                                    if (doc2 != null && doc2.exists()) bindCitaDoc(doc2);
+                                });
+                    }
+                });
+    }
+    // ---------- Fin escuchas en vivo ----------
 
     // ---------- Actividad ----------
     private void loadActividad(String actividadId) {
         if (TextUtils.isEmpty(actividadId)) return;
-
         act(actividadId, true).get()
                 .addOnSuccessListener(doc -> {
                     if (doc != null && doc.exists()) bindActividadDoc(doc);
@@ -202,21 +365,43 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         }
         String beneficiarios = joinListOrText(beneficiariosList);
 
+        String proyecto = pickString(doc, "proyectoNombre", "proyecto", "projectName");
+        Long diasAviso  = safeLong(doc.get("diasAviso"));
+        if (diasAviso == null) diasAviso = safeLong(doc.get("dias_aviso"));
+        if (diasAviso == null) diasAviso = safeLong(doc.get("diasAvisoCancelacion"));
+
+        actividadLugarFallback = pickString(doc, "lugarNombre", "lugar");
+
         setTextOrDash(tvNombre, nonEmpty(nombre, "Nombre actividad"));
         if (tvTipoYPer != null) tvTipoYPer.setText(nonEmpty(tipo, "—") + " • " + nonEmpty(periodicidad, "—"));
+        setLabeled(tvTipo, "Tipo: ", nonEmpty(tipo, "—"));
+        setLabeled(tvPeriodicidad, "Periodicidad: ", nonEmpty(periodicidad, "—"));
+        setLabeled(tvCupo, "Cupo: ", (cupo != null && cupo >= 0) ? String.valueOf(cupo) : "—");
+        setLabeled(tvOferente, "Oferente: ", nonEmpty(oferentes, "—"));
+        setLabeled(tvSocio, "Socio comunitario: ", nonEmpty(socio, "—"));
+        setLabeled(tvBeneficiarios, "Beneficiarios: ", nonEmpty(beneficiarios, "—"));
+        setLabeled(tvProyecto, "Proyecto: ", nonEmpty(proyecto, "—"));
+        setLabeled(tvDiasAviso, "Días de aviso previo: ", (diasAviso != null) ? String.valueOf(diasAviso) : "—");
 
-        setLabeled(tvTipo,         "Tipo: ",          nonEmpty(tipo, "—"));
-        setLabeled(tvPeriodicidad, "Periodicidad: ",  nonEmpty(periodicidad, "—"));
-        setLabeled(tvCupo,         "Cupo: ",          (cupo != null && cupo >= 0) ? String.valueOf(cupo) : "—");
-        setLabeled(tvOferente,     "Oferente: ",      nonEmpty(oferentes, "—"));
-        setLabeled(tvSocio,        "Socio comunitario: ", nonEmpty(socio, "—"));
-        setLabeled(tvBeneficiarios,"Beneficiarios: ", nonEmpty(beneficiarios, "—"));
+        String estado = pickString(doc, "estado", "status");
+        if (!TextUtils.isEmpty(estado)) {
+            estadoActual = estado;
+            actividadCancelada = "cancelada".equalsIgnoreCase(estado) || "canceled".equalsIgnoreCase(estado);
+        }
+        updateEstadoChip(estadoActual);
+
+        if (actividadCancelada || citaCancelada) applyCanceledStateUI();
+        else applyActiveStateUI();
+
+        // 👉 NUEVO: siempre prioriza el lugar de la ACTIVIDAD si está disponible
+        if (chLugar != null && !TextUtils.isEmpty(actividadLugarFallback)) {
+            chLugar.setText(actividadLugarFallback);
+        }
     }
 
     // ---------- Cita ----------
     private void loadCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) return;
-
         act(actividadId, true).collection("citas").document(citaId).get()
                 .addOnSuccessListener(doc -> {
                     if (doc != null && doc.exists()) bindCitaDoc(doc);
@@ -255,19 +440,36 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
         if (ts != null && chFechaHora != null) {
             ZonedDateTime local = ZonedDateTime.ofInstant(
-                    Instant.ofEpochMilli(ts.toDate().getTime()),
-                    ZoneId.systemDefault()
-            );
+                    Instant.ofEpochMilli(ts.toDate().getTime()), ZoneId.systemDefault());
             String fechaStr = local.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
             String horaStr  = local.format(DateTimeFormatter.ofPattern("HH:mm"));
             chFechaHora.setText(fechaStr + " • " + horaStr);
         }
-        if (chLugar != null) chLugar.setText(nonEmpty(lugar, "Lugar"));
+
+        // 👉 NUEVO: preferir el lugar de la ACTIVIDAD si está disponible; si no, usar el de la cita
+        if (chLugar != null) {
+            String prefer = !TextUtils.isEmpty(actividadLugarFallback) ? actividadLugarFallback : lugar;
+            if (!TextUtils.isEmpty(prefer)) chLugar.setText(prefer);
+        }
+
+        String estadoCita = firstNonEmpty(doc.getString("estado"), doc.getString("status"));
+        if (!TextUtils.isEmpty(estadoCita)) {
+            estadoActual = estadoCita;
+            updateEstadoChip(estadoActual);
+        }
+        citaCancelada = "cancelada".equalsIgnoreCase(estadoCita) || "canceled".equalsIgnoreCase(estadoCita);
+
+        if (actividadCancelada || citaCancelada) applyCanceledStateUI();
+        else applyActiveStateUI();
+
+        setLabeled(tvMotivoReagendo,    "Motivo de reagendo: ", nonEmpty(doc.getString("motivo_reagendo"), "—"));
+        setLabeled(tvFechaReagendo,     "Fecha de reagendo: ",  nonEmpty(formatTs(doc.getTimestamp("fecha_reagendo")), "—"));
+        setLabeled(tvMotivoCancelacion, "Motivo de cancelación: ", nonEmpty(doc.getString("motivo_cancelacion"), "—"));
+        setLabeled(tvFechaCancelacion,  "Fecha de cancelación: ",  nonEmpty(formatTs(doc.getTimestamp("fecha_cancelacion")), "—"));
     }
 
     // ---------- Adjuntos ----------
     private interface Done { void run(); }
-
     private void loadAdjuntosAll(String actividadId, String citaId) {
         if (llAdjuntos == null) return;
         llAdjuntos.removeAllViews();
@@ -276,7 +478,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         loadAdjuntosAllInCollection(actividadId, citaId, true, () ->
                 loadAdjuntosAllInCollection(actividadId, citaId, false, this::showPlaceholderIfEmpty));
     }
-
     private void loadAdjuntosAllInCollection(String actividadId, String citaId, boolean preferEN, Done onEmpty) {
         if (!TextUtils.isEmpty(actividadId) && !TextUtils.isEmpty(citaId)) {
             act(actividadId, preferEN).collection("citas").document(citaId).get()
@@ -297,8 +498,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                                                     stringOr(it.get("nombre"), null));
                                             String url = stringOr(it.get("url"), null);
                                             String id = stringOr(it.get("id"), null);
-                                            addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url,
-                                                    TextUtils.isEmpty(id) ? null : id);
+                                            addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, TextUtils.isEmpty(id) ? null : id);
                                             any = true;
                                         }
                                     }
@@ -307,7 +507,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                         }
                         if (any) return;
 
-                        // 👇 orden: adjuntos → archivos → attachments
                         loadAdjuntosFromCitaSubcollection(actividadId, citaId, "adjuntos", preferEN, () ->
                                 loadAdjuntosFromCitaSubcollection(actividadId, citaId, "archivos", preferEN, () ->
                                         loadAdjuntosFromCitaSubcollection(actividadId, citaId, "attachments", preferEN, () ->
@@ -318,10 +517,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             loadAdjuntosActividad(actividadId, preferEN, onEmpty);
         }
     }
-
     private void loadAdjuntosActividad(String actividadId, boolean preferEN, Done onEmpty) {
         if (TextUtils.isEmpty(actividadId)) { onEmpty.run(); return; }
-
         act(actividadId, preferEN).get()
                 .addOnSuccessListener(doc -> {
                     boolean any = false;
@@ -340,8 +537,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                                                 stringOr(it.get("nombre"), null));
                                         String url = stringOr(it.get("url"), null);
                                         String id = stringOr(it.get("id"), null);
-                                        addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url,
-                                                TextUtils.isEmpty(id) ? null : id);
+                                        addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, TextUtils.isEmpty(id) ? null : id);
                                         any = true;
                                     }
                                 }
@@ -349,15 +545,12 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                         }
                     }
                     if (any) return;
-
-                    // 👇 orden: adjuntos → archivos → attachments
                     loadAdjuntosFromSubcollection(actividadId, "adjuntos", preferEN, () ->
                             loadAdjuntosFromSubcollection(actividadId, "archivos", preferEN, () ->
                                     loadAdjuntosFromSubcollection(actividadId, "attachments", preferEN, onEmpty)));
                 })
                 .addOnFailureListener(e -> onEmpty.run());
     }
-
     private void loadAdjuntosFromCitaSubcollection(String actividadId, String citaId, String sub, boolean preferEN, Done onEmpty) {
         act(actividadId, preferEN).collection("citas").document(citaId)
                 .collection(sub)
@@ -378,7 +571,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 })
                 .addOnFailureListener(e -> onEmpty.run());
     }
-
     private void loadAdjuntosFromSubcollection(String actividadId, String sub, boolean preferEN, Done onEmpty) {
         act(actividadId, preferEN).collection(sub)
                 .orderBy("creadoEn", Query.Direction.DESCENDING)
@@ -398,7 +590,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 })
                 .addOnFailureListener(e -> onEmpty.run());
     }
-
     private void showPlaceholderIfEmpty() {
         if (llAdjuntos == null) return;
         if (llAdjuntos.getChildCount() == 0) addNoFilesRow();
@@ -406,10 +597,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     // ---------- UI helpers ----------
     private void addAdjuntoRow(String nombre, @Nullable String url) { addAdjuntoRow(nombre, url, null); }
-
     private void addAdjuntoRow(String nombre, @Nullable String url, @Nullable String adjuntoId) {
         if (llAdjuntos == null) return;
-
         LinearLayout item = new LinearLayout(requireContext());
         item.setOrientation(LinearLayout.VERTICAL);
         item.setPadding(0, dp(6), 0, dp(6));
@@ -471,7 +660,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         sep.setBackgroundColor(0xFFE5E7EB);
         llAdjuntos.addView(sep);
 
-        // 👇 NUEVO: log de adjunto agregado
         Log.d(TAG, "Adjunto agregado: " + nombre + " | url=" + url + (adjuntoId != null ? " | id=" + adjuntoId : ""));
     }
 
@@ -485,26 +673,96 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         llAdjuntos.addView(tv);
     }
 
-    // ---------- utils ----------
-    private void setTextOrDash(@Nullable TextView tv, @NonNull String valueOrDash) {
-        if (tv == null) return;
-        tv.setText(valueOrDash);
-        tv.setVisibility(View.VISIBLE);
-    }
-    private void setLabeled(@Nullable TextView tv, String prefix, String value) {
-        if (tv == null) return;
-        tv.setText(prefix + value);
-        tv.setVisibility(View.VISIBLE);
-    }
-    private String nonEmpty(String v, String def){ return (v == null || v.trim().isEmpty()) ? def : v; }
-
-    private @Nullable String pickString(DocumentSnapshot doc, String... keys) {
-        for (String k : keys) {
-            String v = doc.getString(k);
-            if (v != null && !v.trim().isEmpty()) return v;
+    // ---------- Estado / estilos ----------
+    private void updateEstadoChip(@Nullable String estadoRaw) {
+        if (chEstado == null) return;
+        String e = (estadoRaw == null) ? "" : estadoRaw.toLowerCase();
+        int bg, fg = 0xFFFFFFFF;
+        String text;
+        switch (e) {
+            case "cancelada":
+            case "canceled":
+                bg = 0xFFDC2626; text = "Cancelada"; break;
+            case "reagendada":
+            case "rescheduled":
+                bg = 0xFFF59E0B; text = "Reagendada"; break;
+            case "finalizada":
+            case "completed":
+                bg = 0xFF10B981; text = "Finalizada"; break;
+            default:
+                bg = 0xFF6366F1; text = "Programada"; break;
         }
-        return null;
+        chEstado.setText(text);
+        try { chEstado.setChipBackgroundColor(ColorStateList.valueOf(bg)); } catch (Exception ignored) {}
+        chEstado.setTextColor(fg);
     }
+
+    private void applyCanceledStateUI() {
+        if (tvNombre != null) {
+            tvNombre.setTextColor(0xFFB91C1C);
+            CharSequence cur = tvNombre.getText();
+            String s = (cur == null) ? "" : cur.toString();
+            if (!s.toUpperCase().contains("CANCELADA")) tvNombre.setText(s + "  (CANCELADA)");
+        }
+        if (chFechaHora != null) {
+            chFechaHora.setTextColor(0xFFFFFFFF);
+            try { chFechaHora.setChipBackgroundColor(ColorStateList.valueOf(0xFFDC2626)); } catch (Exception ignored) {}
+        }
+        if (chLugar != null) {
+            chLugar.setTextColor(0xFFFFFFFF);
+            try { chLugar.setChipBackgroundColor(ColorStateList.valueOf(0xFFEF4444)); } catch (Exception ignored) {}
+        }
+        // En vez de bajar alpha, restilamos explícito para que "se vean" grises
+        restyleButtonsCanceled();
+    }
+
+    private void applyActiveStateUI() {
+        if (tvNombre != null) tvNombre.setTextColor(0xFF111827);
+        if (chFechaHora != null) { try { chFechaHora.setChipBackgroundColor(null); chFechaHora.setTextColor(0xFF000000); } catch (Exception ignored) {} }
+        if (chLugar != null) { try { chLugar.setChipBackgroundColor(null); chLugar.setTextColor(0xFF000000); } catch (Exception ignored) {} }
+        restyleButtonsActive();
+        enableButton(btnModificar);
+        enableButton(btnReagendar);
+        enableButton(btnAdjuntar);
+        btnCancelar.setEnabled(true);
+        btnCancelar.setAlpha(1f);
+    }
+
+    private void disableButton(@Nullable View b){
+        if (b == null) return;
+        b.setEnabled(false);
+        b.setClickable(false);
+        // alpha lo maneja restyleButtonsCanceled()
+    }
+    private void enableButton(@Nullable View b){
+        if (b == null) return;
+        b.setEnabled(true);
+        b.setClickable(true);
+        b.setAlpha(1f);
+    }
+
+    private void wrapClickWithGuard(@Nullable View b){
+        if (b == null) return;
+        View.OnClickListener original = getExistingClickListener(b);
+        b.setOnClickListener(v -> {
+            if (actividadCancelada || citaCancelada) {
+                toast("Actividad/cita cancelada: no es posible editar");
+            } else if (original != null) {
+                original.onClick(v);
+            }
+        });
+    }
+    private void rememberClickListener(View b, View.OnClickListener l){ b.setTag(b.getId(), l); }
+    @Nullable private View.OnClickListener getExistingClickListener(View b){
+        Object t = b.getTag(b.getId());
+        return (t instanceof View.OnClickListener) ? (View.OnClickListener) t : null;
+    }
+
+    // ---------- utils ----------
+    private void setTextOrDash(@Nullable TextView tv, @NonNull String valueOrDash) { if (tv == null) return; tv.setText(valueOrDash); tv.setVisibility(View.VISIBLE); }
+    private void setLabeled(@Nullable TextView tv, String prefix, String value) { if (tv == null) return; tv.setText(prefix + value); tv.setVisibility(View.VISIBLE); }
+    private String nonEmpty(String v, String def){ return (v == null || v.trim().isEmpty()) ? def : v; }
+    private @Nullable String pickString(DocumentSnapshot doc, String... keys) { for (String k : keys) { String v = doc.getString(k); if (v != null && !v.trim().isEmpty()) return v; } return null; }
     private List<String> pickStringList(DocumentSnapshot doc, String[] keys) {
         for (String k : keys) {
             Object raw = doc.get(k);
@@ -537,14 +795,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         }
         return out;
     }
-    private String joinListOrText(List<String> xs) {
-        return (xs == null || xs.isEmpty()) ? "" : TextUtils.join(", ", xs);
-    }
-    private String stringOr(Object v, String def) {
-        if (v == null) return def;
-        String s = String.valueOf(v).trim();
-        return s.isEmpty() ? def : s;
-    }
+    private String joinListOrText(List<String> xs) { return (xs == null || xs.isEmpty()) ? "" : TextUtils.join(", ", xs); }
+    private String stringOr(Object v, String def) { if (v == null) return def; String s = String.valueOf(v).trim(); return s.isEmpty() ? def : s; }
     private List<String> splitToList(String text) {
         List<String> out = new ArrayList<>();
         if (TextUtils.isEmpty(text)) return out;
@@ -552,15 +804,21 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         LinkedHashSet<String> set = new LinkedHashSet<>();
         for (String t : tokens) {
             String s = (t == null) ? "" : t.trim();
-            if (!s.isEmpty()) set.add(s);
+            if (!s.isEmpty()) set.add(s);   // 👈 aquí era "st" por error
         }
         out.addAll(set);
         return out;
     }
+
     private String firstNonEmpty(String... xs) {
         if (xs == null) return null;
         for (String s : xs) if (s != null && !s.trim().isEmpty()) return s.trim();
         return null;
+    }
+    private String formatTs(@Nullable Timestamp ts){
+        if (ts == null) return null;
+        ZonedDateTime z = ZonedDateTime.ofInstant(ts.toDate().toInstant(), ZoneId.systemDefault());
+        return z.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
     }
     private void descargarConDownloadManager(String nombreArchivo, String url) {
         try {
@@ -571,15 +829,12 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, nombreArchivo);
             long enqId = dm.enqueue(req);
             toast("Descarga iniciada…");
-            // 👇 NUEVO: log de descarga encolada
             Log.d(TAG, "Descarga encolada id=" + enqId + " | archivo=" + nombreArchivo);
         } catch (Exception e) {
             toast("No se pudo iniciar la descarga");
-            // 👇 NUEVO: log de error
             Log.e(TAG, "Fallo al iniciar descarga: " + e.getMessage(), e);
         }
     }
-
     private String nombreDesdeUrl(String url) {
         if (TextUtils.isEmpty(url)) return "archivo";
         int q = url.indexOf('?');
@@ -587,10 +842,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         int idx = clean.lastIndexOf('/');
         return idx >= 0 ? clean.substring(idx + 1) : clean;
     }
-
-    private String getArg(String key) {
-        return (getArguments() != null) ? getArguments().getString(key, "") : "";
-    }
+    private String getArg(String key) { return (getArguments() != null) ? getArguments().getString(key, "") : ""; }
     private int dp(int v){ return Math.round(v * getResources().getDisplayMetrics().density); }
     private void toast(String m){ Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }
     private Long safeLong(Object v) { try { if (v instanceof Number) return ((Number) v).longValue(); } catch (Exception ignored) {} return null; }

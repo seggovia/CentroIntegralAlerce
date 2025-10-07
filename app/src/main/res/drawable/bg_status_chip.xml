@@ -1,0 +1,6 @@
+<!-- res/drawable/bg_status_chip.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="16dp"/>
+    <solid android:color="#000000"/> <!-- lo sobreescribimos por código -->
+</shape>

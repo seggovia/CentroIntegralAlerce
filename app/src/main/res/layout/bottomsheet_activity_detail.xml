@@ -6,7 +6,8 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@color/surface"
-    android:paddingBottom="16dp">
+    android:paddingBottom="16dp"
+    android:clipToPadding="false">
 
     <!-- Handle del bottom sheet -->
     <View
@@ -48,194 +49,306 @@
             android:textColor="@android:color/white"/>
     </LinearLayout>
 
-    <!-- Contenido -->
-    <LinearLayout
+    <!-- Contenido SCROLEABLE + spacer para barra de navegación -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/nsContent"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
-
-        <!-- Chips fecha/hora y lugar -->
-        <com.google.android.material.chip.ChipGroup
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chFechaHora"
-                style="@style/Widget.Material3.Chip.Suggestion"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="dd/MM/yyyy • HH:mm"
-                app:chipIcon="@android:drawable/ic_menu_recent_history"
-                app:chipIconTint="@color/primary"
-                app:chipIconVisible="true"/>
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chLugar"
-                style="@style/Widget.Material3.Chip.Suggestion"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Lugar"
-                app:chipIcon="@android:drawable/ic_menu_mylocation"
-                app:chipIconTint="@color/primary"
-                app:chipIconVisible="true"/>
-        </com.google.android.material.chip.ChipGroup>
-
-        <!-- Detalles en card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/divider"
-            app:strokeWidth="1dp"
-            app:cardBackgroundColor="@color/surface">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/tvTipo"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Tipo: —"
-                    android:textSize="14sp"
-                    android:textColor="@color/textPrimary"/>
-
-                <TextView
-                    android:id="@+id/tvPeriodicidad"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="Periodicidad: —"
-                    android:textSize="14sp"
-                    android:textColor="@color/textPrimary"/>
-
-                <TextView
-                    android:id="@+id/tvCupo"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="Cupo: —"
-                    android:textSize="14sp"
-                    android:textColor="@color/textPrimary"/>
-
-                <TextView
-                    android:id="@+id/tvOferente"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="Oferente: —"
-                    android:textSize="14sp"
-                    android:textColor="@color/textPrimary"/>
-
-                <TextView
-                    android:id="@+id/tvSocio"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="Socio comunitario: —"
-                    android:textSize="14sp"
-                    android:textColor="@color/textPrimary"/>
-
-                <TextView
-                    android:id="@+id/tvBeneficiarios"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="Beneficiarios: —"
-                    android:textSize="14sp"
-                    android:textColor="@color/textPrimary"/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Adjuntos -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Archivos adjuntos"
-            android:textStyle="bold"
-            android:textSize="15sp"
-            android:textColor="@color/textPrimary"
-            android:layout_marginBottom="8dp"/>
+        android:fillViewport="true"
+        android:clipToPadding="false">
 
         <LinearLayout
-            android:id="@+id/llAdjuntos"
+            android:id="@+id/contentInner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginBottom="20dp"/>
+            android:padding="20dp">
 
-        <!-- Botones de acción -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
+            <!-- Chips estado / fecha-hora / lugar -->
+            <com.google.android.material.chip.ChipGroup
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnModificar"
-                style="?attr/materialButtonOutlinedStyle"
-                android:text="Modificar"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                app:cornerRadius="24dp"
-                app:strokeColor="@color/primary"
-                android:textColor="@color/primary"/>
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chEstado"
+                    style="@style/Widget.Material3.Chip.Suggestion"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Programada"
+                    app:chipIcon="@android:drawable/presence_online"
+                    app:chipIconTint="@color/primary"
+                    app:chipIconVisible="true"/>
 
-            <Space
-                android:layout_width="12dp"
-                android:layout_height="wrap_content"/>
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chFechaHora"
+                    style="@style/Widget.Material3.Chip.Suggestion"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="dd/MM/yyyy • HH:mm"
+                    app:chipIcon="@android:drawable/ic_menu_recent_history"
+                    app:chipIconTint="@color/primary"
+                    app:chipIconVisible="true"/>
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnReagendar"
-                style="?attr/materialButtonOutlinedStyle"
-                android:text="Reagendar"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                app:cornerRadius="24dp"
-                app:strokeColor="@color/primary"
-                android:textColor="@color/primary"/>
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chLugar"
+                    style="@style/Widget.Material3.Chip.Suggestion"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Lugar"
+                    app:chipIcon="@android:drawable/ic_menu_mylocation"
+                    app:chipIconTint="@color/primary"
+                    app:chipIconVisible="true"/>
+            </com.google.android.material.chip.ChipGroup>
+
+            <!-- Detalles en card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp"
+                app:cardBackgroundColor="@color/surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="16dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvTipo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Tipo: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvPeriodicidad"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Periodicidad: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvCupo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Cupo: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvOferente"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Oferente: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvSocio"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Socio comunitario: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvBeneficiarios"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Beneficiarios: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvProyecto"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Proyecto: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvDiasAviso"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Días de aviso previo: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvHistorialTitulo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Historial de cambios"
+                        android:textStyle="bold"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvMotivoReagendo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Motivo de reagendo: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvFechaReagendo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Fecha de reagendo: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvMotivoCancelacion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Motivo de cancelación: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                    <TextView
+                        android:id="@+id/tvFechaCancelacion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Fecha de cancelación: —"
+                        android:textSize="14sp"
+                        android:textColor="@color/textPrimary"/>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Adjuntos -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Archivos adjuntos"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:textColor="@color/textPrimary"
+                android:layout_marginBottom="8dp"/>
+
+            <LinearLayout
+                android:id="@+id/llAdjuntos"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="20dp"/>
+
+            <!-- Botones de acción (fila 1) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <!-- OUTLINED (M3) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnModificar"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:text="MODIFICAR"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:minHeight="48dp"
+                    android:letterSpacing="0.08"
+                    android:textAllCaps="true"
+                    android:textColor="@color/primary"
+                    android:paddingHorizontal="18dp"
+                    app:cornerRadius="26dp"
+                    app:strokeColor="@color/primary"
+                    app:strokeWidth="2dp" />
+
+                <Space
+                    android:layout_width="12dp"
+                    android:layout_height="wrap_content"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnReagendar"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:text="REAGENDAR"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:minHeight="48dp"
+                    android:letterSpacing="0.08"
+                    android:textAllCaps="true"
+                    android:textColor="@color/primary"
+                    android:paddingHorizontal="18dp"
+                    app:cornerRadius="26dp"
+                    app:strokeColor="@color/primary"
+                    app:strokeWidth="2dp" />
+            </LinearLayout>
+
+            <!-- Botones de acción (fila 2) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginTop="12dp">
+
+                <!-- FILLED primario (M3) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAdjuntar"
+                    style="@style/Widget.Material3.Button"
+                    android:text="ADJUNTAR"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:minHeight="48dp"
+                    android:letterSpacing="0.08"
+                    android:textAllCaps="true"
+                    android:textColor="@android:color/white"
+                    android:paddingHorizontal="18dp"
+                    app:cornerRadius="26dp"
+                    app:backgroundTint="@color/primary" />
+
+                <Space
+                    android:layout_width="12dp"
+                    android:layout_height="wrap_content"/>
+
+                <!-- FILLED error (M3) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCancelar"
+                    style="@style/Widget.Material3.Button"
+                    android:text="CANCELAR"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:minHeight="48dp"
+                    android:letterSpacing="0.08"
+                    android:textAllCaps="true"
+                    android:textColor="@android:color/white"
+                    android:paddingHorizontal="18dp"
+                    app:cornerRadius="26dp"
+                    app:backgroundTint="@color/error" />
+            </LinearLayout>
+
+            <!-- Spacer para no quedar bajo la navbar -->
+            <View
+                android:id="@+id/navBarSpacer"
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
         </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_marginTop="12dp">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnAdjuntar"
-                android:text="Adjuntar"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                app:cornerRadius="24dp"
-                app:backgroundTint="@color/primary"
-                android:textColor="@android:color/white"/>
-
-            <Space
-                android:layout_width="12dp"
-                android:layout_height="wrap_content"/>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnCancelar"
-                android:text="Cancelar"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                app:cornerRadius="24dp"
-                app:backgroundTint="@color/error"
-                android:textColor="@android:color/white"/>
-        </LinearLayout>
-
-    </LinearLayout>
 </LinearLayout>

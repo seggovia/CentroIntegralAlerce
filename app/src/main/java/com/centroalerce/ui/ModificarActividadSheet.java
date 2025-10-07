@@ -5,232 +5,383 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.centroalerce.gestion.R;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
-import com.google.firebase.firestore.FieldValue;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.FieldValue;
 
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class ModificarActividadSheet extends BottomSheetDialogFragment {
-
-    public static ModificarActividadSheet newInstance(String actividadId) {
-        ModificarActividadSheet f = new ModificarActividadSheet();
-        Bundle b = new Bundle();
-        b.putString("actividadId", actividadId);
-        f.setArguments(b);
-        return f;
+    private static final String ARG_ACTIVIDAD_ID = "actividadId";
+    public static ModificarActividadSheet newInstance(@NonNull String actividadId){
+        Bundle b = new Bundle(); b.putString(ARG_ACTIVIDAD_ID, actividadId);
+        ModificarActividadSheet s = new ModificarActividadSheet(); s.setArguments(b); return s;
     }
 
-    private String actividadId;
-
-    private EditText etNombre, etCupo;
-    private AutoCompleteTextView actTipo, actPeriodicidad, actLugar, actOferente;
-    private Button btnGuardar;
-
-    private FirebaseFirestore db;
-
-    // Soporte colección en EN/ES (hay mezcla en el proyecto)
+    // ===== Utils Firestore multi-colección (ES/EN) =====
     private static final String COL_EN = "activities";
     private static final String COL_ES = "actividades";
-
-    private int resId(String name, String defType) {
-        return requireContext().getResources()
-                .getIdentifier(name, defType, requireContext().getPackageName());
-    }
-    private int id(String viewIdName) { return resId(viewIdName, "id"); }
-    private int layout(String layoutName) { return resId(layoutName, "layout"); }
-
-    private DocumentReference actRef(boolean preferEN) {
-        // VALIDACIÓN CRÍTICA: asegurar que actividadId no sea null o vacío
-        if (actividadId == null || actividadId.trim().isEmpty()) {
-            throw new IllegalStateException("actividadId no puede ser null o vacío");
-        }
-        return FirebaseFirestore.getInstance()
-                .collection(preferEN ? COL_EN : COL_ES)
-                .document(actividadId);
+    private DocumentReference act(String actividadId, boolean preferEN) {
+        return FirebaseFirestore.getInstance().collection(preferEN ? COL_EN : COL_ES).document(actividadId);
     }
 
-    @Nullable
-    @Override
-    public View onCreateView(@NonNull LayoutInflater inflater,
-                             @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
-        int layoutId = layout("sheet_modificar_actividad");
-        return inflater.inflate(layoutId, container, false);
+    // ===== Modelo para dropdowns con id y nombre =====
+    public static class OptionItem {
+        public final String id;
+        public final String nombre;
+        public OptionItem(String id, String nombre) {
+            this.id = id;
+            this.nombre = nombre == null ? "" : nombre;
+        }
+        @Override public String toString() { return nombre; } // lo que ve el usuario
     }
 
-    @Override
-    public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(v, savedInstanceState);
+    private FirebaseFirestore db;
+    private String actividadId;
 
-        // OBTENER actividadId ANTES de usarlo
-        if (getArguments() != null) {
-            actividadId = getArguments().getString("actividadId", "");
-        } else {
-            actividadId = "";
-        }
+    private TextInputEditText etNombre, etCupo, etBeneficiarios, etDiasAviso;
+    private AutoCompleteTextView actTipo, actPeriodicidad, actLugar, actOferente, actSocio, actProyecto;
 
-        // VALIDAR que existe el ID antes de continuar
-        if (actividadId == null || actividadId.trim().isEmpty()) {
-            toast("Error: ID de actividad no válido");
-            dismiss();
-            return;
-        }
+    // Fallbacks
+    private final String[] tiposFijos = new String[]{
+            "Capacitación","Taller","Charlas","Atenciones","Operativo en oficina","Operativo rural","Operativo","Práctica profesional","Diagnostico"
+    };
+    private final String[] periodicidades = new String[]{"Puntual","Periódica"};
 
+    @Nullable @Override
+    public View onCreateView(@NonNull LayoutInflater i, @Nullable ViewGroup c, @Nullable Bundle b) {
+        return i.inflate(R.layout.sheet_modificar_actividad, c, false);
+    }
+
+    @Override public void onViewCreated(@NonNull View v, @Nullable Bundle b) {
+        super.onViewCreated(v,b);
         db = FirebaseFirestore.getInstance();
+        actividadId = getArguments()!=null ? getArguments().getString(ARG_ACTIVIDAD_ID) : null;
 
-        // Bind
-        etNombre       = v.findViewById(id("etNombre"));
-        etCupo         = v.findViewById(id("etCupo"));
-        actTipo        = v.findViewById(id("actTipo"));
-        actPeriodicidad= v.findViewById(id("actPeriodicidad"));
-        actLugar       = v.findViewById(id("actLugar"));
-        actOferente    = v.findViewById(id("actOferente"));
-        btnGuardar     = v.findViewById(id("btnGuardarCambios"));
+        etNombre = v.findViewById(R.id.etNombre);
+        etCupo = v.findViewById(R.id.etCupo);
+        etBeneficiarios = v.findViewById(R.id.etBeneficiarios);
+        etDiasAviso = v.findViewById(R.id.etDiasAviso);
 
-        // Opciones simples
-        setSimpleDropdown(actTipo, Arrays.asList(
-                "Capacitación", "Taller", "Charlas", "Atenciones",
-                "Operativo en oficina", "Operativo rural", "Operativo",
-                "Práctica profesional", "Diagnostico"
-        ));
-        setSimpleDropdown(actPeriodicidad, Arrays.asList("PUNTUAL", "PERIODICA"));
+        actTipo = v.findViewById(R.id.actTipo);
+        actPeriodicidad = v.findViewById(R.id.actPeriodicidad);
+        actLugar = v.findViewById(R.id.actLugar);
+        actOferente = v.findViewById(R.id.actOferente);
+        actSocio = v.findViewById(R.id.actSocio);
+        actProyecto = v.findViewById(R.id.actProyecto);
 
-        // Carga datos (intenta EN→ES)
-        actRef(true).get().addOnSuccessListener(doc -> {
-            if (doc != null && doc.exists()) {
-                bindDoc(doc);
-            } else {
-                actRef(false).get().addOnSuccessListener(this::bindDoc)
-                        .addOnFailureListener(e -> toast("Actividad no encontrada"));
-            }
-        }).addOnFailureListener(e -> toast("No se pudo cargar la actividad: " + e.getMessage()));
+        // Estáticos
+        actPeriodicidad.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, periodicidades));
 
-        if (btnGuardar != null) {
-            btnGuardar.setOnClickListener(view -> guardarCambios());
+        // Dinámicos con {id, nombre}
+        cargarTiposActividad();
+        cargarColeccionAOptions("lugares", actLugar);
+        cargarColeccionAOptions("oferentes", actOferente);
+        cargarColeccionAOptionsMulti(Arrays.asList("socios_comunitarios", "socios", "sociosComunitarios"), actSocio);
+        cargarColeccionAOptions("proyectos", actProyecto);
+
+        precargar();
+
+        ((MaterialButton) v.findViewById(R.id.btnGuardarCambios)).setOnClickListener(x -> guardar());
+    }
+
+    // ================== Precargar & bind ==================
+    private void precargar(){
+        if (TextUtils.isEmpty(actividadId)) { toast("Falta actividadId"); return; }
+        act(actividadId,true).get().addOnSuccessListener(doc -> {
+            if (doc!=null && doc.exists()) bind(doc);
+            else act(actividadId,false).get().addOnSuccessListener(this::bind)
+                    .addOnFailureListener(e -> toast("No se pudo cargar"));
+        }).addOnFailureListener(e -> toast("No se pudo cargar"));
+    }
+
+    private void bind(DocumentSnapshot doc){
+        if (doc==null || !doc.exists()) return;
+
+        // Texto
+        set(etNombre, doc.getString("nombre"));
+        Long cupo = doc.getLong("cupo"); if (cupo!=null) etCupo.setText(String.valueOf(cupo));
+
+        // Tipo / Periodicidad (pueden venir en distintas claves)
+        setDropText(actTipo, firstNonEmpty(doc.getString("tipoActividad"), doc.getString("tipo")));
+        setDropText(actPeriodicidad, firstNonEmpty(doc.getString("periodicidad"), doc.getString("frecuencia")));
+
+        // Beneficiarios texto
+        String beneficiariosTxt = firstNonEmpty(doc.getString("beneficiariosTexto"));
+        if (TextUtils.isEmpty(beneficiariosTxt)) {
+            try {
+                @SuppressWarnings("unchecked")
+                List<String> lista = (List<String>) doc.get("beneficiarios");
+                if (lista != null && !lista.isEmpty()) beneficiariosTxt = TextUtils.join(", ", lista);
+            } catch (Exception ignored) {}
         }
+        if (!TextUtils.isEmpty(beneficiariosTxt)) etBeneficiarios.setText(beneficiariosTxt);
+
+        Long diasAviso = firstNonNull(doc.getLong("diasAviso"), doc.getLong("dias_aviso"),
+                doc.getLong("diasAvisoPrevio"), doc.getLong("diasAvisoCancelacion"));
+        if (diasAviso != null) etDiasAviso.setText(String.valueOf(diasAviso));
+
+        // Dropdowns por id/nombre
+        selectByIdOrName(actLugar, firstNonEmpty(doc.getString("lugar_id"), doc.getString("lugarId"), doc.getString("lugar")),
+                firstNonEmpty(doc.getString("lugarNombre"), doc.getString("lugar")));
+        selectByIdOrName(actOferente, firstNonEmpty(doc.getString("oferente_id"), doc.getString("oferenteId"), doc.getString("oferente")),
+                firstNonEmpty(doc.getString("oferenteNombre"), doc.getString("oferente")));
+        selectByIdOrName(actSocio, firstNonEmpty(doc.getString("socio_id"), doc.getString("socioId"), doc.getString("socioComunitario")),
+                firstNonEmpty(doc.getString("socio_nombre"), doc.getString("socioComunitario")));
+        selectByIdOrName(actProyecto, firstNonEmpty(doc.getString("proyecto_id"), doc.getString("project_id"), doc.getString("proyecto")),
+                firstNonEmpty(doc.getString("proyectoNombre"), doc.getString("proyecto")));
     }
 
-    private void bindDoc(DocumentSnapshot doc) {
-        if (doc == null || !doc.exists()) return;
+    // ================== Guardar ==================
+    private void guardar(){
+        String nombre = val(etNombre); if (nombre.isEmpty()){ etNombre.setError("Requerido"); return; }
+        String tipo = val(actTipo); if (tipo.isEmpty()){ actTipo.setError("Selecciona tipo"); return; }
+        String periodicidad = val(actPeriodicidad); if (periodicidad.isEmpty()){ actPeriodicidad.setError("Selecciona periodicidad"); return; }
 
-        String nombre = doc.getString("nombre");
-        Long cupo     = (doc.get("cupo") instanceof Number) ? ((Number) doc.get("cupo")).longValue() : null;
-        String tipo   = firstNonEmpty(
-                doc.getString("tipo"),
-                doc.getString("tipoActividad"),
-                doc.getString("tipo_actividad"),
-                doc.getString("tipoNombre")
-        );
-        String periodicidad = firstNonEmpty(
-                doc.getString("periodicidad"),
-                doc.getString("frecuencia"),
-                doc.getString("periodicidadNombre"),
-                doc.getString("frecuenciaNombre")
-        );
-        String lugar = firstNonEmpty(
-                doc.getString("lugarNombre"),
-                doc.getString("lugar"),
-                doc.getString("lugar_texto")
-        );
-        String oferente = firstNonEmpty(
-                doc.getString("oferente"),
-                doc.getString("oferenteNombre")
-        );
+        OptionItem lugar = selected(actLugar);
+        OptionItem oferente = selected(actOferente);
+        OptionItem socio = selected(actSocio);
+        OptionItem proyecto = selected(actProyecto);
 
-        if (nombre != null && etNombre != null) etNombre.setText(nombre);
-        if (cupo != null && etCupo != null)   etCupo.setText(String.valueOf(cupo));
-        if (tipo != null && actTipo != null)   actTipo.setText(tipo, false);
-        if (periodicidad != null && actPeriodicidad != null) actPeriodicidad.setText(periodicidad, false);
-        if (lugar != null && actLugar != null)  actLugar.setText(lugar, false);
-        if (oferente != null && actOferente != null) actOferente.setText(oferente, false);
+        String cupoStr = val(etCupo);
+        String beneficiariosTxt = val(etBeneficiarios);
+        String diasAvisoStr = val(etDiasAviso);
+
+        Map<String,Object> up = new HashMap<>();
+        up.put("nombre", nombre);
+
+        // Tipo / periodicidad (+ compat)
+        up.put("tipoActividad", tipo);
+        up.put("tipo", tipo);
+        up.put("periodicidad", periodicidad);
+        up.put("frecuencia", periodicidad);
+
+        if (!cupoStr.isEmpty()){
+            try { up.put("cupo", Integer.parseInt(cupoStr)); }
+            catch (NumberFormatException e){ etCupo.setError("Número inválido"); return; }
+        }
+
+        // Lugar
+        if (lugar != null){
+            up.put("lugar_id", lugar.id);
+            up.put("lugarId", lugar.id);
+            up.put("lugar", lugar.id);
+            up.put("lugarNombre", lugar.nombre);
+        }
+        // Oferente
+        if (oferente != null){
+            up.put("oferente_id", oferente.id);
+            up.put("oferenteId", oferente.id);
+            up.put("oferente", oferente.id);
+            up.put("oferenteNombre", oferente.nombre);
+        }
+        // Socio
+        if (socio != null){
+            up.put("socio_id", socio.id);
+            up.put("socioId", socio.id);
+            up.put("socioComunitario", socio.id);
+            up.put("socio_nombre", socio.nombre);
+        }
+        // Proyecto
+        if (proyecto != null){
+            up.put("proyecto_id", proyecto.id);
+            up.put("project_id", proyecto.id);
+            up.put("proyecto", proyecto.id);
+            up.put("proyectoNombre", proyecto.nombre);
+        }
+        // Beneficiarios texto
+        if (!beneficiariosTxt.isEmpty()) up.put("beneficiariosTexto", beneficiariosTxt);
+
+        // Días de aviso (+ compat)
+        if (!diasAvisoStr.isEmpty()) {
+            try {
+                int dias = Integer.parseInt(diasAvisoStr);
+                up.put("diasAviso", dias);
+                up.put("dias_aviso", dias);
+                up.put("diasAvisoCancelacion", dias);
+                up.put("diasAvisoPrevio", dias);
+            } catch (NumberFormatException e){ etDiasAviso.setError("Número inválido"); return; }
+        }
+
+        // 👇 Marca de actualización para disparar listeners y ordenar por fecha de actualización
+        up.put("updatedAt", FieldValue.serverTimestamp());
+
+        // Actualiza ES/EN en transacción
+        db.runTransaction(trx -> {
+            DocumentReference en = act(actividadId,true);
+            DocumentReference es = act(actividadId,false);
+
+            DocumentSnapshot dEn = trx.get(en);
+            DocumentSnapshot dEs = trx.get(es);
+
+            if (dEn.exists()) trx.update(en, up);
+            if (dEs.exists()) trx.update(es, up);
+            if (!dEn.exists() && !dEs.exists()) trx.set(en, up, SetOptions.merge());
+            return null;
+        }).addOnSuccessListener(u -> {
+            toast("Cambios guardados");
+            notifyChanged();  // Detalle + Calendario
+            dismiss();
+        }).addOnFailureListener(e -> toast("Error: "+e.getMessage()));
     }
 
-    private void guardarCambios() {
-        String nombre = textOf(etNombre);
-        String sCupo  = textOf(etCupo);
-        Integer cupo  = null;
-        try { if (!sCupo.isEmpty()) cupo = Integer.parseInt(sCupo); } catch (Exception ignored){}
 
-        String tipo         = textOf(actTipo);
-        String periodicidad = textOf(actPeriodicidad);
-        String lugar        = textOf(actLugar);
-        String oferente     = textOf(actOferente);
+    // ================== Carga de combos ==================
+    private void cargarTiposActividad(){
+        // Intenta colecciones conocidas; si no, fallback a estáticos usando id = nombre
+        List<String> cols = Arrays.asList("tipos_actividad", "tiposActividad");
+        cargarColeccionAOptionsMulti(cols, actTipo, new ArrayList<>(Arrays.asList(tiposFijos)));
+    }
 
-        if (TextUtils.isEmpty(nombre)) {
-            toast("El nombre es obligatorio");
+    private void cargarColeccionAOptions(String collection, AutoCompleteTextView view){
+        db.collection(collection).orderBy("nombre")
+                .get()
+                .addOnSuccessListener(q -> setAdapter(view, mapQueryToOptions(q)))
+                .addOnFailureListener(e -> setAdapter(view, new ArrayList<>()));
+    }
+
+    private void cargarColeccionAOptionsMulti(List<String> colecciones, AutoCompleteTextView view){
+        cargarColeccionAOptionsMulti(colecciones, view, null);
+    }
+
+    private void cargarColeccionAOptionsMulti(List<String> colecciones, AutoCompleteTextView view, @Nullable ArrayList<String> fallback){
+        if (colecciones==null || colecciones.isEmpty()){
+            if (fallback!=null && !fallback.isEmpty()){
+                ArrayList<OptionItem> xs = new ArrayList<>();
+                for (String s: fallback) xs.add(new OptionItem(s, s));
+                setAdapter(view, xs);
+            }
             return;
         }
+        String col = colecciones.get(0);
+        db.collection(col).orderBy("nombre").get()
+                .addOnSuccessListener(q -> {
+                    ArrayList<OptionItem> xs = mapQueryToOptions(q);
+                    if (!xs.isEmpty()) setAdapter(view, xs);
+                    else cargarColeccionAOptionsMulti(colecciones.subList(1, colecciones.size()), view, fallback);
+                })
+                .addOnFailureListener(e ->
+                        cargarColeccionAOptionsMulti(colecciones.subList(1, colecciones.size()), view, fallback));
+    }
 
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("nombre", nombre);
-        if (!TextUtils.isEmpty(tipo)) {
-            updates.put("tipo", tipo);
-            updates.put("tipoActividad", tipo);
+    private ArrayList<OptionItem> mapQueryToOptions(QuerySnapshot q){
+        ArrayList<OptionItem> xs = new ArrayList<>();
+        if (q!=null && !q.isEmpty()){
+            for (DocumentSnapshot d: q){
+                String id = d.getId();
+                String nombre = d.getString("nombre");
+                if (!TextUtils.isEmpty(nombre)) xs.add(new OptionItem(id, nombre));
+            }
         }
-        if (!TextUtils.isEmpty(periodicidad)) {
-            updates.put("periodicidad", periodicidad);
+        return xs;
+    }
+
+    private void setAdapter(AutoCompleteTextView view, ArrayList<OptionItem> items){
+        view.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, items));
+    }
+
+    // ================== Helpers UI ==================
+    private void set(TextInputEditText et, String v){ if (et!=null && v!=null) et.setText(v); }
+    private void setDropText(AutoCompleteTextView v, String s){ if (!TextUtils.isEmpty(s)) v.setText(s,false); }
+
+    private @Nullable OptionItem selected(@NonNull AutoCompleteTextView v) {
+        CharSequence txt = v.getText();
+        String s = (txt == null) ? "" : txt.toString().trim();
+        if (s.isEmpty() || !(v.getAdapter() instanceof ArrayAdapter)) return null;
+
+        ArrayAdapter<?> ad = (ArrayAdapter<?>) v.getAdapter();
+
+        // 1) Match exacto por nombre mostrado
+        for (int i = 0; i < ad.getCount(); i++) {
+            Object it = ad.getItem(i);
+            if (it instanceof OptionItem) {
+                OptionItem oi = (OptionItem) it;
+                if (s.equals(oi.nombre)) return oi;
+            }
         }
-        if (cupo != null) updates.put("cupo", cupo);
-        if (!TextUtils.isEmpty(lugar)) updates.put("lugarNombre", lugar);
-        if (!TextUtils.isEmpty(oferente)) {
-            updates.put("oferente", oferente);
-            updates.put("oferentes", Arrays.asList(oferente));
+
+        // 2) Match case-insensitive y sin tildes; también permite escribir el id
+        String norm = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").toLowerCase(java.util.Locale.ROOT);
+        for (int i = 0; i < ad.getCount(); i++) {
+            Object it = ad.getItem(i);
+            if (it instanceof OptionItem) {
+                OptionItem oi = (OptionItem) it;
+                String on = java.text.Normalizer.normalize(oi.nombre, java.text.Normalizer.Form.NFD)
+                        .replaceAll("\\p{M}", "").toLowerCase(java.util.Locale.ROOT);
+                if (norm.equals(on) || norm.equals(oi.id.toLowerCase(java.util.Locale.ROOT))) return oi;
+            }
         }
-        updates.put("updatedAt", FieldValue.serverTimestamp());
-
-        // Primero intenta en EN; si no existe, en ES
-        actRef(true).get().addOnSuccessListener(doc -> {
-            DocumentReference ref = (doc != null && doc.exists()) ? actRef(true) : actRef(false);
-            ref.update(updates)
-                    .addOnSuccessListener(unused -> {
-                        toast("Actividad actualizada");
-                        Bundle res = new Bundle();
-                        res.putBoolean("actividad_modificada", true);
-                        getParentFragmentManager().setFragmentResult("actividad_change", res);
-                        dismiss();
-                    })
-                    .addOnFailureListener(e -> toast("Error al actualizar: " + e.getMessage()));
-        }).addOnFailureListener(e -> toast("Error al localizar la actividad: " + e.getMessage()));
-    }
-
-    // ---- utils ----
-    private void setSimpleDropdown(AutoCompleteTextView view, List<String> items) {
-        if (view == null) return;
-        android.widget.ArrayAdapter<String> adp =
-                new android.widget.ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, items);
-        view.setAdapter(adp);
-    }
-
-    private String textOf(EditText et) {
-        return et == null || et.getText() == null ? "" : et.getText().toString().trim();
-    }
-    private String textOf(AutoCompleteTextView act) {
-        if (act == null) return "";
-        CharSequence cs = act.getText();
-        return cs == null ? "" : cs.toString().trim();
-    }
-
-    private String firstNonEmpty(String... xs) {
-        if (xs == null) return null;
-        for (String s : xs) if (s != null && !s.trim().isEmpty()) return s.trim();
         return null;
     }
 
-    private void toast(String m) {
-        Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show();
+
+    private void selectByIdOrName(AutoCompleteTextView v, String id, String nombre){
+        if (v.getAdapter() instanceof ArrayAdapter){
+            ArrayAdapter<?> ad = (ArrayAdapter<?>) v.getAdapter();
+            // intenta por id
+            if (!TextUtils.isEmpty(id)) {
+                for (int i=0;i<ad.getCount();i++){
+                    Object it = ad.getItem(i);
+                    if (it instanceof OptionItem && id.equals(((OptionItem) it).id)){
+                        v.setText(((OptionItem) it).nombre, false);
+                        return;
+                    }
+                }
+            }
+            // intenta por nombre
+            if (!TextUtils.isEmpty(nombre)) {
+                for (int i=0;i<ad.getCount();i++){
+                    Object it = ad.getItem(i);
+                    if (it instanceof OptionItem && nombre.equals(((OptionItem) it).nombre)){
+                        v.setText(((OptionItem) it).nombre, false);
+                        return;
+                    }
+                }
+            }
+        }
+        // si aún no hay adapter, deja texto visible para que no quede vacío
+        if (!TextUtils.isEmpty(nombre)) v.setText(nombre, false);
     }
+
+    private String val(TextInputEditText et){ return et.getText()!=null ? et.getText().toString().trim() : ""; }
+    private String val(AutoCompleteTextView et){ return et.getText()!=null ? et.getText().toString().trim() : ""; }
+    private String firstNonEmpty(String... xs){
+        if (xs==null) return null;
+        for (String s: xs){ if (!TextUtils.isEmpty(s)) return s; }
+        return null;
+    }
+    private Long firstNonNull(Long... xs){
+        if (xs==null) return null;
+        for (Long x: xs){ if (x!=null) return x; }
+        return null;
+    }
+    private void notifyChanged(){
+        Bundle b = new Bundle();
+        try { getParentFragmentManager().setFragmentResult("actividad_change", b); } catch (Exception ignore) {}
+        try { getParentFragmentManager().setFragmentResult("calendar_refresh", b); } catch (Exception ignore) {}
+        try { requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", b); } catch (Exception ignore) {}
+        try { requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b); } catch (Exception ignore) {}
+    }
+
+    private void toast(String m){ Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }
 }
