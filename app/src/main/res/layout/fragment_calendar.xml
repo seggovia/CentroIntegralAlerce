@@ -133,8 +133,11 @@
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardEventos"
         android:layout_below="@id/tvTituloDia"
-        android:layout_above="@id/fabAdd"
-        android:layout_margin="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:layout_alignParentBottom="true"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:cardCornerRadius="16dp"
@@ -151,17 +154,5 @@
             android:clipToPadding="false"
             android:overScrollMode="never"/>
     </com.google.android.material.card.MaterialCardView>
-
-    <!-- FAB para agregar actividad -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabAdd"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentBottom="true"
-        android:layout_margin="16dp"
-        android:layout_marginBottom="80dp"
-        app:srcCompat="@android:drawable/ic_input_add"
-        app:tint="@android:color/white"
-        app:backgroundTint="@color/primary"/>
+    
 </RelativeLayout>

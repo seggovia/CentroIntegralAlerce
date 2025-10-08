@@ -8,40 +8,27 @@ public class Cita {
     private String actividadNombre;
     private String lugarId;
     private String lugarNombre;
-    private Timestamp fecha; // Fecha y hora de la cita
+
+    // 🔥 NUEVO: Campo que faltaba
+    private Timestamp startAt;  // ← Campo principal para queries
+    private Timestamp fecha;    // ← Mantener por compatibilidad
+
     private String estado; // "agendada", "cancelada", "reagendada", "completada"
     private String motivoCancelacion;
     private String motivoReagendamiento;
-    private String citaOriginalId; // Si es un reagendamiento
+    private String citaOriginalId;
     private Timestamp fechaCreacion;
     private Timestamp fechaModificacion;
     private String creadoPor;
     private boolean notificacionEnviada;
 
+    // 🔥 NUEVO: Campo que faltaba
+    private String patientId; // ← ID del paciente (si aplica)
+
     public Cita() {
     }
 
-    public Cita(String id, String actividadId, String actividadNombre, String lugarId,
-                String lugarNombre, Timestamp fecha, String estado, String motivoCancelacion,
-                String motivoReagendamiento, String citaOriginalId, Timestamp fechaCreacion,
-                Timestamp fechaModificacion, String creadoPor, boolean notificacionEnviada) {
-        this.id = id;
-        this.actividadId = actividadId;
-        this.actividadNombre = actividadNombre;
-        this.lugarId = lugarId;
-        this.lugarNombre = lugarNombre;
-        this.fecha = fecha;
-        this.estado = estado;
-        this.motivoCancelacion = motivoCancelacion;
-        this.motivoReagendamiento = motivoReagendamiento;
-        this.citaOriginalId = citaOriginalId;
-        this.fechaCreacion = fechaCreacion;
-        this.fechaModificacion = fechaModificacion;
-        this.creadoPor = creadoPor;
-        this.notificacionEnviada = notificacionEnviada;
-    }
-
-    // Getters y Setters
+    // Getters y Setters COMPLETOS
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -57,8 +44,16 @@ public class Cita {
     public String getLugarNombre() { return lugarNombre; }
     public void setLugarNombre(String lugarNombre) { this.lugarNombre = lugarNombre; }
 
+    // 🔥 NUEVO
+    public Timestamp getStartAt() { return startAt; }
+    public void setStartAt(Timestamp startAt) { this.startAt = startAt; }
+
     public Timestamp getFecha() { return fecha; }
-    public void setFecha(Timestamp fecha) { this.fecha = fecha; }
+    public void setFecha(Timestamp fecha) {
+        this.fecha = fecha;
+        // Sincronizar con startAt si no existe
+        if (this.startAt == null) this.startAt = fecha;
+    }
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
@@ -83,6 +78,10 @@ public class Cita {
 
     public boolean isNotificacionEnviada() { return notificacionEnviada; }
     public void setNotificacionEnviada(boolean notificacionEnviada) { this.notificacionEnviada = notificacionEnviada; }
+
+    // 🔥 NUEVO
+    public String getPatientId() { return patientId; }
+    public void setPatientId(String patientId) { this.patientId = patientId; }
 
     // Métodos de utilidad
     public boolean estaAgendada() {

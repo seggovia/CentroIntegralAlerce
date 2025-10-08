@@ -1,23 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <item
-        android:id="@+id/homeFragment"
-        android:icon="@android:drawable/ic_menu_view"
-        android:title="Inicio" />
-
+    <!-- 1. Calendario (Pantalla Principal) -->
     <item
         android:id="@+id/calendarFragment"
         android:icon="@android:drawable/ic_menu_month"
         android:title="Calendario" />
 
+    <!-- 2. Lista de Actividades -->
     <item
         android:id="@+id/activitiesListFragment"
         android:icon="@android:drawable/ic_menu_agenda"
         android:title="Actividades" />
 
+    <!-- 3. Configuración / Administración -->
     <item
         android:id="@+id/settingsFragment"
         android:icon="@android:drawable/ic_menu_manage"
-        android:title="Admin" />
+        android:title="Configuración" />
+
 </menu>

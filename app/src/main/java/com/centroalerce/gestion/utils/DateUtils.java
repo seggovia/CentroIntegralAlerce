@@ -7,7 +7,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
-public class DateUtils {
+public class  DateUtils {
 
     // Formato de fecha
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());

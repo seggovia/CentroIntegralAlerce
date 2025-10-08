@@ -65,7 +65,6 @@ public class CalendarFragment extends Fragment {
         tvTituloDia   = v.findViewById(R.id.tvTituloDia);
         rvDays        = v.findViewById(R.id.rvDays);
         RecyclerView rvEventos = v.findViewById(R.id.rvEventos);
-        FloatingActionButton fab = v.findViewById(R.id.fabAdd);
 
         // Inicial
         LocalDate today = LocalDate.now();
@@ -111,8 +110,7 @@ public class CalendarFragment extends Fragment {
             fillWeek();
         });
 
-        // FAB crear actividad
-        fab.setOnClickListener(x -> Navigation.findNavController(v).navigate(R.id.activityFormFragment));
+
 
         // 👇 NUEVO: refrescar calendario y lista al guardar cambios en otra pantalla
         getParentFragmentManager().setFragmentResultListener(
@@ -240,6 +238,9 @@ public class CalendarFragment extends Fragment {
     // ==================== FIRESTORE ====================
 
     private void listenWeekFromFirestore(LocalDate monday, LocalDate sunday) {
+        android.util.Log.d("CAL", "=== listenWeekFromFirestore INICIADO ===");
+        android.util.Log.d("CAL", "monday=" + monday + ", sunday=" + sunday);
+
         if (weekListener != null) {
             weekListener.remove();
             weekListener = null;
@@ -250,15 +251,22 @@ public class CalendarFragment extends Fragment {
         Timestamp tsStart = new Timestamp(Date.from(zStart.toInstant()));
         Timestamp tsEnd   = new Timestamp(Date.from(zEnd.toInstant()));
 
+        android.util.Log.d("CAL", "tsStart=" + tsStart.toDate());
+        android.util.Log.d("CAL", "tsEnd=" + tsEnd.toDate());
+        android.util.Log.d("CAL", "Ejecutando query collectionGroup...");
+
         weekListener = db.collectionGroup("citas")
                 .whereGreaterThanOrEqualTo("startAt", tsStart)
                 .whereLessThan("startAt", tsEnd)
                 .orderBy("startAt", Query.Direction.ASCENDING)
                 .addSnapshotListener((snap, err) -> {
                     if (err != null) {
-                        android.util.Log.e("CAL", "Error escuchando citas", err);
+                        android.util.Log.e("CAL", "❌ ERROR ESCUCHANDO CITAS", err);
+                        android.util.Log.e("CAL", "Error message: " + err.getMessage());
                         return;
                     }
+                    android.util.Log.d("CAL", "✅ Snapshot recibido: " + (snap != null ? snap.size() : 0) + " docs");
+
                     if (snap == null) return;
 
                     Map<LocalDate, List<EventItem>> map = new HashMap<>();
@@ -272,7 +280,11 @@ public class CalendarFragment extends Fragment {
                     weekEvents.putAll(map);
                     dayAdapter.setEventDays(new HashSet<>(weekEvents.keySet()));
                     loadEventsFor(selectedDay);
+
+                    android.util.Log.d("CAL", "📅 weekEvents.size()=" + weekEvents.size());
                 });
+
+        android.util.Log.d("CAL", "Listener registrado correctamente");
     }
 
     // crea/actualiza listeners para actividades referenciadas en la semana
