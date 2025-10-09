@@ -51,9 +51,11 @@ public class CalendarFragment extends Fragment {
     private FirebaseFirestore db;
     private ListenerRegistration weekListener;
 
-    // Cache de nombres de actividad
+    // Cache de nombres y tipos de actividad
     private final Map<String, String> activityNameCache = new HashMap<>();
-    // listeners por actividad para refrescar nombres al vuelo
+    private final Map<String, String> activityTypeCache = new HashMap<>(); // 👈 NUEVO
+
+    // listeners por actividad para refrescar datos al vuelo
     private final Map<String, ListenerRegistration> activityNameRegs = new HashMap<>();
 
     @Nullable
@@ -100,6 +102,32 @@ public class CalendarFragment extends Fragment {
         });
         rvEventos.setAdapter(eventAdapter);
 
+        // ✅ Evita que los últimos ítems del calendario queden ocultos por el FAB o el BottomSheet
+        rvEventos.setClipToPadding(false);
+
+// Espacio extra al final de la lista
+        int extraBottom = dp(96);
+        rvEventos.setPadding(
+                rvEventos.getPaddingLeft(),
+                rvEventos.getPaddingTop(),
+                rvEventos.getPaddingRight(),
+                rvEventos.getPaddingBottom() + extraBottom
+        );
+
+// Ajuste dinámico por la barra de navegación o gestos del sistema
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rvEventos, (view, insets) -> {
+            int sysBottom = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom;
+            view.setPadding(
+                    view.getPaddingLeft(),
+                    view.getPaddingTop(),
+                    view.getPaddingRight(),
+                    extraBottom + sysBottom
+            );
+            return insets;
+        });
+
+
+
         // Navegación de semana
         v.findViewById(R.id.btnSemanaAnterior).setOnClickListener(x -> {
             weekStart = weekStart.minusWeeks(1);
@@ -109,8 +137,6 @@ public class CalendarFragment extends Fragment {
             weekStart = weekStart.plusWeeks(1);
             fillWeek();
         });
-
-
 
         // 👇 NUEVO: refrescar calendario y lista al guardar cambios en otra pantalla
         getParentFragmentManager().setFragmentResultListener(
@@ -150,6 +176,7 @@ public class CalendarFragment extends Fragment {
     private void refreshFromExternalChange() {
         // Limpia caches y vuelve a suscribirse a la semana actual para pintar cambios al instante
         activityNameCache.clear();
+        activityTypeCache.clear(); // 👈 NUEVO
         clearActivityNameListeners();
         fillWeek();
     }
@@ -316,10 +343,20 @@ public class CalendarFragment extends Fragment {
                                 String name = firstNonEmpty(doc.getString("nombre"),
                                         doc.getString("titulo"),
                                         doc.getString("name"));
+                                String tipo = firstNonEmpty(doc.getString("tipo"),
+                                        doc.getString("tipoActividad"),
+                                        doc.getString("tipo_actividad"),
+                                        doc.getString("tipoNombre"));
+                                boolean changed = false;
                                 if (name != null && !name.equals(activityNameCache.get(actId))) {
                                     activityNameCache.put(actId, name);
-                                    loadEventsFor(selectedDay);
+                                    changed = true;
                                 }
+                                if (tipo != null && !tipo.equals(activityTypeCache.get(actId))) { // 👈 NUEVO
+                                    activityTypeCache.put(actId, tipo);
+                                    changed = true;
+                                }
+                                if (changed) loadEventsFor(selectedDay);
                             }
                         });
                 activityNameRegs.put(keyEN, regEN);
@@ -333,10 +370,20 @@ public class CalendarFragment extends Fragment {
                                 String name = firstNonEmpty(doc.getString("nombre"),
                                         doc.getString("titulo"),
                                         doc.getString("name"));
+                                String tipo = firstNonEmpty(doc.getString("tipo"),
+                                        doc.getString("tipoActividad"),
+                                        doc.getString("tipo_actividad"),
+                                        doc.getString("tipoNombre"));
+                                boolean changed = false;
                                 if (name != null && !name.equals(activityNameCache.get(actId))) {
                                     activityNameCache.put(actId, name);
-                                    loadEventsFor(selectedDay);
+                                    changed = true;
                                 }
+                                if (tipo != null && !tipo.equals(activityTypeCache.get(actId))) { // 👈 NUEVO
+                                    activityTypeCache.put(actId, tipo);
+                                    changed = true;
+                                }
+                                if (changed) loadEventsFor(selectedDay);
                             }
                         });
                 activityNameRegs.put(keyES, regES);
@@ -392,10 +439,12 @@ public class CalendarFragment extends Fragment {
             String titulo = doc.getString("titulo");
             if (titulo == null) titulo = getActivityNameSync(activityId);
 
+            String tipo = getActivityTypeSync(activityId); // 👈 NUEVO
+
             String estado = doc.getString("estado");
             if (estado == null) estado = "programada";
 
-            EventItem item = new EventItem(horaStr, titulo, lugarNombre, estado, activityId, citaId);
+            EventItem item = new EventItem(horaStr, titulo, lugarNombre, estado, activityId, citaId, tipo); // 👈 NUEVO
 
             LocalDate key = local.toLocalDate();
             map.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
@@ -424,36 +473,78 @@ public class CalendarFragment extends Fragment {
         db.collection("activities").document(activityId).get()
                 .addOnSuccessListener(doc -> {
                     String name = firstNonEmpty(doc.getString("nombre"), doc.getString("titulo"), doc.getString("name"));
+                    String tipo = firstNonEmpty(doc.getString("tipo"), doc.getString("tipoActividad"),
+                            doc.getString("tipo_actividad"), doc.getString("tipoNombre"));
+                    boolean changed = false;
                     if (name != null) {
                         activityNameCache.put(activityId, name);
-                        loadEventsFor(selectedDay);
+                        changed = true;
                     } else {
                         db.collection("actividades").document(activityId).get()
                                 .addOnSuccessListener(docEs -> {
                                     String nameEs = firstNonEmpty(docEs.getString("nombre"), docEs.getString("titulo"), docEs.getString("name"));
+                                    String tipoEs = firstNonEmpty(docEs.getString("tipo"), docEs.getString("tipoActividad"),
+                                            docEs.getString("tipo_actividad"), docEs.getString("tipoNombre"));
                                     if (nameEs != null) {
                                         activityNameCache.put(activityId, nameEs);
+                                    }
+                                    if (tipoEs != null) activityTypeCache.put(activityId, tipoEs); // 👈 NUEVO
+                                    loadEventsFor(selectedDay);
+                                });
+                    }
+                    if (tipo != null) { activityTypeCache.put(activityId, tipo); changed = true; } // 👈 NUEVO
+                    if (changed) loadEventsFor(selectedDay);
+                });
+        return "Actividad";
+    }
+
+    // 👇 NUEVO: helper para tipo
+    @Nullable
+    private String getActivityTypeSync(@Nullable String activityId) {
+        if (activityId == null) return null;
+        String cached = activityTypeCache.get(activityId);
+        if (cached != null) return cached;
+
+        db.collection("activities").document(activityId).get()
+                .addOnSuccessListener(doc -> {
+                    String tipo = firstNonEmpty(doc.getString("tipo"), doc.getString("tipoActividad"),
+                            doc.getString("tipo_actividad"), doc.getString("tipoNombre"));
+                    if (tipo != null) {
+                        activityTypeCache.put(activityId, tipo);
+                        loadEventsFor(selectedDay);
+                    } else {
+                        db.collection("actividades").document(activityId).get()
+                                .addOnSuccessListener(docEs -> {
+                                    String tipoEs = firstNonEmpty(docEs.getString("tipo"), docEs.getString("tipoActividad"),
+                                            docEs.getString("tipo_actividad"), docEs.getString("tipoNombre"));
+                                    if (tipoEs != null) {
+                                        activityTypeCache.put(activityId, tipoEs);
                                         loadEventsFor(selectedDay);
                                     }
                                 });
                     }
                 });
-        return "Actividad";
+        return null;
     }
-
 
     // ----------------- MODELOS / ADAPTERS -----------------
 
     public static class EventItem {
         public final String hora, titulo, lugar, estado;
         public final String activityId, citaId;
+        public final String tipo; // 👈 NUEVO
+
         public EventItem(String h, String t, String l, String e, String activityId, String citaId){
+            this(h, t, l, e, activityId, citaId, null);
+        }
+        public EventItem(String h, String t, String l, String e, String activityId, String citaId, String tipo){
             this.hora = h;
             this.titulo = t;
             this.lugar = l;
             this.estado = e;
             this.activityId = activityId;
             this.citaId = citaId;
+            this.tipo = tipo; // 👈 NUEVO
         }
     }
 
@@ -467,12 +558,19 @@ public class CalendarFragment extends Fragment {
             View v = LayoutInflater.from(p.getContext()).inflate(R.layout.item_event, p, false);
             return new EventVH(v);
         }
-        @Override public void onBindViewHolder(@NonNull EventVH h, int i){
-            EventItem it = data.get(i);
-            h.tvHora.setText(it.hora);
-            h.tvTitulo.setText(it.titulo);
-            h.tvLugar.setText(it.lugar);
 
+        @Override
+        public void onBindViewHolder(@NonNull EventVH h, int i) {
+            EventItem it = data.get(i);
+
+            // ✅ Hora
+            h.tvHora.setText(it.hora == null ? "" : it.hora);
+
+            // ✅ Mostrar nombre y lugarNombre (de la cita)
+            h.tvTitulo.setText(it.titulo == null ? "Sin nombre" : it.titulo);  // ← usa campo "nombre"
+            h.tvLugar.setText(it.lugar == null ? "Sin lugar" : it.lugar);      // ← usa campo "lugarNombre"
+
+            // ================== ESTADOS ==================
             String estado = it.estado == null ? "programada" : it.estado.toLowerCase(Locale.ROOT);
             switch (estado) {
                 case "cancelada":
@@ -511,8 +609,12 @@ public class CalendarFragment extends Fragment {
                     break;
             }
 
+            // Acción al tocar el item
             h.itemView.setOnClickListener(x -> cb.onTap(it));
         }
+
+
+
         @Override public int getItemCount(){ return data.size(); }
     }
 

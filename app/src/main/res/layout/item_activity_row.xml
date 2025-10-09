@@ -28,19 +28,19 @@
             android:maxLines="2"
             android:ellipsize="end"/>
 
-        <!-- Subtítulo (Tipo • Lugar) -->
+        <!-- Subtítulo (Tipo • Periodicidad) -->
         <TextView
             android:id="@+id/tvSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="Tipo • Lugar"
+            android:text="Tipo • PUNTUAL"
             android:textSize="14sp"
             android:textColor="@color/textSecondary"
             android:maxLines="1"
             android:ellipsize="end"/>
 
-        <!-- Fecha y Estado -->
+        <!-- Fecha, hora y lugar + Estado -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -55,14 +55,14 @@
                 android:src="@android:drawable/ic_menu_recent_history"
                 app:tint="@color/textSecondary"/>
 
-            <!-- Fecha -->
+            <!-- Fecha, hora y lugar -->
             <TextView
                 android:id="@+id/tvFecha"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="6dp"
-                android:text="01/01/2024 10:00"
+                android:text="01/01/2024 10:00 · Oficina del centro"
                 android:textSize="13sp"
                 android:textColor="@color/textSecondary"/>
 
@@ -81,5 +81,53 @@
                 android:paddingBottom="4dp"
                 android:background="@drawable/bg_estado_pill"/>
         </LinearLayout>
+
+        <!-- NUEVO: Badges opcionales (cupos, adjuntos, aviso previo) -->
+        <LinearLayout
+            android:id="@+id/rowBadges"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal"
+            android:gravity="end">
+
+            <!-- Cupos -->
+            <TextView
+                android:id="@+id/badgeCupos"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:text="3/10"
+                android:textSize="12sp"
+                android:textColor="@color/textPrimary"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:background="@drawable/bg_chip_neutral"/>
+
+            <!-- Adjuntos -->
+            <ImageView
+                android:id="@+id/iconAdjuntos"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginStart="8dp"
+                android:visibility="gone"
+                android:contentDescription="@string/adjuntos"
+                android:src="@drawable/ic_attach_24"
+                app:tint="@color/textSecondary"/>
+
+            <!-- Aviso previo -->
+            <ImageView
+                android:id="@+id/iconAviso"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginStart="8dp"
+                android:visibility="gone"
+                android:contentDescription="@string/aviso_previo"
+                android:src="@drawable/ic_bell_24"
+                app:tint="@color/textSecondary"/>
+        </LinearLayout>
+
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

@@ -135,8 +135,8 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:paddingHorizontal="16dp"
-        android:paddingBottom="16dp"
-        android:clipToPadding="false"/>
+        android:paddingBottom="96dp"
+        android:clipToPadding="false" />
 
     <!-- Estado vacío -->
     <LinearLayout

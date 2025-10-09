@@ -13,11 +13,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
-import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.centroalerce.gestion.R;
-import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -52,6 +50,11 @@ public class ActivitiesListFragment extends Fragment {
     private String currentFilter = "todas"; // todas, proximas, pasadas, canceladas
     private String searchQuery = "";
 
+    // === NUEVO: cache de metadatos de la actividad padre ===
+    private final Map<String, String> activityTipoMap  = new HashMap<>();
+    private final Map<String, String> activityPerMap   = new HashMap<>();
+    private final Map<String, String> activityLugarMap = new HashMap<>();
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle b) {
@@ -71,19 +74,17 @@ public class ActivitiesListFragment extends Fragment {
         setupSearchBar();
         setupFilters();
 
-        // 🔥 Escuchar cambios cuando se guarda/modifica/cancela una actividad desde otra pantalla
+        // Escuchar cambios cuando se guarda/modifica/cancela una actividad desde otra pantalla
         getParentFragmentManager().setFragmentResultListener(
                 "actividad_change", getViewLifecycleOwner(),
                 (req, bundle) -> loadActivitiesFromFirestore()
         );
-
         requireActivity().getSupportFragmentManager().setFragmentResultListener(
                 "actividad_change", getViewLifecycleOwner(),
                 (req, bundle) -> loadActivitiesFromFirestore()
         );
 
         loadActivitiesFromFirestore();
-
         return v;
     }
 
@@ -98,24 +99,54 @@ public class ActivitiesListFragment extends Fragment {
 
     // ============ CARGA DESDE FIRESTORE ============
     private void loadActivitiesFromFirestore() {
-        Log.d(TAG, "🔍 Cargando actividades desde Firestore...");
+        Log.d(TAG, "🔍 Precargando activities...");
 
         if (activitiesListener != null) {
             activitiesListener.remove();
             activitiesListener = null;
         }
 
-        // 🔥 Usa collectionGroup para obtener TODAS las citas de TODAS las actividades
-        // NOTA: Cambiado a ASCENDING temporalmente hasta que se cree el índice DESCENDING en Firebase
+        // 1) Precargar metadatos de la colección padre "activities"
+        db.collection("activities") // ajusta el nombre si tu colección es distinta
+                .get()
+                .addOnSuccessListener(qs -> {
+                    activityTipoMap.clear();
+                    activityPerMap.clear();
+                    activityLugarMap.clear();
+
+                    for (DocumentSnapshot aDoc : qs.getDocuments()) {
+                        String id   = aDoc.getId();
+                        String tipo = firstNonEmpty(aDoc.getString("tipoActividad"), aDoc.getString("tipo"));
+                        String per  = firstNonEmpty(aDoc.getString("periodicidad"), aDoc.getString("frecuencia"));
+                        String lug  = firstNonEmpty(aDoc.getString("lugarNombre"), aDoc.getString("lugar"));
+
+                        if (!TextUtils.isEmpty(id)) {
+                            if (!TextUtils.isEmpty(tipo)) activityTipoMap.put(id, tipo);
+                            if (!TextUtils.isEmpty(per))  activityPerMap.put(id, per);
+                            if (!TextUtils.isEmpty(lug))  activityLugarMap.put(id, lug);
+                        }
+                    }
+                    Log.d(TAG, "✅ Activities precargadas: " + activityTipoMap.size());
+                    // 2) Ahora sí, escuchar todas las citas
+                    attachCitasListener();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error precargando activities", e);
+                    // Aun así, enganchamos citas para no dejar de mostrar
+                    attachCitasListener();
+                });
+    }
+
+    // === NUEVO: listener separado para citas ===
+    private void attachCitasListener() {
         activitiesListener = db.collectionGroup("citas")
-                .orderBy("startAt", Query.Direction.ASCENDING)
+                .orderBy("startAt", Query.Direction.ASCENDING) // temporal ASC si no hay índice DESC
                 .addSnapshotListener((snapshot, error) -> {
                     if (error != null) {
                         Log.e(TAG, "❌ Error cargando actividades", error);
                         showEmptyState();
                         return;
                     }
-
                     if (snapshot == null || snapshot.isEmpty()) {
                         Log.w(TAG, "⚠️ No se encontraron citas en Firestore");
                         showEmptyState();
@@ -123,7 +154,6 @@ public class ActivitiesListFragment extends Fragment {
                     }
 
                     Log.d(TAG, "✅ Se encontraron " + snapshot.size() + " citas");
-
                     allActivities.clear();
 
                     for (DocumentSnapshot doc : snapshot.getDocuments()) {
@@ -136,9 +166,7 @@ public class ActivitiesListFragment extends Fragment {
                             Log.e(TAG, "Error parseando documento: " + doc.getId(), e);
                         }
                     }
-
                     Log.d(TAG, "📋 Total de actividades parseadas: " + allActivities.size());
-
                     applyFilters();
                 });
     }
@@ -146,39 +174,81 @@ public class ActivitiesListFragment extends Fragment {
     // ============ PARSEAR DOCUMENTO A ActivityItem ============
     @Nullable
     private ActivityItem parseActivityFromCita(DocumentSnapshot doc) {
-        // 1. Obtener ID de la actividad padre
+        // 1) IDs
         String activityId = getActivityIdFromRef(doc);
         String citaId = doc.getId();
 
-        // 2. Título: priorizar 'titulo' de la cita, si no existe, usar 'nombre' de actividad
+        // 2) Título
         String titulo = doc.getString("titulo");
-        if (TextUtils.isEmpty(titulo)) {
-            titulo = doc.getString("actividadNombre");
-        }
-        if (TextUtils.isEmpty(titulo)) {
-            titulo = "Actividad sin nombre";
-        }
+        if (TextUtils.isEmpty(titulo)) titulo = doc.getString("actividadNombre");
+        if (TextUtils.isEmpty(titulo)) titulo = "Actividad sin nombre";
 
-        // 3. Subtítulo: tipo + lugar
+        // 3) Tipo / Periodicidad / Lugar (primero desde la cita)
         String tipo = firstNonEmpty(
                 doc.getString("tipo"),
-                doc.getString("tipoActividad"),
-                "Tipo no especificado"
+                doc.getString("tipoActividad")
         );
-
+        String periodicidad = firstNonEmpty(
+                doc.getString("periodicidad"),
+                doc.getString("actividadPeriodicidad"),
+                doc.getString("frecuencia")
+        );
         String lugar = firstNonEmpty(
                 doc.getString("lugarNombre"),
-                doc.getString("lugar"),
-                "Lugar no especificado"
+                doc.getString("lugar")
         );
 
-        String subtitle = tipo + " • " + lugar;
-
-        // 4. Fecha y estado
-        Timestamp startAt = doc.getTimestamp("startAt");
-        if (startAt == null) {
-            startAt = doc.getTimestamp("fecha");
+        // 3b) Fallback inmediato al cache de la actividad padre (precargado)
+        if (TextUtils.isEmpty(tipo) && activityId != null) {
+            String cached = activityTipoMap.get(activityId);
+            if (!TextUtils.isEmpty(cached)) tipo = cached;
         }
+        if (TextUtils.isEmpty(periodicidad) && activityId != null) {
+            String cached = activityPerMap.get(activityId);
+            if (!TextUtils.isEmpty(cached)) periodicidad = cached;
+        }
+        if (TextUtils.isEmpty(lugar) && activityId != null) {
+            String cached = activityLugarMap.get(activityId);
+            if (!TextUtils.isEmpty(cached)) lugar = cached;
+        }
+
+        // 3c) Último recurso: leer padre sincrónicamente (solo si aún falta algo)
+        if ((TextUtils.isEmpty(tipo) || TextUtils.isEmpty(periodicidad) || TextUtils.isEmpty(lugar)) && activityId != null) {
+            try {
+                DocumentSnapshot parent = doc.getReference()
+                        .getParent()  // .../citas
+                        .getParent()  // .../activities/{id}
+                        .get()
+                        .getResult();
+
+                if (parent != null && parent.exists()) {
+                    if (TextUtils.isEmpty(tipo)) {
+                        tipo = firstNonEmpty(parent.getString("tipoActividad"), parent.getString("tipo"));
+                    }
+                    if (TextUtils.isEmpty(periodicidad)) {
+                        periodicidad = firstNonEmpty(parent.getString("periodicidad"), parent.getString("frecuencia"));
+                    }
+                    if (TextUtils.isEmpty(lugar)) {
+                        lugar = firstNonEmpty(parent.getString("lugarNombre"), parent.getString("lugar"));
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "No se pudo leer la actividad padre para completar campos", e);
+            }
+        }
+
+        // Defaults finales
+        if (TextUtils.isEmpty(tipo)) tipo = "Tipo no especificado";
+        if (TextUtils.isEmpty(periodicidad)) periodicidad = "PUNTUAL";
+        periodicidad = periodicidad.toUpperCase(Locale.ROOT);
+        if (TextUtils.isEmpty(lugar)) lugar = "—";
+
+        // Subtítulo final: Tipo • PERIODICIDAD
+        String subtitle = tipo + " • " + periodicidad;
+
+        // 4) Fecha / Estado
+        Timestamp startAt = doc.getTimestamp("startAt");
+        if (startAt == null) startAt = doc.getTimestamp("fecha");
 
         String estado = firstNonEmpty(
                 doc.getString("estado"),
@@ -186,7 +256,7 @@ public class ActivitiesListFragment extends Fragment {
                 "programada"
         ).toLowerCase();
 
-        // 5. Formatear fecha
+        // 5) "dd/MM/yyyy HH:mm · Lugar"
         String fechaStr = "Sin fecha";
         if (startAt != null) {
             try {
@@ -194,11 +264,17 @@ public class ActivitiesListFragment extends Fragment {
                         Instant.ofEpochMilli(startAt.toDate().getTime()),
                         ZoneId.systemDefault()
                 );
-                fechaStr = zdt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+                fechaStr = zdt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) + " · " + lugar;
             } catch (Exception e) {
                 Log.e(TAG, "Error formateando fecha", e);
+                fechaStr = "Sin fecha · " + lugar;
             }
+        } else {
+            fechaStr = "Sin fecha · " + lugar;
         }
+
+        Log.d(TAG, "parse: tipo=" + tipo + ", periodicidad=" + periodicidad + ", lugar=" + lugar +
+                " | title=" + titulo + " | actId=" + activityId + " | citaId=" + citaId);
 
         return new ActivityItem(activityId, citaId, titulo, subtitle, fechaStr, estado, startAt);
     }
@@ -215,22 +291,16 @@ public class ActivitiesListFragment extends Fragment {
     // ============ BÚSQUEDA Y FILTROS ============
     private void setupSearchBar() {
         etBuscar.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 searchQuery = s.toString().toLowerCase().trim();
                 applyFilters();
             }
-
-            @Override
-            public void afterTextChanged(Editable s) {}
+            @Override public void afterTextChanged(Editable s) {}
         });
     }
 
     private void setupFilters() {
-        // 🔥 SOLUCIÓN: Inicializar el filtro actual basado en el chip marcado por defecto
         int checkedId = chipGroupFiltros.getCheckedChipId();
         if (checkedId == R.id.chipTodas) currentFilter = "todas";
         else if (checkedId == R.id.chipProximas) currentFilter = "proximas";
@@ -248,17 +318,13 @@ public class ActivitiesListFragment extends Fragment {
                 else if (newCheckedId == R.id.chipPasadas) currentFilter = "pasadas";
                 else if (newCheckedId == R.id.chipCanceladas) currentFilter = "canceladas";
             }
-            // ✅ Solo aplica filtros si ya hay datos cargados
-            if (!allActivities.isEmpty()) {
-                applyFilters();
-            }
+            if (!allActivities.isEmpty()) applyFilters();
         });
     }
 
     private void applyFilters() {
         filteredActivities.clear();
 
-        // 🔥 Si no hay datos aún, no mostrar empty state (esperar carga)
         if (allActivities.isEmpty()) {
             Log.d(TAG, "⏳ applyFilters() llamado pero allActivities está vacío - esperando carga...");
             return;
@@ -267,7 +333,7 @@ public class ActivitiesListFragment extends Fragment {
         Date now = new Date();
 
         for (ActivityItem item : allActivities) {
-            // 1. Filtro de búsqueda
+            // 1. Búsqueda
             if (!searchQuery.isEmpty()) {
                 if (!item.title.toLowerCase().contains(searchQuery) &&
                         !item.subtitle.toLowerCase().contains(searchQuery)) {
@@ -275,7 +341,7 @@ public class ActivitiesListFragment extends Fragment {
                 }
             }
 
-            // 2. Filtro por estado/fecha
+            // 2. Estado / fecha
             switch (currentFilter) {
                 case "proximas":
                     if (item.startAt == null || item.startAt.toDate().before(now) ||
@@ -283,37 +349,28 @@ public class ActivitiesListFragment extends Fragment {
                         continue;
                     }
                     break;
-
                 case "pasadas":
                     if (item.startAt == null || item.startAt.toDate().after(now)) {
                         continue;
                     }
                     break;
-
                 case "canceladas":
                     if (!item.estado.equals("cancelada")) {
                         continue;
                     }
                     break;
-
                 case "todas":
                 default:
-                    // Mostrar todas
                     break;
             }
-
             filteredActivities.add(item);
         }
 
         Log.d(TAG, "📊 Filtros aplicados: " + filteredActivities.size() + " de " + allActivities.size() + " actividades");
-
         adapter.notifyDataSetChanged();
 
-        if (filteredActivities.isEmpty()) {
-            showEmptyState();
-        } else {
-            hideEmptyState();
-        }
+        if (filteredActivities.isEmpty()) showEmptyState();
+        else hideEmptyState();
     }
 
     private void showEmptyState() {
@@ -408,7 +465,6 @@ public class ActivitiesListFragment extends Fragment {
             }
 
             h.estado.setTextColor(ContextCompat.getColor(h.itemView.getContext(), colorRes));
-
             h.itemView.setOnClickListener(x -> cb.onTap(it));
         }
 
