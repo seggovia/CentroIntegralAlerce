@@ -6,6 +6,7 @@ public class Cita {
     private String id;
     private String actividadId;
     private String actividadNombre;
+    private Timestamp startAt;
     private String lugarId;
     private String lugarNombre;
     private Timestamp fecha; // Fecha y hora de la cita
@@ -40,7 +41,14 @@ public class Cita {
         this.creadoPor = creadoPor;
         this.notificacionEnviada = notificacionEnviada;
     }
+    public Timestamp getStartAt() {
+        return startAt;
+    }
 
+    // Setter
+    public void setStartAt(Timestamp startAt) {
+        this.startAt = startAt;
+    }
     // Getters y Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
