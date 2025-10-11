@@ -157,64 +157,58 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         String tipo = val(actTipo); if (tipo.isEmpty()){ actTipo.setError("Selecciona tipo"); return; }
         String periodicidad = val(actPeriodicidad); if (periodicidad.isEmpty()){ actPeriodicidad.setError("Selecciona periodicidad"); return; }
 
-        OptionItem lugar = selected(actLugar);
-        OptionItem oferente = selected(actOferente);
-        OptionItem socio = selected(actSocio);
-        OptionItem proyecto = selected(actProyecto);
-
+        String lugar = val(actLugar);            // se usa en citas, lo dejamos opcional aquí
+        String oferente = val(actOferente);
         String cupoStr = val(etCupo);
+
+        // NUEVO
+        String socio = val(actSocio);
         String beneficiariosTxt = val(etBeneficiarios);
+        String proyecto = val(actProyecto);
         String diasAvisoStr = val(etDiasAviso);
 
         Map<String,Object> up = new HashMap<>();
+
+        // Campos reales de tu doc
         up.put("nombre", nombre);
-
-        // Tipo / periodicidad (+ compat)
         up.put("tipoActividad", tipo);
-        up.put("tipo", tipo);
-        up.put("periodicidad", periodicidad);
-        up.put("frecuencia", periodicidad);
-
-        if (!cupoStr.isEmpty()){
+        up.put("tipo", tipo); // compat
+        up.put("periodicidad", periodicidad.toUpperCase(java.util.Locale.ROOT)); // tú guardas "PUNTUAL"
+        if (!TextUtils.isEmpty(cupoStr)) {
             try { up.put("cupo", Integer.parseInt(cupoStr)); }
             catch (NumberFormatException e){ etCupo.setError("Número inválido"); return; }
         }
 
-        // Lugar
-        if (lugar != null){
-            up.put("lugar_id", lugar.id);
-            up.put("lugarId", lugar.id);
-            up.put("lugar", lugar.id);
-            up.put("lugarNombre", lugar.nombre);
+        if (!TextUtils.isEmpty(oferente)) {
+            up.put("oferente", oferente);                 // clave real que tienes
+            up.put("oferentes", java.util.Arrays.asList(oferente)); // compat con array si alguna vista lo usa
+            up.put("oferenteNombre", oferente);           // por si alguna vista antigua lo lee
         }
-        // Oferente
-        if (oferente != null){
-            up.put("oferente_id", oferente.id);
-            up.put("oferenteId", oferente.id);
-            up.put("oferente", oferente.id);
-            up.put("oferenteNombre", oferente.nombre);
-        }
-        // Socio
-        if (socio != null){
-            up.put("socio_id", socio.id);
-            up.put("socioId", socio.id);
-            up.put("socioComunitario", socio.id);
-            up.put("socio_nombre", socio.nombre);
-        }
-        // Proyecto
-        if (proyecto != null){
-            up.put("proyecto_id", proyecto.id);
-            up.put("project_id", proyecto.id);
-            up.put("proyecto", proyecto.id);
-            up.put("proyectoNombre", proyecto.nombre);
-        }
-        // Beneficiarios texto
-        if (!beneficiariosTxt.isEmpty()) up.put("beneficiariosTexto", beneficiariosTxt);
 
-        // Días de aviso (+ compat)
-        if (!diasAvisoStr.isEmpty()) {
+        if (!TextUtils.isEmpty(socio)) up.put("socioComunitario", socio);
+
+        if (!TextUtils.isEmpty(beneficiariosTxt)) {
+            up.put("beneficiariosTexto", beneficiariosTxt);
+            // si quieres mantener también array:
+            java.util.List<String> lista = new java.util.ArrayList<>();
+            for (String s : beneficiariosTxt.split(",")) {
+                String t = s.trim(); if (!t.isEmpty()) lista.add(t);
+            }
+            if (!lista.isEmpty()) up.put("beneficiarios", lista);
+        }
+
+        // Proyecto es opcional en tu modelo; lo dejamos si lo usas en algunas pantallas
+        if (!TextUtils.isEmpty(proyecto)) {
+            up.put("proyecto", proyecto);
+            up.put("proyectoNombre", proyecto);
+        }
+
+        // Días de aviso: tu clave real es diasAvisoPrevio
+        if (!TextUtils.isEmpty(diasAvisoStr)) {
             try {
                 int dias = Integer.parseInt(diasAvisoStr);
+                up.put("diasAvisoPrevio", dias);  // clave real
+                // compat con variantes si en algún lado las leen:
                 up.put("diasAviso", dias);
                 up.put("dias_aviso", dias);
                 up.put("diasAvisoCancelacion", dias);
@@ -222,10 +216,16 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             } catch (NumberFormatException e){ etDiasAviso.setError("Número inválido"); return; }
         }
 
-        // 👇 Marca de actualización para disparar listeners y ordenar por fecha de actualización
-        up.put("updatedAt", FieldValue.serverTimestamp());
+        // Aunque el lugar no está en el doc de actividad en tu modelo, lo dejamos por compat si alguna UI lo lee
+        if (!TextUtils.isEmpty(lugar)) {
+            up.put("lugar", lugar);
+            up.put("lugarNombre", lugar);
+        }
 
-        // Actualiza ES/EN en transacción
+        // Marca de actualización
+        up.put("updatedAt", com.google.firebase.Timestamp.now());
+
+        // ==== Actualizar EN y ES en batch si existen (mantengo tu lógica) ====
         db.runTransaction(trx -> {
             DocumentReference en = act(actividadId,true);
             DocumentReference es = act(actividadId,false);
@@ -236,13 +236,15 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             if (dEn.exists()) trx.update(en, up);
             if (dEs.exists()) trx.update(es, up);
             if (!dEn.exists() && !dEs.exists()) trx.set(en, up, SetOptions.merge());
+
             return null;
         }).addOnSuccessListener(u -> {
             toast("Cambios guardados");
-            notifyChanged();  // Detalle + Calendario
+            notifyChanged();   // ya refresca Detalle y Calendario
             dismiss();
         }).addOnFailureListener(e -> toast("Error: "+e.getMessage()));
     }
+
 
 
     // ================== Carga de combos ==================

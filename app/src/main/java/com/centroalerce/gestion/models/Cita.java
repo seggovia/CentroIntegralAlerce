@@ -4,8 +4,6 @@ import com.google.firebase.Timestamp;
 
 public class Cita {
     private String id;
-
-    private Timestamp startAt;
     private String actividadId;
     private String actividadNombre;
     private String lugarId;
@@ -42,17 +40,6 @@ public class Cita {
         this.creadoPor = creadoPor;
         this.notificacionEnviada = notificacionEnviada;
     }
-
-    // --- NUEVOS MÉTODOS ---
-    public Timestamp getStartAt() {
-        return startAt;
-    }
-
-    public void setStartAt(Timestamp startAt) {
-        this.startAt = startAt;
-    }
-
-
 
     // Getters y Setters
     public String getId() { return id; }

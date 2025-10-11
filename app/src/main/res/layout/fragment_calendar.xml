@@ -28,7 +28,7 @@
                 android:textStyle="bold"
                 android:textSize="32sp"
                 android:textColor="@android:color/white"
-                android:letterSpacing="0.02"/>
+                android:letterSpacing="0.02" />
 
             <TextView
                 android:id="@+id/tvSubtituloCalendario"
@@ -38,7 +38,7 @@
                 android:text="Gestión de actividades semanales"
                 android:textSize="15sp"
                 android:alpha="0.9"
-                android:textColor="@android:color/white"/>
+                android:textColor="@android:color/white" />
         </LinearLayout>
     </FrameLayout>
 
@@ -75,7 +75,7 @@
                     app:tint="@color/primary"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"/>
+                    app:layout_constraintBottom_toBottomOf="parent" />
 
                 <TextView
                     android:id="@+id/tvRangoSemana"
@@ -91,7 +91,7 @@
                     app:layout_constraintStart_toEndOf="@id/btnSemanaAnterior"
                     app:layout_constraintEnd_toStartOf="@id/btnSemanaSiguiente"
                     app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"/>
+                    app:layout_constraintBottom_toBottomOf="parent" />
 
                 <ImageButton
                     android:id="@+id/btnSemanaSiguiente"
@@ -102,7 +102,7 @@
                     app:tint="@color/primary"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"/>
+                    app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <!-- Días de la semana -->
@@ -112,7 +112,7 @@
                 android:layout_height="72dp"
                 android:layout_marginTop="12dp"
                 android:clipToPadding="false"
-                android:overScrollMode="never"/>
+                android:overScrollMode="never" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -127,16 +127,28 @@
         android:text="Hoy, 3 de octubre"
         android:textStyle="bold"
         android:textSize="18sp"
-        android:textColor="@color/textPrimary"/>
+        android:textColor="@color/textPrimary" />
+
+    <!-- NUEVO: Espaciador para que el BottomNavigation no tape el card -->
+    <View
+        android:id="@+id/bottomSpacer"
+        android:layout_width="match_parent"
+        android:layout_height="96dp"
+        android:layout_alignParentBottom="true"
+        android:background="@android:color/transparent" />
 
     <!-- Card: lista de eventos del día -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardEventos"
         android:layout_below="@id/tvTituloDia"
-        android:layout_above="@id/fabAdd"
-        android:layout_margin="16dp"
+        android:layout_above="@id/bottomSpacer"
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="@drawable/bg_card_eventos_rounded"
         app:cardCornerRadius="16dp"
         app:cardElevation="4dp"
         app:strokeColor="@color/cardStroke"
@@ -148,20 +160,9 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:padding="12dp"
+            android:paddingBottom="90dp"
             android:clipToPadding="false"
-            android:overScrollMode="never"/>
+            android:overScrollMode="never" />
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- FAB para agregar actividad -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabAdd"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentBottom="true"
-        android:layout_margin="16dp"
-        android:layout_marginBottom="80dp"
-        app:srcCompat="@android:drawable/ic_input_add"
-        app:tint="@android:color/white"
-        app:backgroundTint="@color/primary"/>
 </RelativeLayout>

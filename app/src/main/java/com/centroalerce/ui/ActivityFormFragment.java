@@ -975,10 +975,12 @@ public class ActivityFormFragment extends Fragment {
 
         List<com.google.firebase.firestore.DocumentReference> citaRefs = new ArrayList<>();
 
+        // 🔥 SECCIÓN PERIÓDICA - CON CAMBIO
         if (modoPeriodica) {
             for (Timestamp ts : timestamps) {
                 Map<String, Object> cita = new HashMap<>();
-                cita.put("startAt", ts);
+                cita.put("startAt", ts);           // ← Campo principal
+                cita.put("fecha", ts);             // ← ✅ NUEVO: Compatibilidad
                 if (!TextUtils.isEmpty(lugar)) cita.put("lugarNombre", lugar);
                 cita.put("estado", "PROGRAMADA");
                 cita.put("titulo", nombre);
@@ -990,8 +992,10 @@ public class ActivityFormFragment extends Fragment {
                 batch.set(citaRef, cita);
             }
         } else {
+            // 🔥 SECCIÓN PUNTUAL - CON CAMBIO
             Map<String, Object> cita = new HashMap<>();
-            cita.put("startAt", startAtPuntual);
+            cita.put("startAt", startAtPuntual);  // ← Campo principal
+            cita.put("fecha", startAtPuntual);    // ← ✅ NUEVO: Compatibilidad
             if (!TextUtils.isEmpty(lugar)) cita.put("lugarNombre", lugar);
             cita.put("estado", "PROGRAMADA");
             cita.put("titulo", nombre);

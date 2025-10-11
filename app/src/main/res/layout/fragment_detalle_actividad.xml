@@ -48,8 +48,9 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- Chips fecha/hora y lugar -->
+            <!-- Chips fecha/hora, lugar, estado y proyecto -->
             <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chipsTop"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp">
@@ -72,6 +73,32 @@
                     android:layout_height="wrap_content"
                     android:text="Lugar"
                     app:chipIcon="@android:drawable/ic_menu_mylocation"
+                    app:chipIconTint="@color/primary"
+                    app:chipBackgroundColor="@color/primary_light"
+                    app:chipIconVisible="true"/>
+
+                <!-- NUEVO: Estado -->
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chEstado"
+                    style="@style/Widget.Material3.Chip.Assist"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Programada"
+                    android:visibility="visible"
+                    app:chipIcon="@android:drawable/ic_menu_info_details"
+                    app:chipIconTint="@color/primary"
+                    app:chipBackgroundColor="@color/primary_light"
+                    app:chipIconVisible="true"/>
+
+                <!-- NUEVO: Proyecto (visible solo si existe) -->
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chProyecto"
+                    style="@style/Widget.Material3.Chip.Assist"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Proyecto"
+                    android:visibility="gone"
+                    app:chipIcon="@android:drawable/ic_menu_agenda"
                     app:chipIconTint="@color/primary"
                     app:chipBackgroundColor="@color/primary_light"
                     app:chipIconVisible="true"/>
@@ -156,6 +183,133 @@
                         android:textSize="15sp"
                         android:textColor="@color/textPrimary"
                         android:paddingVertical="4dp"/>
+
+                    <!-- NUEVO: Proyecto -->
+                    <TextView
+                        android:id="@+id/tvProyecto"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Proyecto: —"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
+
+                    <!-- NUEVO: Días de aviso previo -->
+                    <TextView
+                        android:id="@+id/tvAvisoPrevio"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Aviso previo: — día(s) antes"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- NUEVO: Citas programadas (solo para periódicas) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardCitas"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:strokeColor="@color/cardStroke"
+                app:strokeWidth="1dp"
+                app:cardBackgroundColor="@color/card_surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="20dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Citas programadas"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:textColor="@color/textPrimary"
+                        android:layout_marginBottom="8dp"/>
+
+                    <!-- Contenedor para inyectar chips/filas de citas -->
+                    <LinearLayout
+                        android:id="@+id/llCitas"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- NUEVO: Historial de cambios -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardHistorial"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:strokeColor="@color/cardStroke"
+                app:strokeWidth="1dp"
+                app:cardBackgroundColor="@color/card_surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="20dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Historial"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:textColor="@color/textPrimary"
+                        android:layout_marginBottom="12dp"/>
+
+                    <TextView
+                        android:id="@+id/tvMotivoReagendo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Motivo de reagendo: —"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"
+                        android:visibility="gone"/>
+
+                    <TextView
+                        android:id="@+id/tvFechaReagendo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Fecha de reagendo: —"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"
+                        android:visibility="gone"/>
+
+                    <TextView
+                        android:id="@+id/tvMotivoCancelacion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Motivo de cancelación: —"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"
+                        android:visibility="gone"/>
+
+                    <TextView
+                        android:id="@+id/tvFechaCancelacion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Fecha de cancelación: —"
+                        android:textSize="15sp"
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"
+                        android:visibility="gone"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

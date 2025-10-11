@@ -79,7 +79,7 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Filtros mejorados con iconos y colores -->
+    <!-- Filtros: 5 chips (Todas, Programadas, Completadas, Reagendadas, Canceladas) -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -99,10 +99,8 @@
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Todas"
+                android:text="📋 Todas"
                 android:checked="true"
-                app:chipIcon="@android:drawable/ic_menu_agenda"
-                app:chipIconTint="@color/textSecondary"
                 app:chipBackgroundColor="@color/chip_bg_selector"/>
 
             <com.google.android.material.chip.Chip
@@ -110,9 +108,7 @@
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Programadas"
-                app:chipIcon="@android:drawable/ic_menu_recent_history"
-                app:chipIconTint="@color/state_programada_stroke"
+                android:text="⏰ Programadas"
                 app:chipBackgroundColor="@color/chip_bg_selector"/>
 
             <com.google.android.material.chip.Chip
@@ -120,9 +116,15 @@
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Completadas"
-                app:chipIcon="@android:drawable/checkbox_on_background"
-                app:chipIconTint="@color/state_finalizada_pill"
+                android:text="✅ Completadas"
+                app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipReagendadas"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔄 Reagendadas"
                 app:chipBackgroundColor="@color/chip_bg_selector"/>
 
             <com.google.android.material.chip.Chip
@@ -130,9 +132,7 @@
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Canceladas"
-                app:chipIcon="@android:drawable/ic_delete"
-                app:chipIconTint="@color/state_cancelada_pill"
+                android:text="❌ Canceladas"
                 app:chipBackgroundColor="@color/chip_bg_selector"/>
 
         </com.google.android.material.chip.ChipGroup>
@@ -145,8 +145,8 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:paddingHorizontal="16dp"
-        android:paddingBottom="16dp"
-        android:clipToPadding="false"/>
+        android:paddingBottom="96dp"
+        android:clipToPadding="false" />
 
     <!-- Estado vacío -->
     <LinearLayout

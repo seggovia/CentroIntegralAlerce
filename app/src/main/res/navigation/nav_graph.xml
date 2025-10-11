@@ -10,9 +10,10 @@
         android:name="com.centroalerce.auth.LoginFragment"
         android:label="Login">
 
+        <!-- ✅ CAMBIO: Ahora va directo a calendario -->
         <action
-            android:id="@+id/action_loginFragment_to_homeFragment"
-            app:destination="@id/homeFragment"
+            android:id="@+id/action_loginFragment_to_calendarFragment"
+            app:destination="@id/calendarFragment"
             app:popUpTo="@id/loginFragment"
             app:popUpToInclusive="true" />
 
@@ -74,26 +75,7 @@
             app:popUpToInclusive="false" />
     </fragment>
 
-    <!-- HOME -->
-    <fragment
-        android:id="@+id/homeFragment"
-        android:name="com.centroalerce.ui.HomeFragment"
-        android:label="Inicio">
-
-        <action
-            android:id="@+id/action_homeFragment_to_activityFormFragment"
-            app:destination="@id/activityFormFragment" />
-
-        <action
-            android:id="@+id/action_homeFragment_to_calendarFragment"
-            app:destination="@id/calendarFragment" />
-
-        <action
-            android:id="@+id/action_homeFragment_to_maintainersFragment"
-            app:destination="@id/maintainersFragment" />
-    </fragment>
-
-    <!-- CALENDARIO -->
+    <!-- CALENDARIO (Pantalla Principal después del login) -->
     <fragment
         android:id="@+id/calendarFragment"
         android:name="com.centroalerce.ui.CalendarFragment"
