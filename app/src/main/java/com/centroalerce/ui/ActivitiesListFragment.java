@@ -303,8 +303,9 @@ public class ActivitiesListFragment extends Fragment {
     private void setupFilters() {
         int checkedId = chipGroupFiltros.getCheckedChipId();
         if (checkedId == R.id.chipTodas) currentFilter = "todas";
-        else if (checkedId == R.id.chipProximas) currentFilter = "proximas";
-        else if (checkedId == R.id.chipPasadas) currentFilter = "pasadas";
+        else if (checkedId == R.id.chipProgramadas) currentFilter = "programadas";
+        else if (checkedId == R.id.chipCompletadas) currentFilter = "completadas";
+        else if (checkedId == R.id.chipReagendadas) currentFilter = "reagendadas"; // 👈 NUEVO
         else if (checkedId == R.id.chipCanceladas) currentFilter = "canceladas";
         else currentFilter = "todas";
 
@@ -314,8 +315,9 @@ public class ActivitiesListFragment extends Fragment {
             } else {
                 int newCheckedId = checkedIds.get(0);
                 if (newCheckedId == R.id.chipTodas) currentFilter = "todas";
-                else if (newCheckedId == R.id.chipProximas) currentFilter = "proximas";
-                else if (newCheckedId == R.id.chipPasadas) currentFilter = "pasadas";
+                else if (newCheckedId == R.id.chipProgramadas) currentFilter = "programadas";
+                else if (newCheckedId == R.id.chipCompletadas) currentFilter = "completadas";
+                else if (newCheckedId == R.id.chipReagendadas) currentFilter = "reagendadas"; // 👈 NUEVO
                 else if (newCheckedId == R.id.chipCanceladas) currentFilter = "canceladas";
             }
             if (!allActivities.isEmpty()) applyFilters();
@@ -341,28 +343,50 @@ public class ActivitiesListFragment extends Fragment {
                 }
             }
 
-            // 2. Estado / fecha
+            // 2. Normalizar estado (minúsculas)
+            String estadoNorm = item.estado == null ? "" : item.estado.toLowerCase();
+
+            // 3. Filtro por estado
             switch (currentFilter) {
-                case "proximas":
-                    if (item.startAt == null || item.startAt.toDate().before(now) ||
-                            item.estado.equals("cancelada") || item.estado.equals("finalizada")) {
+                case "programadas":
+                    // Solo mostrar actividades con estado "programada" y fecha futura
+                    if (!estadoNorm.equals("programada") && !estadoNorm.equals("scheduled")) {
+                        continue;
+                    }
+                    if (item.startAt != null && item.startAt.toDate().before(now)) {
+                        continue; // No mostrar si ya pasó
+                    }
+                    break;
+
+                case "completadas":
+                    // Solo mostrar con estado "completada" o "finalizada"
+                    if (!estadoNorm.equals("completada") &&
+                            !estadoNorm.equals("finalizada") &&
+                            !estadoNorm.equals("completed")) {
                         continue;
                     }
                     break;
-                case "pasadas":
-                    if (item.startAt == null || item.startAt.toDate().after(now)) {
+
+                case "reagendadas":
+                    // Solo mostrar con estado "reagendada"
+                    if (!estadoNorm.equals("reagendada") && !estadoNorm.equals("rescheduled")) {
                         continue;
                     }
                     break;
+
                 case "canceladas":
-                    if (!item.estado.equals("cancelada")) {
+                    // Solo mostrar con estado "cancelada"
+                    if (!estadoNorm.equals("cancelada") && !estadoNorm.equals("canceled")) {
                         continue;
                     }
                     break;
+
                 case "todas":
                 default:
+                    // Mostrar todo sin filtrar
                     break;
             }
+
             filteredActivities.add(item);
         }
 
@@ -440,30 +464,36 @@ public class ActivitiesListFragment extends Fragment {
             h.subtitle.setText(it.subtitle);
             h.fecha.setText(it.fecha);
 
-            // Color del estado
+            // Normalizar estado
+            String estadoNorm = it.estado == null ? "" : it.estado.toLowerCase();
+
+            // Color y texto del estado
             int colorRes;
-            switch (it.estado) {
+            String textoEstado;
+            switch (estadoNorm) {
                 case "cancelada":
                 case "canceled":
                     colorRes = R.color.state_cancelada_pill;
-                    h.estado.setText("Cancelada");
+                    textoEstado = "❌ Cancelada";
                     break;
                 case "reagendada":
                 case "rescheduled":
                     colorRes = R.color.state_reagendada_pill;
-                    h.estado.setText("Reagendada");
+                    textoEstado = "🔄 Reagendada";
                     break;
                 case "finalizada":
+                case "completada":
                 case "completed":
                     colorRes = R.color.state_finalizada_pill;
-                    h.estado.setText("Finalizada");
+                    textoEstado = "✅ Completada";
                     break;
                 default:
                     colorRes = R.color.state_programada_stroke;
-                    h.estado.setText("Programada");
+                    textoEstado = "⏰ Programada";
                     break;
             }
 
+            h.estado.setText(textoEstado);
             h.estado.setTextColor(ContextCompat.getColor(h.itemView.getContext(), colorRes));
             h.itemView.setOnClickListener(x -> cb.onTap(it));
         }

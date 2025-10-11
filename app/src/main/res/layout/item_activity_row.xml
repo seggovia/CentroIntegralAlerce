@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -16,55 +17,31 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Título -->
-        <TextView
-            android:id="@+id/tvTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Nombre de la actividad"
-            android:textStyle="bold"
-            android:textSize="18sp"
-            android:textColor="@color/textPrimary"
-            android:maxLines="2"
-            android:ellipsize="end"/>
-
-        <!-- Subtítulo (Tipo • Periodicidad) -->
-        <TextView
-            android:id="@+id/tvSubtitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Tipo • PUNTUAL"
-            android:textSize="14sp"
-            android:textColor="@color/textSecondary"
-            android:maxLines="1"
-            android:ellipsize="end"/>
-
-        <!-- Fecha, hora y lugar + Estado -->
+        <!-- Título con icono de actividad -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
-            <!-- Icono de reloj -->
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:src="@android:drawable/ic_menu_recent_history"
-                app:tint="@color/textSecondary"/>
-
-            <!-- Fecha, hora y lugar -->
             <TextView
-                android:id="@+id/tvFecha"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📋"
+                android:textSize="20sp"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:id="@+id/tvTitle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                android:text="01/01/2024 10:00 · Oficina del centro"
-                android:textSize="13sp"
-                android:textColor="@color/textSecondary"/>
+                android:text="Nombre de la actividad"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="@color/textPrimary"
+                android:maxLines="2"
+                android:ellipsize="end"/>
 
             <!-- Estado -->
             <TextView
@@ -75,58 +52,108 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="@color/state_programada_stroke"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
                 android:paddingTop="4dp"
                 android:paddingBottom="4dp"
                 android:background="@drawable/bg_estado_pill"/>
         </LinearLayout>
 
-        <!-- NUEVO: Badges opcionales (cupos, adjuntos, aviso previo) -->
+        <!-- Subtítulo con icono -->
         <LinearLayout
-            android:id="@+id/rowBadges"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:orientation="horizontal"
-            android:gravity="end">
+            android:gravity="center_vertical">
 
-            <!-- Cupos -->
             <TextView
-                android:id="@+id/badgeCupos"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:visibility="gone"
-                android:text="3/10"
+                android:text="🏷️"
+                android:textSize="14sp"
+                android:layout_marginEnd="6dp"/>
+
+            <TextView
+                android:id="@+id/tvSubtitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Tipo • PUNTUAL"
+                android:textSize="14sp"
+                android:textColor="@color/textSecondary"
+                android:maxLines="1"
+                android:ellipsize="end"/>
+        </LinearLayout>
+
+        <!-- Fecha con icono de reloj -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🕐"
+                android:textSize="16sp"
+                android:layout_marginEnd="6dp"/>
+
+            <TextView
+                android:id="@+id/tvFecha"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="01/01/2024 10:00 · Oficina del centro"
+                android:textSize="13sp"
+                android:textColor="@color/textSecondary"/>
+        </LinearLayout>
+
+        <!-- Divider sutil -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="@color/divider"
+            android:alpha="0.3"/>
+
+        <!-- Footer con badges -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Lugar con icono -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📍"
+                android:textSize="14sp"
+                android:layout_marginEnd="4dp"/>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Lugar"
                 android:textSize="12sp"
-                android:textColor="@color/textPrimary"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:background="@drawable/bg_chip_neutral"/>
+                android:textColor="@color/textSecondary"
+                android:maxLines="1"
+                android:ellipsize="end"/>
 
-            <!-- Adjuntos -->
-            <ImageView
-                android:id="@+id/iconAdjuntos"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+            <!-- Indicador visual de estado con emoji -->
+            <TextView
+                android:id="@+id/tvEstadoEmoji"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="✓"
+                android:textSize="16sp"
                 android:layout_marginStart="8dp"
-                android:visibility="gone"
-                android:contentDescription="@string/adjuntos"
-                android:src="@drawable/ic_attach_24"
-                app:tint="@color/textSecondary"/>
-
-            <!-- Aviso previo -->
-            <ImageView
-                android:id="@+id/iconAviso"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:layout_marginStart="8dp"
-                android:visibility="gone"
-                android:contentDescription="@string/aviso_previo"
-                android:src="@drawable/ic_bell_24"
-                app:tint="@color/textSecondary"/>
+                android:visibility="gone"/>
         </LinearLayout>
 
     </LinearLayout>
