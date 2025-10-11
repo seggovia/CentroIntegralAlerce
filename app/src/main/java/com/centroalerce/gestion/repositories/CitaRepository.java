@@ -4,6 +4,7 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.centroalerce.gestion.models.Cita;
+import com.centroalerce.gestion.utils.EstadoCita;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -16,7 +17,7 @@ public class CitaRepository {
         this.db = FirebaseFirestore.getInstance();
     }
 
-    // Obtener citas de una semana específica
+    // Obtener citas de una semana específica (actualiza estados automáticamente)
     public void getCitasSemana(Date inicioSemana, Date finSemana, CitasCallback callback) {
         db.collection("citas")
                 .whereGreaterThanOrEqualTo("fecha", new Timestamp(inicioSemana))
@@ -25,8 +26,21 @@ public class CitaRepository {
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     List<Cita> citas = new ArrayList<>();
+                    Date ahora = new Date();
+
                     for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
                         Cita cita = doc.toObject(Cita.class);
+
+                        // Actualizar estado si la cita pasó y sigue programada
+                        if (cita.getFecha() != null &&
+                                cita.getFecha().toDate().before(ahora) &&
+                                "programada".equals(cita.getEstado())) {
+
+                            // Marcar como completada
+                            completarCita(cita.getId(), null);
+                            cita.setEstado("completada");
+                        }
+
                         citas.add(cita);
                     }
                     callback.onSuccess(citas);
@@ -34,16 +48,27 @@ public class CitaRepository {
                 .addOnFailureListener(e -> callback.onError(e.getMessage()));
     }
 
-    // Obtener todas las citas agendadas
+    // Obtener todas las citas agendadas (filtra y actualiza)
     public void getCitasAgendadas(CitasCallback callback) {
         db.collection("citas")
-                .whereEqualTo("estado", "agendada")
                 .orderBy("fecha")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     List<Cita> citas = new ArrayList<>();
+                    Date ahora = new Date();
+
                     for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
                         Cita cita = doc.toObject(Cita.class);
+
+                        // Actualizar estado automáticamente
+                        if (cita.getFecha() != null &&
+                                cita.getFecha().toDate().before(ahora) &&
+                                "programada".equals(cita.getEstado())) {
+
+                            completarCita(cita.getId(), null);
+                            cita.setEstado("completada");
+                        }
+
                         citas.add(cita);
                     }
                     callback.onSuccess(citas);
@@ -59,6 +84,18 @@ public class CitaRepository {
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
                         Cita cita = documentSnapshot.toObject(Cita.class);
+
+                        // Actualizar estado si es necesario
+                        if (cita != null && cita.getFecha() != null) {
+                            Date ahora = new Date();
+                            if (cita.getFecha().toDate().before(ahora) &&
+                                    "programada".equals(cita.getEstado())) {
+
+                                completarCita(id, null);
+                                cita.setEstado("completada");
+                            }
+                        }
+
                         callback.onSuccess(cita);
                     } else {
                         callback.onError("Cita no encontrada");
@@ -82,7 +119,6 @@ public class CitaRepository {
 
     // Reagendar cita
     public void reagendarCita(String citaId, Date nuevaFecha, String motivo, SimpleCallback callback) {
-        // Primero obtener la cita original
         getCita(citaId, new CitaCallback() {
             @Override
             public void onSuccess(Cita citaOriginal) {
@@ -102,7 +138,8 @@ public class CitaRepository {
                 nuevaCita.setLugarId(citaOriginal.getLugarId());
                 nuevaCita.setLugarNombre(citaOriginal.getLugarNombre());
                 nuevaCita.setFecha(new Timestamp(nuevaFecha));
-                nuevaCita.setEstado("agendada");
+                nuevaCita.setStartAt(new Timestamp(nuevaFecha));
+                nuevaCita.setEstado("programada");
                 nuevaCita.setCitaOriginalId(citaId);
                 nuevaCita.setFechaCreacion(Timestamp.now());
                 nuevaCita.setCreadoPor(citaOriginal.getCreadoPor());
@@ -124,7 +161,7 @@ public class CitaRepository {
         });
     }
 
-    // Completar cita
+    // Completar cita (puede ser llamado manualmente o automáticamente)
     public void completarCita(String citaId, SimpleCallback callback) {
         db.collection("citas")
                 .document(citaId)
@@ -132,8 +169,12 @@ public class CitaRepository {
                         "estado", "completada",
                         "fechaModificacion", Timestamp.now()
                 )
-                .addOnSuccessListener(aVoid -> callback.onSuccess())
-                .addOnFailureListener(e -> callback.onError(e.getMessage()));
+                .addOnSuccessListener(aVoid -> {
+                    if (callback != null) callback.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    if (callback != null) callback.onError(e.getMessage());
+                });
     }
 
     // Interfaces para callbacks

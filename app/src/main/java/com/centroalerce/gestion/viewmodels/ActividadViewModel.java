@@ -3,6 +3,7 @@ package com.centroalerce.gestion.viewmodels;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
+import com.centroalerce.gestion.utils.ValidationResult; // 👈 ⭐ AGREGAR ESTA LÍNEA
 
 import com.centroalerce.gestion.models.Actividad;
 import com.centroalerce.gestion.repositories.ActividadRepository;
@@ -23,10 +24,17 @@ public class ActividadViewModel extends ViewModel {
     }
 
     // Crear actividad
+    // Crear actividad
     public void createActividad(Actividad actividad, List<Date> fechasCitas,
                                 String lugarId, String lugarNombre) {
         isLoading.setValue(true);
-        actividadRepository.createActividad(actividad, fechasCitas, lugarId, lugarNombre,
+
+        // 🔥 CAMBIO: Usar el método PÚBLICO con validación
+        actividadRepository.createActividadConValidacion(
+                actividad,
+                fechasCitas,
+                lugarId,
+                lugarNombre,
                 new ActividadRepository.CreateCallback() {
                     @Override
                     public void onSuccess(String actividadId) {
@@ -40,7 +48,14 @@ public class ActividadViewModel extends ViewModel {
                         isLoading.setValue(false);
                         errorMessage.setValue(error);
                     }
-                });
+
+                    @Override
+                    public void onValidationError(ValidationResult validationResult) {
+                        isLoading.setValue(false);
+                        errorMessage.setValue(validationResult.getErrorMessage());
+                    }
+                }
+        );
     }
 
     // Cargar todas las actividades

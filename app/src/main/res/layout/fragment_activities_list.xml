@@ -79,19 +79,20 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Filtros -->
+    <!-- Filtros mejorados con iconos y colores -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginBottom="12dp"
         android:scrollbars="none">
 
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/chipGroupFiltros"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:singleSelection="false">
+            app:singleSelection="true"
+            app:selectionRequired="true">
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipTodas"
@@ -100,22 +101,28 @@
                 android:layout_height="wrap_content"
                 android:text="Todas"
                 android:checked="true"
+                app:chipIcon="@android:drawable/ic_menu_agenda"
+                app:chipIconTint="@color/textSecondary"
                 app:chipBackgroundColor="@color/chip_bg_selector"/>
 
             <com.google.android.material.chip.Chip
-                android:id="@+id/chipProximas"
+                android:id="@+id/chipProgramadas"
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Próximas"
+                android:text="Programadas"
+                app:chipIcon="@android:drawable/ic_menu_recent_history"
+                app:chipIconTint="@color/state_programada_stroke"
                 app:chipBackgroundColor="@color/chip_bg_selector"/>
 
             <com.google.android.material.chip.Chip
-                android:id="@+id/chipPasadas"
+                android:id="@+id/chipCompletadas"
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Pasadas"
+                android:text="Completadas"
+                app:chipIcon="@android:drawable/checkbox_on_background"
+                app:chipIconTint="@color/state_finalizada_pill"
                 app:chipBackgroundColor="@color/chip_bg_selector"/>
 
             <com.google.android.material.chip.Chip
@@ -124,7 +131,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Canceladas"
+                app:chipIcon="@android:drawable/ic_delete"
+                app:chipIconTint="@color/state_cancelada_pill"
                 app:chipBackgroundColor="@color/chip_bg_selector"/>
+
         </com.google.android.material.chip.ChipGroup>
     </HorizontalScrollView>
 
