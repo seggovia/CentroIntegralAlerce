@@ -17,7 +17,12 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
 import android.widget.AutoCompleteTextView;
-
+import com.centroalerce.gestion.utils.ActividadValidator;
+import com.centroalerce.gestion.utils.DateUtils;
+import com.centroalerce.gestion.utils.ValidationResult;
+import com.centroalerce.gestion.repositories.LugarRepository;
+import com.centroalerce.gestion.models.Lugar;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -78,12 +83,15 @@ public class ActivityFormFragment extends Fragment {
 
     private FirebaseFirestore db;
     private FirebaseStorage storage;
+    private LugarRepository lugarRepository;
+    private Lugar lugarSeleccionado;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (db == null) db = FirebaseFirestore.getInstance();
         if (storage == null) storage = FirebaseStorage.getInstance();
+        lugarRepository = new LugarRepository(); // ← NUEVO
     }
 
     // SAF – seleccionar varios archivos
@@ -209,24 +217,34 @@ public class ActivityFormFragment extends Fragment {
     }
 
     // ---------- Cargar catálogos ----------
+    // Map para guardar relación nombre -> ID
+    private final Map<String, String> lugaresMap = new HashMap<>();
+
     private void cargarLugares() {
         db.collection("lugares").orderBy("nombre")
                 .get()
                 .addOnSuccessListener(qs -> {
                     if (!isAdded()) return;
                     List<String> items = new ArrayList<>();
+                    lugaresMap.clear(); // Limpiar el mapa
+
                     for (DocumentSnapshot d : qs.getDocuments()) {
                         Boolean activo = d.getBoolean("activo");
                         if (activo != null && !activo) continue;
+
                         String nombre = d.getString("nombre");
-                        if (nombre != null && !nombre.trim().isEmpty()) items.add(nombre.trim());
+                        String id = d.getId();
+
+                        if (nombre != null && !nombre.trim().isEmpty()) {
+                            items.add(nombre.trim());
+                            lugaresMap.put(nombre.trim(), id); // ← Guardar relación
+                        }
                     }
                     setComboAdapter(acLugar, items);
                 })
                 .addOnFailureListener(e ->
                         android.util.Log.e("CATALOG", "lugares: " + e.getMessage(), e));
     }
-
     private void cargarProyectos() {
         db.collection("proyectos").orderBy("nombre")
                 .get()
@@ -615,17 +633,24 @@ public class ActivityFormFragment extends Fragment {
 
     // ---------- Guardar ----------
     private void onGuardar(View root) {
+        android.util.Log.d("FORM", "=== INICIO onGuardar ===");
+
+        // ✅ Deshabilitar botón INMEDIATAMENTE
+        btnGuardar.setEnabled(false);
+        btnGuardar.setText("Validando...");
+
         if (!validarCupoOpcional()) {
             Snackbar.make(root, "Cupo inválido", Snackbar.LENGTH_LONG).show();
+            btnGuardar.setEnabled(true);
+            btnGuardar.setText("Guardar actividad");
             return;
         }
-
-        btnGuardar.setEnabled(false);
 
         String nombre = getText(etNombre);
         if (TextUtils.isEmpty(nombre)) {
             Snackbar.make(root, "Ingresa el nombre", Snackbar.LENGTH_LONG).show();
             btnGuardar.setEnabled(true);
+            btnGuardar.setText("Guardar actividad");
             return;
         }
 
@@ -636,12 +661,45 @@ public class ActivityFormFragment extends Fragment {
         if (!modoPeriodica && (TextUtils.isEmpty(fecha) || TextUtils.isEmpty(hora))) {
             Snackbar.make(root, "Completa Fecha y Hora", Snackbar.LENGTH_LONG).show();
             btnGuardar.setEnabled(true);
+            btnGuardar.setText("Guardar actividad");
             return;
         }
         if (modoPeriodica && citasPeriodicas.isEmpty()) {
             Snackbar.make(root, "Agrega al menos una fecha + hora", Snackbar.LENGTH_LONG).show();
             btnGuardar.setEnabled(true);
+            btnGuardar.setText("Guardar actividad");
             return;
+        }
+
+        // ✅ VALIDACIÓN: Verificar que fecha no sea pasada
+        if (!modoPeriodica) {
+            Timestamp startAtPuntual = toStartAtTimestamp(fecha, hora);
+            if (startAtPuntual == null) {
+                Snackbar.make(root, "Fecha u hora inválida", Snackbar.LENGTH_LONG).show();
+                btnGuardar.setEnabled(true);
+                btnGuardar.setText("Guardar actividad");
+                return;
+            }
+
+            ValidationResult validacionFecha = ActividadValidator.validarFechaFutura(startAtPuntual.toDate());
+            if (!validacionFecha.isValid()) {
+                mostrarDialogoError("Fecha inválida", validacionFecha.getErrorMessage(), root);
+                btnGuardar.setEnabled(true);
+                btnGuardar.setText("Guardar actividad");
+                return;
+            }
+        } else {
+            // Validar todas las fechas periódicas
+            for (Timestamp ts : citasPeriodicas) {
+                ValidationResult validacionFecha = ActividadValidator.validarFechaFutura(ts.toDate());
+                if (!validacionFecha.isValid()) {
+                    mostrarDialogoError("Fecha inválida",
+                            "Una de las fechas agregadas ya pasó. Por favor revisa las fechas.", root);
+                    btnGuardar.setEnabled(true);
+                    btnGuardar.setText("Guardar actividad");
+                    return;
+                }
+            }
         }
 
         String tipoActividad = getText(acTipoActividad);
@@ -651,20 +709,47 @@ public class ActivityFormFragment extends Fragment {
             if (!s.isEmpty()) cupo = Integer.parseInt(s);
         } catch (Exception ignored) { }
 
+        // ✅ VALIDACIÓN: Verificar cupo
+        if (cupo != null) {
+            ValidationResult validacionCupo = ActividadValidator.validarCupoActividad(cupo);
+            if (!validacionCupo.isValid()) {
+                mostrarDialogoError("Cupo inválido", validacionCupo.getErrorMessage(), root);
+                btnGuardar.setEnabled(true);
+                btnGuardar.setText("Guardar actividad");
+                return;
+            }
+        }
+
         String lugar         = getText(acLugar);
         String oferente      = getText(acOferente);
         String socio         = getText(acSocio);
         String beneficiarios = getText(etBeneficiarios);
         String proyecto      = getText(acProyecto);
 
-        Timestamp startAtPuntual = null;
-        if (!modoPeriodica) {
-            startAtPuntual = toStartAtTimestamp(fecha, hora);
-            if (startAtPuntual == null) {
-                Snackbar.make(root, "Fecha u hora inválida", Snackbar.LENGTH_LONG).show();
-                btnGuardar.setEnabled(true);
-                return;
-            }
+        // ✅ VALIDACIÓN: Verificar campos obligatorios
+        if (TextUtils.isEmpty(tipoActividad)) {
+            mostrarDialogoError("Campo obligatorio", "Debes seleccionar un tipo de actividad", root);
+            btnGuardar.setEnabled(true);
+            btnGuardar.setText("Guardar actividad");
+            return;
+        }
+        if (TextUtils.isEmpty(lugar)) {
+            mostrarDialogoError("Campo obligatorio", "Debes seleccionar un lugar", root);
+            btnGuardar.setEnabled(true);
+            btnGuardar.setText("Guardar actividad");
+            return;
+        }
+        if (TextUtils.isEmpty(oferente)) {
+            mostrarDialogoError("Campo obligatorio", "Debes seleccionar un oferente", root);
+            btnGuardar.setEnabled(true);
+            btnGuardar.setText("Guardar actividad");
+            return;
+        }
+        if (TextUtils.isEmpty(socio)) {
+            mostrarDialogoError("Campo obligatorio", "Debes seleccionar un socio comunitario", root);
+            btnGuardar.setEnabled(true);
+            btnGuardar.setText("Guardar actividad");
+            return;
         }
 
         final boolean   modoPeriodicaFinal   = modoPeriodica;
@@ -676,39 +761,84 @@ public class ActivityFormFragment extends Fragment {
         final String    socioFinal           = socio;
         final String    beneficiariosFinal   = beneficiarios;
         final String    proyectoFinal        = proyecto;
-        final Timestamp startAtPuntualFinal  = startAtPuntual;
 
-        final ArrayList<Timestamp> aRevisar = new ArrayList<>();
-        if (modoPeriodicaFinal) aRevisar.addAll(citasPeriodicas);
-        else aRevisar.add(startAtPuntualFinal);
+        // ✅ PASO 1: Obtener información del lugar
+        btnGuardar.setText("Validando lugar...");
+        lugarRepository.getLugar(buscarIdLugar(lugarFinal), new LugarRepository.LugarCallback() {
+            @Override
+            public void onSuccess(Lugar lugar) {
+                lugarSeleccionado = lugar;
 
-        chequearConflictos(lugarFinal, aRevisar)
-                .addOnSuccessListener(conflicto -> {
-                    if (Boolean.TRUE.equals(conflicto)) {
+                // ✅ VALIDACIÓN: Verificar cupo del lugar
+                if (cupoFinal != null) {
+                    ValidationResult validacionCupoLugar = ActividadValidator.validarCupoLugar(lugar, cupoFinal);
+                    if (!validacionCupoLugar.isValid()) {
+                        mostrarDialogoErrorConAlternativa(
+                                "Cupo insuficiente",
+                                validacionCupoLugar.getErrorMessage(),
+                                "Seleccionar otro lugar",
+                                root
+                        );
                         btnGuardar.setEnabled(true);
-                        Snackbar.make(root, "Conflicto de horario/lugar detectado. Modifica la fecha/hora o el lugar.", Snackbar.LENGTH_LONG).show();
-                    } else {
+                        btnGuardar.setText("Guardar actividad");
+                        return;
+                    }
+                }
+
+                // ✅ PASO 2: Preparar fechas a validar
+                final ArrayList<Timestamp> aRevisar = new ArrayList<>();
+                if (modoPeriodicaFinal) {
+                    aRevisar.addAll(citasPeriodicas);
+                } else {
+                    Timestamp startAtPuntual = toStartAtTimestamp(getText(etFecha), getText(etHora));
+                    aRevisar.add(startAtPuntual);
+                }
+
+                // ✅ PASO 3: Verificar conflictos de horario
+                btnGuardar.setText("Verificando horarios...");
+                android.util.Log.d("FORM", "🔍 Iniciando verificación de conflictos para lugar: " + lugar.getNombre());
+
+                verificarConflictosConValidacion(lugar.getId(), aRevisar, new ConflictoCallback() {
+                    @Override
+                    public void onConflictoDetectado(String mensaje) {
+                        android.util.Log.w("FORM", "⚠️ CONFLICTO DETECTADO: " + mensaje);
+                        mostrarDialogoConflicto(mensaje, root);
+                        btnGuardar.setEnabled(true);
+                        btnGuardar.setText("Guardar actividad");
+                    }
+
+                    @Override
+                    public void onSinConflictos() {
+                        android.util.Log.d("FORM", "✅ Sin conflictos - procediendo a guardar");
+                        btnGuardar.setText("Guardando...");
+                        // ✅ Todo OK - proceder a guardar
                         subirAdjuntosYGuardar(
                                 root,
                                 nombreFinal, tipoActividadFinal, cupoFinal,
                                 oferenteFinal, socioFinal, beneficiariosFinal,
                                 lugarFinal, modoPeriodicaFinal,
-                                startAtPuntualFinal, aRevisar,
+                                aRevisar.get(0), aRevisar,
                                 proyectoFinal
                         );
                     }
-                })
-                .addOnFailureListener(e -> {
-                    Snackbar.make(root, "No se pudo verificar conflictos (" + e.getMessage() + "). Continuando…", Snackbar.LENGTH_LONG).show();
-                    subirAdjuntosYGuardar(
-                            root,
-                            nombreFinal, tipoActividadFinal, cupoFinal,
-                            oferenteFinal, socioFinal, beneficiariosFinal,
-                            lugarFinal, modoPeriodicaFinal,
-                            startAtPuntualFinal, aRevisar,
-                            proyectoFinal
-                    );
+
+                    @Override
+                    public void onError(String error) {
+                        android.util.Log.e("FORM", "❌ Error en validación: " + error);
+                        Snackbar.make(root, "Error al validar: " + error, Snackbar.LENGTH_LONG).show();
+                        btnGuardar.setEnabled(true);
+                        btnGuardar.setText("Guardar actividad");
+                    }
                 });
+            }
+
+            @Override
+            public void onError(String error) {
+                Snackbar.make(root, "Error al obtener lugar: " + error, Snackbar.LENGTH_LONG).show();
+                btnGuardar.setEnabled(true);
+                btnGuardar.setText("Guardar actividad");
+            }
+        });
     }
 
     private void subirAdjuntosYGuardar(View root,
@@ -1010,5 +1140,137 @@ public class ActivityFormFragment extends Fragment {
         @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
         @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
         @Override public void afterTextChanged(Editable s) { onAfter.run(); }
+    }
+
+
+    /**
+     * Busca el ID del lugar por nombre (simulado - en producción deberías tenerlo)
+     */
+    private String buscarIdLugar(String nombreLugar) {
+        return lugaresMap.getOrDefault(nombreLugar, nombreLugar.toLowerCase().replaceAll("\\s+", "_"));
+    }
+
+    /**
+     * Verificar conflictos de horario con validaciones robustas
+     */
+    private void verificarConflictosConValidacion(String lugarId, List<Timestamp> fechas, ConflictoCallback callback) {
+        android.util.Log.d("FORM", "🔎 verificarConflictosConValidacion - lugarId: " + lugarId + ", fechas: " + fechas.size());
+
+        if (TextUtils.isEmpty(lugarId) || fechas == null || fechas.isEmpty()) {
+            android.util.Log.d("FORM", "✅ Sin datos para validar - continuando");
+            callback.onSinConflictos();
+            return;
+        }
+
+        // ✅ Obtener el nombre del lugar para la validación
+        String lugarNombre = getText(acLugar);
+        android.util.Log.d("FORM", "📍 Lugar seleccionado: " + lugarNombre);
+
+        // ✅ Validar cada fecha contra las citas existentes
+        validarTodasLasFechas(lugarId, lugarNombre, fechas, 0, callback);
+    }
+    private void validarTodasLasFechas(String lugarId, String lugarNombre, List<Timestamp> fechas,
+                                       int index, ConflictoCallback callback) {
+        if (index >= fechas.size()) {
+            // Todas las fechas validadas correctamente
+            android.util.Log.d("FORM", "✅ Todas las fechas validadas - sin conflictos");
+            callback.onSinConflictos();
+            return;
+        }
+
+        Timestamp fechaActual = fechas.get(index);
+        Date fechaDate = fechaActual.toDate();
+
+        android.util.Log.d("FORM", "🔍 Validando fecha " + (index + 1) + "/" + fechas.size() + ": " +
+                DateUtils.timestampToString(fechaActual));
+
+        // ✅ Buscar citas existentes en ese lugar y fecha
+        lugarRepository.getCitasEnLugar(lugarId, fechaDate, new LugarRepository.CitasEnLugarCallback() {
+            @Override
+            public void onSuccess(List<Date> citasExistentes) {
+                android.util.Log.d("FORM", "📊 Citas existentes encontradas: " + citasExistentes.size());
+
+                // ✅ Validar conflicto de horario (30 minutos de margen)
+                ValidationResult validacion = ActividadValidator.validarConflictoHorario(
+                        lugarId, fechaDate, citasExistentes, 30
+                );
+
+                if (!validacion.isValid()) {
+                    android.util.Log.w("FORM", "⚠️ Conflicto detectado: " + validacion.getErrorMessage());
+                    callback.onConflictoDetectado(validacion.getErrorMessage());
+                    return;
+                }
+
+                // ✅ Esta fecha está OK, validar la siguiente
+                validarTodasLasFechas(lugarId, lugarNombre, fechas, index + 1, callback);
+            }
+
+            @Override
+            public void onError(String error) {
+                android.util.Log.e("FORM", "❌ Error obteniendo citas: " + error);
+                callback.onError(error);
+            }
+        });
+    }
+
+
+    /**
+     * Mostrar diálogo de error simple
+     */
+    private void mostrarDialogoError(String titulo, String mensaje, View root) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(titulo)
+                .setMessage(mensaje)
+                .setPositiveButton("Entendido", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    /**
+     * Mostrar diálogo de error con opción de alternativa
+     */
+    private void mostrarDialogoErrorConAlternativa(String titulo, String mensaje, String accionAlternativa, View root) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(titulo)
+                .setMessage(mensaje)
+                .setPositiveButton(accionAlternativa, (dialog, which) -> {
+                    // Enfocar el combo de lugar para que seleccione otro
+                    acLugar.requestFocus();
+                    acLugar.showDropDown();
+                })
+                .setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    /**
+     * Mostrar diálogo de conflicto de horario con opciones
+     */
+    private void mostrarDialogoConflicto(String mensaje, View root) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("⚠️ Conflicto de horario")
+                .setMessage(mensaje + "\n\n¿Qué deseas hacer?")
+                .setPositiveButton("Cambiar fecha/hora", (dialog, which) -> {
+                    if (esPeriodica) {
+                        citasPeriodicas.clear();
+                        etFecha.setText(null);
+                        Snackbar.make(root, "Vuelve a agregar las fechas", Snackbar.LENGTH_SHORT).show();
+                    } else {
+                        etFecha.requestFocus();
+                    }
+                })
+                .setNeutralButton("Cambiar lugar", (dialog, which) -> {
+                    acLugar.requestFocus();
+                    acLugar.showDropDown();
+                })
+                .setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    /**
+     * Interface para callback de conflictos
+     */
+    private interface ConflictoCallback {
+        void onConflictoDetectado(String mensaje);
+        void onSinConflictos();
+        void onError(String error);
     }
 }

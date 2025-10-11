@@ -34,40 +34,36 @@
     <color name="gradient_start">#5B4CC4</color>
     <color name="gradient_end">#7C6EE6</color>
 
+    <!-- ========================================== -->
+    <!-- ESTADOS DE CITAS (CONSISTENTES CON CÓDIGO) -->
+    <!-- ========================================== -->
 
-    <!-- COLORES DEL ESTADO DEL CITAS CALENDARIO -->
+    <!-- PROGRAMADA (Púrpura/Indigo - estado por defecto) -->
+    <color name="state_programada_bg">#4F46E5</color>        <!-- indigo-600 fondo -->
+    <color name="state_programada_stroke">#6366F1</color>    <!-- indigo-500 borde/pill -->
+    <color name="state_programada_pill">#6366F1</color>      <!-- indigo-500 etiqueta -->
+    <color name="state_programada_text">#312E81</color>      <!-- indigo-900 texto -->
 
+    <!-- REAGENDADA (Amarillo/Amber - alta visibilidad) -->
+    <color name="state_reagendada_bg">#FDE68A</color>        <!-- amber-200 fondo -->
+    <color name="state_reagendada_stroke">#F59E0B</color>    <!-- amber-500 borde -->
+    <color name="state_reagendada_pill">#F59E0B</color>      <!-- amber-500 etiqueta -->
+    <color name="state_reagendada_text">#92400E</color>      <!-- amber-800 texto -->
+
+    <!-- CANCELADA (Rojo - alerta crítica) -->
+    <color name="state_cancelada_bg">#FEE2E2</color>         <!-- red-100 fondo -->
+    <color name="state_cancelada_stroke">#EF4444</color>     <!-- red-500 borde -->
+    <color name="state_cancelada_pill">#DC2626</color>       <!-- red-600 etiqueta -->
+    <color name="state_cancelada_text">#991B1B</color>       <!-- red-900 texto -->
+
+    <!-- COMPLETADA/FINALIZADA (Verde/Gris - neutral) -->
+    <color name="state_finalizada_bg">#D1FAE5</color>        <!-- green-100 fondo -->
+    <color name="state_finalizada_stroke">#10B981</color>    <!-- green-500 borde -->
+    <color name="state_finalizada_pill">#059669</color>      <!-- green-600 etiqueta -->
+    <color name="state_finalizada_text">#064E3B</color>      <!-- green-900 texto -->
 
     <!-- Toggle buttons -->
     <color name="toggle_bg">#F3F4F6</color>
     <color name="toggle_stroke">#D1D5DB</color>
     <color name="toggle_text">#374151</color>
-
-    <color name="state_programada_bg">#4F46E5</color>  <!-- púrpura (default) -->
-    <color name="state_programada_stroke">#4338CA</color>
-
-    <!-- REAGENDADA — más intenso -->
-    <color name="state_reagendada_bg">#FDE68A</color>        <!-- amber-300 (fondo) -->
-    <color name="state_reagendada_stroke">#B45309</color>    <!-- amber-700 (borde) -->
-    <color name="state_reagendada_pill">#D97706</color>      <!-- amber-600 (pill/etiqueta) -->
-    <color name="state_reagendada_text">#7C2D12</color>      <!-- amber-900 (texto oscuro) -->
-
-    <!-- CANCELADA — más intenso -->
-    <color name="state_cancelada_bg">#FCA5A5</color>         <!-- red-300 (fondo) -->
-    <color name="state_cancelada_stroke">#B91C1C</color>     <!-- red-700 (borde) -->
-    <color name="state_cancelada_pill">#DC2626</color>       <!-- red-600 (pill/etiqueta) -->
-    <color name="state_cancelada_text">#991B1B</color>       <!-- red-900 (texto oscuro) -->
-
-
-    <color name="state_finalizada_bg">#F3F4F6</color> <!-- gris claro -->
-    <color name="state_finalizada_stroke">#9CA3AF</color>
-    <color name="state_finalizada_pill">#6B7280</color>
-    <color name="state_finalizada_text">#374151</color>
-
-
-    <!-- FIN COLORES DEL ESTADO DEL CITAS CALENDARIO -->
-
-
-
-
 </resources>
