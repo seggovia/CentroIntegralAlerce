@@ -28,4 +28,22 @@
         app:labelVisibilityMode="labeled"
         app:menu="@menu/bottom_nav_menu"/>
 
+    <!-- 🆕 FAB GLOBAL - controlado desde MainActivity -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabAddGlobal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="88dp"
+        android:contentDescription="Crear actividad"
+        android:src="@android:drawable/ic_input_add"
+        android:visibility="gone"
+        app:tint="@android:color/white"
+        app:backgroundTint="@color/primary"
+        app:elevation="16dp"
+        app:pressedTranslationZ="20dp"
+        app:rippleColor="@android:color/white"
+        app:fabSize="normal"/>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

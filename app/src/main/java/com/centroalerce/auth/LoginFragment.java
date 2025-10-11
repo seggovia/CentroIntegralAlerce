@@ -1,7 +1,8 @@
 package com.centroalerce.auth;
-import com.google.firebase.auth.FirebaseAuth;      // ya lo tenías / confírmalo
-import com.google.firebase.auth.FirebaseUser;      // ⭐ requerido
-import com.google.android.gms.tasks.Task;          // para los callbacks de Task
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.android.gms.tasks.Task;
 
 import android.os.Bundle;
 import android.text.Editable;
@@ -16,18 +17,11 @@ import androidx.navigation.Navigation;
 import com.centroalerce.gestion.R;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
-// Firebase (opcional si ya configuraste BoM)
- import com.google.firebase.auth.FirebaseAuth;
-// 👉 NUEVO
-import com.google.firebase.auth.FirebaseAuth;
-import android.util.Patterns;
 
 public class LoginFragment extends Fragment {
 
     private TextInputEditText etEmail, etPass;
     private MaterialButton btnLogin;
-    // private FirebaseAuth auth;
-    // 👉 NUEVO
     private FirebaseAuth auth;
 
     public LoginFragment(){}
@@ -42,7 +36,7 @@ public class LoginFragment extends Fragment {
         TextView tvForgot = v.findViewById(R.id.tvForgot);
         TextView tvContacto = v.findViewById(R.id.tvContacto);
 
-        // 👉 NUEVO: referencia al botón "Crear cuenta"
+        // Botón "Crear cuenta"
         com.google.android.material.button.MaterialButton btnSignup = v.findViewById(R.id.btnSignup);
         if (btnSignup != null) {
             btnSignup.setOnClickListener(x ->
@@ -61,8 +55,7 @@ public class LoginFragment extends Fragment {
         etEmail.addTextChangedListener(watcher);
         etPass.addTextChangedListener(watcher);
 
-        // auth = FirebaseAuth.getInstance();
-        // 👉 NUEVO: inicializa Auth y fuerza idioma español para el email
+        // Inicializa Auth
         if (auth == null) auth = FirebaseAuth.getInstance();
         auth.setLanguageCode("es");
 
@@ -96,7 +89,7 @@ public class LoginFragment extends Fragment {
         }
 
         if (auth == null) auth = FirebaseAuth.getInstance();
-        auth.setLanguageCode("es"); // 🔹 Fuerza idioma español para correos y mensajes
+        auth.setLanguageCode("es");
         btnLogin.setEnabled(false);
 
         auth.signInWithEmailAndPassword(email, pass)
@@ -104,7 +97,6 @@ public class LoginFragment extends Fragment {
                     btnLogin.setEnabled(true);
 
                     if (!task.isSuccessful()){
-                        // 🔹 Traduce los errores más comunes al español
                         String error = task.getException() != null ? task.getException().getMessage() : "";
                         String msg;
                         if (error.contains("password is invalid") || error.contains("INVALID_PASSWORD")) {
@@ -157,16 +149,10 @@ public class LoginFragment extends Fragment {
                             return;
                         }
 
-                        // ✅ Solo si está verificado
-                        Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_homeFragment);
+                        // ✅ CAMBIO: Ahora navega directo al calendario
+                        Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
                     });
                 });
-    }
-
-
-
-    private void openSignup(View root){
-        Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_signupFragment);
     }
 
     private void openContactSupport(View root){

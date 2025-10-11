@@ -115,6 +115,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     @Override
     public void onViewCreated(@NonNull View root, @Nullable Bundle s) {
+
         super.onViewCreated(root, s);
 
         actividadId = getArg("actividadId");
@@ -158,27 +159,46 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             return insets;
         });
 
+        // === NUEVO helper: emitir acción al padre, conservando IDs ===
+        Runnable emitEdit       = () -> emitActionToParent("edit", actividadId, citaId);
+        Runnable emitReschedule = () -> emitActionToParent("reschedule", actividadId, citaId);
+        Runnable emitAttach     = () -> emitActionToParent("attach", actividadId, citaId);
+        Runnable emitCancel     = () -> emitActionToParent("cancel", actividadId, citaId);
+
         if (btnModificar != null) {
-            View.OnClickListener l = v -> ModificarActividadSheet.newInstance(actividadId)
-                    .show(getParentFragmentManager(), "ModificarActividadSheet");
+            View.OnClickListener l = v -> {
+                // emite evento + abre tu modal actual (se mantiene)
+                emitEdit.run();
+                ModificarActividadSheet.newInstance(actividadId)
+                        .show(getParentFragmentManager(), "ModificarActividadSheet");
+            };
             rememberClickListener(btnModificar, l);
             btnModificar.setOnClickListener(l);
         }
         if (btnCancelar != null) {
-            View.OnClickListener l = v -> CancelarActividadSheet.newInstance(actividadId, citaId)
-                    .show(getParentFragmentManager(), "CancelarActividadSheet");
+            View.OnClickListener l = v -> {
+                emitCancel.run();
+                CancelarActividadSheet.newInstance(actividadId, citaId)
+                        .show(getParentFragmentManager(), "CancelarActividadSheet");
+            };
             rememberClickListener(btnCancelar, l);
             btnCancelar.setOnClickListener(l);
         }
         if (btnReagendar != null) {
-            View.OnClickListener l = v -> ReagendarActividadSheet.newInstance(actividadId, citaId)
-                    .show(getParentFragmentManager(), "ReagendarActividadSheet");
+            View.OnClickListener l = v -> {
+                emitReschedule.run();
+                ReagendarActividadSheet.newInstance(actividadId, citaId)
+                        .show(getParentFragmentManager(), "ReagendarActividadSheet");
+            };
             rememberClickListener(btnReagendar, l);
             btnReagendar.setOnClickListener(l);
         }
         if (btnAdjuntar != null) {
-            View.OnClickListener l = v -> AdjuntarComunicacionSheet.newInstance(actividadId)
-                    .show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
+            View.OnClickListener l = v -> {
+                emitAttach.run();
+                AdjuntarComunicacionSheet.newInstance(actividadId)
+                        .show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
+            };
             rememberClickListener(btnAdjuntar, l);
             btnAdjuntar.setOnClickListener(l);
         }
@@ -231,6 +251,15 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         loadActividad(actividadId);         // carga inicial
         loadCita(actividadId, citaId);      // carga inicial
         loadAdjuntosAll(actividadId, citaId);
+    }
+
+    // === NUEVO helper privado dentro de la clase ===
+    private void emitActionToParent(@NonNull String action, @Nullable String activityId, @Nullable String citaId) {
+        Bundle b = new Bundle();
+        b.putString("action", action);
+        if (!TextUtils.isEmpty(activityId)) b.putString("activityId", activityId);
+        if (!TextUtils.isEmpty(citaId))     b.putString("citaId", citaId);
+        getParentFragmentManager().setFragmentResult("activity_detail_action", b);
     }
 
     // 👇 NUEVO: liberar listeners para evitar fugas
@@ -366,9 +395,13 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         String beneficiarios = joinListOrText(beneficiariosList);
 
         String proyecto = pickString(doc, "proyectoNombre", "proyecto", "projectName");
-        Long diasAviso  = safeLong(doc.get("diasAviso"));
+        // Prioriza la clave real de tu colección
+        Long diasAviso  = safeLong(doc.get("diasAvisoPrevio"));
+// Compat con variantes antiguas si existieran
+        if (diasAviso == null) diasAviso = safeLong(doc.get("diasAviso"));
         if (diasAviso == null) diasAviso = safeLong(doc.get("dias_aviso"));
         if (diasAviso == null) diasAviso = safeLong(doc.get("diasAvisoCancelacion"));
+
 
         actividadLugarFallback = pickString(doc, "lugarNombre", "lugar");
 
