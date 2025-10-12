@@ -1,6 +1,6 @@
 package com.centroalerce.ui;
 
-import android.content.res.ColorStateList; // 👈 NUEVO
+import android.content.res.ColorStateList;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -10,13 +10,16 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat; // 👈 NUEVO
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.utils.PermissionChecker;
+import com.centroalerce.gestion.utils.RoleManager;
+import com.centroalerce.gestion.utils.UserRole;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 // ===== Firebase / Firestore =====
@@ -37,12 +40,17 @@ import java.util.*;
 
 public class CalendarFragment extends Fragment {
 
-    private LocalDate weekStart;      // lunes visible
-    private LocalDate selectedDay;    // día seleccionado
+    private LocalDate weekStart;
+    private LocalDate selectedDay;
     private DayAdapter dayAdapter;
     private EventAdapter eventAdapter;
     private TextView tvRangoSemana, tvTituloDia;
     private RecyclerView rvDays;
+
+    // ✅ NUEVO: Sistema de roles
+    private PermissionChecker permissionChecker;
+    private RoleManager roleManager;
+    private UserRole currentUserRole;
 
     // Citas de la semana visible (día -> lista de eventos)
     private final Map<LocalDate, List<EventItem>> weekEvents = new HashMap<>();
@@ -53,7 +61,7 @@ public class CalendarFragment extends Fragment {
 
     // Cache de nombres y tipos de actividad
     private final Map<String, String> activityNameCache = new HashMap<>();
-    private final Map<String, String> activityTypeCache = new HashMap<>(); // 👈 NUEVO
+    private final Map<String, String> activityTypeCache = new HashMap<>();
 
     // listeners por actividad para refrescar datos al vuelo
     private final Map<String, ListenerRegistration> activityNameRegs = new HashMap<>();
@@ -68,9 +76,12 @@ public class CalendarFragment extends Fragment {
         rvDays        = v.findViewById(R.id.rvDays);
         RecyclerView rvEventos = v.findViewById(R.id.rvEventos);
 
+        // ✅ NUEVO: Inicializar sistema de roles
+        initializeRoleSystem();
+
         // Inicial
         LocalDate today = LocalDate.now();
-        weekStart   = today.minusDays((today.getDayOfWeek().getValue() + 6) % 7); // lunes
+        weekStart   = today.minusDays((today.getDayOfWeek().getValue() + 6) % 7);
         selectedDay = today;
 
         db = FirebaseFirestore.getInstance();
@@ -93,19 +104,20 @@ public class CalendarFragment extends Fragment {
         rvEventos.setLayoutManager(new LinearLayoutManager(getContext()));
         rvEventos.setItemAnimator(null);
 
+        // ✅ MODIFICADO: Pasar el rol al adapter
         eventAdapter = new EventAdapter(new ArrayList<>(), event -> {
             ActivityDetailBottomSheet sheet = ActivityDetailBottomSheet.newInstance(
                     event.activityId,
-                    event.citaId
+                    event.citaId,
+                    currentUserRole // ✅ NUEVO: Pasar el rol
             );
             sheet.show(getChildFragmentManager(), "activity_detail_sheet");
-        });
+        }, currentUserRole); // ✅ NUEVO: Pasar el rol al adapter
+
         rvEventos.setAdapter(eventAdapter);
 
-        // ✅ Evita que los últimos ítems del calendario queden ocultos por el FAB o el BottomSheet
         rvEventos.setClipToPadding(false);
 
-// Espacio extra al final de la lista
         int extraBottom = dp(96);
         rvEventos.setPadding(
                 rvEventos.getPaddingLeft(),
@@ -114,7 +126,6 @@ public class CalendarFragment extends Fragment {
                 rvEventos.getPaddingBottom() + extraBottom
         );
 
-// Ajuste dinámico por la barra de navegación o gestos del sistema
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rvEventos, (view, insets) -> {
             int sysBottom = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom;
             view.setPadding(
@@ -126,8 +137,6 @@ public class CalendarFragment extends Fragment {
             return insets;
         });
 
-
-
         // Navegación de semana
         v.findViewById(R.id.btnSemanaAnterior).setOnClickListener(x -> {
             weekStart = weekStart.minusWeeks(1);
@@ -138,18 +147,16 @@ public class CalendarFragment extends Fragment {
             fillWeek();
         });
 
-        // 👇 NUEVO: refrescar calendario y lista al guardar cambios en otra pantalla
+        // Refrescar calendario al guardar cambios en otra pantalla
         getParentFragmentManager().setFragmentResultListener(
                 "calendar_refresh", getViewLifecycleOwner(),
                 (req, bundle) -> refreshFromExternalChange()
         );
-        // También si algún sitio solo emite "actividad_change"
         getParentFragmentManager().setFragmentResultListener(
                 "actividad_change", getViewLifecycleOwner(),
                 (req, bundle) -> refreshFromExternalChange()
         );
 
-        // 👇 NUEVO: escuchar también los eventos emitidos a nivel de Activity
         requireActivity().getSupportFragmentManager().setFragmentResultListener(
                 "calendar_refresh", getViewLifecycleOwner(),
                 (req, bundle) -> refreshFromExternalChange()
@@ -163,6 +170,24 @@ public class CalendarFragment extends Fragment {
         return v;
     }
 
+    // ✅ NUEVO: Inicializar sistema de roles
+    private void initializeRoleSystem() {
+        permissionChecker = new PermissionChecker();
+        roleManager = RoleManager.getInstance();
+
+        // Cargar rol del usuario
+        roleManager.loadUserRole(role -> {
+            currentUserRole = role;
+
+            // Actualizar el adapter con el nuevo rol
+            if (eventAdapter != null) {
+                eventAdapter.updateUserRole(role);
+            }
+
+            android.util.Log.d("CAL", "✅ Rol cargado: " + role.getValue());
+        });
+    }
+
     @Override
     public void onDestroyView() {
         super.onDestroyView();
@@ -174,9 +199,8 @@ public class CalendarFragment extends Fragment {
     }
 
     private void refreshFromExternalChange() {
-        // Limpia caches y vuelve a suscribirse a la semana actual para pintar cambios al instante
         activityNameCache.clear();
-        activityTypeCache.clear(); // 👈 NUEVO
+        activityTypeCache.clear();
         clearActivityNameListeners();
         fillWeek();
     }
@@ -266,7 +290,6 @@ public class CalendarFragment extends Fragment {
 
     private void listenWeekFromFirestore(LocalDate monday, LocalDate sunday) {
         android.util.Log.d("CAL", "=== listenWeekFromFirestore INICIADO ===");
-        android.util.Log.d("CAL", "monday=" + monday + ", sunday=" + sunday);
 
         if (weekListener != null) {
             weekListener.remove();
@@ -278,10 +301,6 @@ public class CalendarFragment extends Fragment {
         Timestamp tsStart = new Timestamp(Date.from(zStart.toInstant()));
         Timestamp tsEnd   = new Timestamp(Date.from(zEnd.toInstant()));
 
-        android.util.Log.d("CAL", "tsStart=" + tsStart.toDate());
-        android.util.Log.d("CAL", "tsEnd=" + tsEnd.toDate());
-        android.util.Log.d("CAL", "Ejecutando query collectionGroup...");
-
         weekListener = db.collectionGroup("citas")
                 .whereGreaterThanOrEqualTo("startAt", tsStart)
                 .whereLessThan("startAt", tsEnd)
@@ -289,10 +308,8 @@ public class CalendarFragment extends Fragment {
                 .addSnapshotListener((snap, err) -> {
                     if (err != null) {
                         android.util.Log.e("CAL", "❌ ERROR ESCUCHANDO CITAS", err);
-                        android.util.Log.e("CAL", "Error message: " + err.getMessage());
                         return;
                     }
-                    android.util.Log.d("CAL", "✅ Snapshot recibido: " + (snap != null ? snap.size() : 0) + " docs");
 
                     if (snap == null) return;
 
@@ -307,20 +324,14 @@ public class CalendarFragment extends Fragment {
                     weekEvents.putAll(map);
                     dayAdapter.setEventDays(new HashSet<>(weekEvents.keySet()));
                     loadEventsFor(selectedDay);
-
-                    android.util.Log.d("CAL", "📅 weekEvents.size()=" + weekEvents.size());
                 });
-
-        android.util.Log.d("CAL", "Listener registrado correctamente");
     }
 
-    // crea/actualiza listeners para actividades referenciadas en la semana
     private void ensureActivityNameListeners(Set<String> activityIdsInWeek) {
-        // Eliminar listeners de actividades que ya no están visibles esta semana
         Iterator<Map.Entry<String, ListenerRegistration>> it = activityNameRegs.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, ListenerRegistration> e = it.next();
-            String key = e.getKey(); // formato "EN:ID" o "ES:ID"
+            String key = e.getKey();
             String id = key.substring(3);
             if (!activityIdsInWeek.contains(id)) {
                 try { e.getValue().remove(); } catch (Exception ignore) {}
@@ -328,7 +339,6 @@ public class CalendarFragment extends Fragment {
             }
         }
 
-        // Crear listeners para nuevas actividades (EN y ES)
         for (String actId : activityIdsInWeek) {
             if (actId == null) continue;
 
@@ -352,7 +362,7 @@ public class CalendarFragment extends Fragment {
                                     activityNameCache.put(actId, name);
                                     changed = true;
                                 }
-                                if (tipo != null && !tipo.equals(activityTypeCache.get(actId))) { // 👈 NUEVO
+                                if (tipo != null && !tipo.equals(activityTypeCache.get(actId))) {
                                     activityTypeCache.put(actId, tipo);
                                     changed = true;
                                 }
@@ -379,7 +389,7 @@ public class CalendarFragment extends Fragment {
                                     activityNameCache.put(actId, name);
                                     changed = true;
                                 }
-                                if (tipo != null && !tipo.equals(activityTypeCache.get(actId))) { // 👈 NUEVO
+                                if (tipo != null && !tipo.equals(activityTypeCache.get(actId))) {
                                     activityTypeCache.put(actId, tipo);
                                     changed = true;
                                 }
@@ -391,15 +401,6 @@ public class CalendarFragment extends Fragment {
         }
     }
 
-
-    private void mapSnapshotToWeekEvents(@NonNull QuerySnapshot snap,
-                                         @NonNull Map<LocalDate, List<EventItem>> map) {
-        // método viejo preservado para compatibilidad
-        Set<String> ignore = new HashSet<>();
-        mapSnapshotToWeekEvents(snap, map, ignore);
-    }
-
-    // versión que también colecta activityIds para listeners de nombres
     private void mapSnapshotToWeekEvents(@NonNull QuerySnapshot snap,
                                          @NonNull Map<LocalDate, List<EventItem>> map,
                                          @NonNull Set<String> activityIdsOut) {
@@ -435,16 +436,15 @@ public class CalendarFragment extends Fragment {
             String activityId = getActivityIdFromRef(doc.getReference());
             String citaId = doc.getId();
 
-            // Título: 'titulo' de la cita si existe, si no, nombre de la actividad (cache/listener lo actualizarán)
             String titulo = doc.getString("titulo");
             if (titulo == null) titulo = getActivityNameSync(activityId);
 
-            String tipo = getActivityTypeSync(activityId); // 👈 NUEVO
+            String tipo = getActivityTypeSync(activityId);
 
             String estado = doc.getString("estado");
             if (estado == null) estado = "programada";
 
-            EventItem item = new EventItem(horaStr, titulo, lugarNombre, estado, activityId, citaId, tipo); // 👈 NUEVO
+            EventItem item = new EventItem(horaStr, titulo, lugarNombre, estado, activityId, citaId, tipo);
 
             LocalDate key = local.toLocalDate();
             map.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
@@ -469,7 +469,6 @@ public class CalendarFragment extends Fragment {
         String cached = activityNameCache.get(activityId);
         if (cached != null) return cached;
 
-        // Consulta puntual EN y luego ES
         db.collection("activities").document(activityId).get()
                 .addOnSuccessListener(doc -> {
                     String name = firstNonEmpty(doc.getString("nombre"), doc.getString("titulo"), doc.getString("name"));
@@ -488,17 +487,16 @@ public class CalendarFragment extends Fragment {
                                     if (nameEs != null) {
                                         activityNameCache.put(activityId, nameEs);
                                     }
-                                    if (tipoEs != null) activityTypeCache.put(activityId, tipoEs); // 👈 NUEVO
+                                    if (tipoEs != null) activityTypeCache.put(activityId, tipoEs);
                                     loadEventsFor(selectedDay);
                                 });
                     }
-                    if (tipo != null) { activityTypeCache.put(activityId, tipo); changed = true; } // 👈 NUEVO
+                    if (tipo != null) { activityTypeCache.put(activityId, tipo); changed = true; }
                     if (changed) loadEventsFor(selectedDay);
                 });
         return "Actividad";
     }
 
-    // 👇 NUEVO: helper para tipo
     @Nullable
     private String getActivityTypeSync(@Nullable String activityId) {
         if (activityId == null) return null;
@@ -532,7 +530,7 @@ public class CalendarFragment extends Fragment {
     public static class EventItem {
         public final String hora, titulo, lugar, estado;
         public final String activityId, citaId;
-        public final String tipo; // 👈 NUEVO
+        public final String tipo;
 
         public EventItem(String h, String t, String l, String e, String activityId, String citaId){
             this(h, t, l, e, activityId, citaId, null);
@@ -544,17 +542,38 @@ public class CalendarFragment extends Fragment {
             this.estado = e;
             this.activityId = activityId;
             this.citaId = citaId;
-            this.tipo = tipo; // 👈 NUEVO
+            this.tipo = tipo;
         }
     }
 
+    // ✅ MODIFICADO: EventAdapter ahora recibe y usa el rol
     static class EventAdapter extends RecyclerView.Adapter<EventVH> {
         private final List<EventItem> data;
         interface OnClick { void onTap(EventItem it); }
         private final OnClick cb;
-        EventAdapter(List<EventItem> d, OnClick c){data=d;cb=c;}
-        void submit(List<EventItem> d){ data.clear(); data.addAll(d); notifyDataSetChanged(); }
-        @NonNull @Override public EventVH onCreateViewHolder(@NonNull ViewGroup p, int vtype){
+        private UserRole userRole; // ✅ NUEVO
+
+        EventAdapter(List<EventItem> d, OnClick c, UserRole role){
+            data = d;
+            cb = c;
+            userRole = role != null ? role : UserRole.VISUALIZADOR; // ✅ NUEVO
+        }
+
+        void submit(List<EventItem> d){
+            data.clear();
+            data.addAll(d);
+            notifyDataSetChanged();
+        }
+
+        // ✅ NUEVO: Método para actualizar el rol
+        void updateUserRole(UserRole role) {
+            this.userRole = role;
+            notifyDataSetChanged();
+        }
+
+        @NonNull
+        @Override
+        public EventVH onCreateViewHolder(@NonNull ViewGroup p, int vtype){
             View v = LayoutInflater.from(p.getContext()).inflate(R.layout.item_event, p, false);
             return new EventVH(v);
         }
@@ -563,14 +582,11 @@ public class CalendarFragment extends Fragment {
         public void onBindViewHolder(@NonNull EventVH h, int i) {
             EventItem it = data.get(i);
 
-            // ✅ Hora
             h.tvHora.setText(it.hora == null ? "" : it.hora);
+            h.tvTitulo.setText(it.titulo == null ? "Sin nombre" : it.titulo);
+            h.tvLugar.setText(it.lugar == null ? "Sin lugar" : it.lugar);
 
-            // ✅ Mostrar nombre y lugarNombre (de la cita)
-            h.tvTitulo.setText(it.titulo == null ? "Sin nombre" : it.titulo);  // ← usa campo "nombre"
-            h.tvLugar.setText(it.lugar == null ? "Sin lugar" : it.lugar);      // ← usa campo "lugarNombre"
-
-            // ================== ESTADOS ==================
+            // Estados
             String estado = it.estado == null ? "programada" : it.estado.toLowerCase(Locale.ROOT);
             switch (estado) {
                 case "cancelada":
@@ -609,13 +625,15 @@ public class CalendarFragment extends Fragment {
                     break;
             }
 
-            // Acción al tocar el item
+            // ✅ IMPORTANTE: Solo permitir click si puede interactuar
+            // Visualizadores pueden ver detalles pero sin acciones
             h.itemView.setOnClickListener(x -> cb.onTap(it));
         }
 
-
-
-        @Override public int getItemCount(){ return data.size(); }
+        @Override
+        public int getItemCount(){
+            return data.size();
+        }
     }
 
     static class EventVH extends RecyclerView.ViewHolder {
