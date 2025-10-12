@@ -345,25 +345,56 @@
                             android:textColor="@color/textPrimary" />
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <!-- Beneficiarios -->
-                    <com.google.android.material.textfield.TextInputLayout
+                    <!-- Beneficiarios (selector con chips, sin EditText) -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/btnBeneficiarios"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
-                        android:hint="Beneficiarios"
-                        app:boxBackgroundMode="outline"
-                        app:boxStrokeColor="@color/primary"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusBottomEnd="12dp">
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackgroundBorderless"
+                        app:cardBackgroundColor="@color/card_surface"
+                        app:cardCornerRadius="12dp"
+                        app:strokeColor="@color/cardStroke"
+                        app:strokeWidth="1dp">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etBeneficiarios"
+                        <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/textPrimary" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <TextView
+                                android:id="@+id/tvBeneficiariosLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Beneficiarios"
+                                android:textStyle="bold"
+                                android:textSize="14sp"
+                                android:textColor="@color/textPrimary"/>
+
+                            <TextView
+                                android:id="@+id/tvBeneficiariosHint"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Seleccionar beneficiarios"
+                                android:textColor="@color/textSecondary"
+                                android:paddingTop="6dp"/>
+
+                            <!-- Chips con los seleccionados -->
+                            <com.google.android.material.chip.ChipGroup
+                                android:id="@+id/chipsBeneficiarios"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:paddingTop="8dp"
+                                app:singleLine="false"
+                                app:singleSelection="false"
+                                app:chipSpacingHorizontal="6dp"
+                                app:chipSpacingVertical="6dp"/>
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
 
                     <!-- Adjuntos -->
                     <com.google.android.material.card.MaterialCardView

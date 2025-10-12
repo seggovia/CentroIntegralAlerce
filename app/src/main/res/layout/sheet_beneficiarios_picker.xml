@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/card_surface">
+
+    <!-- Barra de búsqueda -->
+    <EditText
+        android:id="@+id/etBuscar"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:hint="Buscar por nombre o RUT"
+        android:textColor="@color/surface"
+        android:textColorHint="@color/textSecondary"
+        android:backgroundTint="@color/primary"
+        android:padding="12dp"
+        android:drawableStart="@android:drawable/ic_menu_search"
+        android:drawablePadding="8dp"
+        android:background="@drawable/bg_edittext_rounded"
+        android:inputType="text"
+        android:importantForAutofill="no" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+
+        <CheckBox
+            android:id="@+id/chkSelectAll"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Seleccionar todo (visible)"
+            android:textColor="@color/textPrimary" />
+
+        <TextView
+            android:id="@+id/tvContador"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="end"
+            android:text="0 seleccionados"
+            android:textColor="@color/textSecondary"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvBeneficiarios"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:background="@color/background"
+        android:padding="4dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnListo"
+        style="@style/Widget.MaterialComponents.Button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Listo"
+        android:textAllCaps="false"
+        android:textColor="@android:color/white"
+        android:layout_marginTop="12dp"
+        app:cornerRadius="12dp"
+        app:backgroundTint="@color/primary" />
+</LinearLayout>

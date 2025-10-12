@@ -15,34 +15,46 @@ public class TipoActividadDialog extends DialogFragment {
 
     public interface OnSave { void save(TipoActividad t); }
 
-    @Nullable private final TipoActividad original;
-    @NonNull  private final OnSave onSave;
+    @Nullable
+    private final TipoActividad original;
+    @NonNull
+    private final OnSave onSave;
 
     public TipoActividadDialog(@Nullable TipoActividad original, @NonNull OnSave onSave){
-        this.original = original; this.onSave = onSave;
+        this.original = original;
+        this.onSave = onSave;
     }
 
-    @NonNull @Override public Dialog onCreateDialog(@Nullable Bundle b){
+    @NonNull
+    @Override
+    public Dialog onCreateDialog(@Nullable Bundle b){
+        // Inflamos el layout personalizado
         View v = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_tipo_actividad, null, false);
         EditText etNombre = v.findViewById(R.id.etNombre);
         EditText etDesc   = v.findViewById(R.id.etDescripcion);
 
-        if(original!=null){
+        if (original != null) {
             etNombre.setText(original.getNombre());
             etDesc.setText(original.getDescripcion());
         }
 
-        return new AlertDialog.Builder(requireContext())
-                .setTitle(original==null?"Nuevo tipo":"Editar tipo")
+        // 🔹 Eliminado el título y los botones del AlertDialog
+        // 🔹 Ahora solo devuelve el layout sin botones (estos estarán en el XML)
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
                 .setView(v)
-                .setNegativeButton("Cancelar", null)
-                .setPositiveButton("Guardar",(d,w)->{
-                    String n = etNombre.getText().toString().trim();
-                    String ds = TextUtils.isEmpty(etDesc.getText()) ? null : etDesc.getText().toString().trim();
-                    TipoActividad t = (original==null)
-                            ? new TipoActividad(null, n, ds, true)
-                            : new TipoActividad(original.getId(), n, ds, original.isActivo());
-                    onSave.save(t);
-                }).create();
+                .create();
+
+        // Ajuste visual del diálogo (para ancho completo y correcto resize del teclado)
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setLayout(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            dialog.getWindow().setSoftInputMode(
+                    WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+            );
+        }
+
+        return dialog;
     }
 }

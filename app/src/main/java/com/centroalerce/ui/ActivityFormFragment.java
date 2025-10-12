@@ -17,11 +17,13 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
 import android.widget.AutoCompleteTextView;
+
 import com.centroalerce.gestion.utils.ActividadValidator;
 import com.centroalerce.gestion.utils.DateUtils;
 import com.centroalerce.gestion.utils.ValidationResult;
 import com.centroalerce.gestion.repositories.LugarRepository;
 import com.centroalerce.gestion.models.Lugar;
+
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -34,6 +36,8 @@ import com.centroalerce.gestion.R;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -59,10 +63,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+// 🔽 NUEVO: selector de beneficiarios (BottomSheet) y modelo
+import com.centroalerce.ui.mantenedores.dialog.BeneficiariosPickerSheet;
+import com.centroalerce.gestion.models.Beneficiario;
+
 public class ActivityFormFragment extends Fragment {
 
     // EditTexts que SÍ existen en tu XML
-    private TextInputEditText etNombre, etCupo, etFecha, etHora, etBeneficiarios;
+    private TextInputEditText etNombre, etCupo, etFecha, etHora; // ← quitamos etBeneficiarios
     private TextInputLayout   tilFecha, tilHora;
 
     private MaterialButtonToggleGroup tgPeriodicidad;
@@ -75,6 +83,15 @@ public class ActivityFormFragment extends Fragment {
     // Adjuntos
     private com.google.android.material.card.MaterialCardView boxAdjuntos;
     private TextView tvAdjuntos;
+
+    // 🔽 NUEVO: UI para beneficiarios (coincide con el layout actualizado)
+    private com.google.android.material.card.MaterialCardView btnBeneficiarios;
+    private TextView tvBeneficiariosHint;
+    private ChipGroup chipsBeneficiarios;
+
+    // 🔽 NUEVO: selección de beneficiarios
+    private final List<Beneficiario> beneficiariosSeleccionados = new ArrayList<>();
+    private final List<String> beneficiariosSeleccionadosIds = new ArrayList<>();
 
     private final List<Timestamp> citasPeriodicas = new ArrayList<>();
     private boolean esPeriodica = false;
@@ -91,7 +108,7 @@ public class ActivityFormFragment extends Fragment {
         super.onCreate(savedInstanceState);
         if (db == null) db = FirebaseFirestore.getInstance();
         if (storage == null) storage = FirebaseStorage.getInstance();
-        lugarRepository = new LugarRepository(); // ← NUEVO
+        lugarRepository = new LugarRepository(); // ← EXISTENTE
     }
 
     // SAF – seleccionar varios archivos
@@ -118,11 +135,15 @@ public class ActivityFormFragment extends Fragment {
         // Inputs del layout
         etNombre         = v.findViewById(R.id.etNombre);
         etCupo           = v.findViewById(R.id.etCupo);
-        etBeneficiarios  = v.findViewById(R.id.etBeneficiarios);
         etFecha          = v.findViewById(R.id.etFecha);
         etHora           = v.findViewById(R.id.etHora);
         tilFecha         = (TextInputLayout) etFecha.getParent().getParent();
         tilHora          = (TextInputLayout) etHora.getParent().getParent();
+
+        // 🔽 NUEVO: referencias de beneficiarios (ids del XML nuevo)
+        btnBeneficiarios         = v.findViewById(R.id.btnBeneficiarios);
+        tvBeneficiariosHint      = v.findViewById(R.id.tvBeneficiariosHint);
+        chipsBeneficiarios       = v.findViewById(R.id.chipsBeneficiarios);
 
         // Combos del layout
         acTipoActividad  = v.findViewById(R.id.acTipoActividad);
@@ -160,7 +181,7 @@ public class ActivityFormFragment extends Fragment {
         cargarTiposActividad();
         cargarLugares();
         cargarOferentes();
-        cargarSocios();       // ← ⭐ NUEVO (SOCIO) robusto
+        cargarSocios();
         cargarProyectos();
 
         // Fallback tipos
@@ -189,6 +210,9 @@ public class ActivityFormFragment extends Fragment {
 
         boxAdjuntos.setOnClickListener(v1 -> pickFilesLauncher.launch(new String[]{"*/*"}));
 
+        // 🔽 NUEVO: abrir selector de beneficiarios
+        btnBeneficiarios.setOnClickListener(view -> abrirSelectorBeneficiarios());
+
         TextWatcher watcher = new SimpleWatcher(this::validarMinimos);
         etNombre.addTextChangedListener(watcher);
         etFecha.addTextChangedListener(watcher);
@@ -198,6 +222,7 @@ public class ActivityFormFragment extends Fragment {
         btnGuardar.setOnClickListener(this::onGuardar);
 
         aplicarModo();
+        renderChipsBeneficiarios(); // inicial
         return v;
     }
 
@@ -212,7 +237,7 @@ public class ActivityFormFragment extends Fragment {
         cargarTiposActividad();
         cargarLugares();
         cargarOferentes();
-        cargarSocios();     // ← ⭐ NUEVO (SOCIO) vuelve a recargar al regresar
+        cargarSocios();
         cargarProyectos();
     }
 
@@ -270,7 +295,7 @@ public class ActivityFormFragment extends Fragment {
             @NonNull List<String> collectionCandidates,
             @NonNull AutoCompleteTextView combo,
             @NonNull String humanLabelForErrors,
-            @Nullable DocNamePicker customPicker // ← ⭐ NUEVO (SOCIO) permite picker específico
+            @Nullable DocNamePicker customPicker
     ) {
         if (!isAdded()) return;
 
@@ -298,7 +323,6 @@ public class ActivityFormFragment extends Fragment {
         tryLoadNextCollection(collectionCandidates, 0, combo, humanLabelForErrors, picker);
     }
 
-    // Sobrecarga para casos genéricos (sin picker custom)
     private void loadComboWithFallback(
             @NonNull List<String> collectionCandidates,
             @NonNull AutoCompleteTextView combo,
@@ -402,39 +426,32 @@ public class ActivityFormFragment extends Fragment {
         cols.add("Oferentes");
         cols.add("oferente");
         cols.add("Oferente");
-        loadComboWithFallback(cols, acOferente, "oferentes"); // usa picker por defecto (con docenteResponsable)
+        loadComboWithFallback(cols, acOferente, "oferentes");
     }
 
-    // ⭐ NUEVO (SOCIO): Picker específico para socios comunitarios
-    // Reemplaza COMPLETO tu método cargarSocios() por este:
+    // SOCIOS
     private void cargarSocios() {
         if (!isAdded()) return;
-
-        // 1) intenta como en tu SociosFragment (root/socios + orderBy nombre)
         db.collection("socios").orderBy("nombre")
                 .get()
                 .addOnSuccessListener(qs -> {
                     List<String> items = new ArrayList<>();
                     for (DocumentSnapshot d : qs.getDocuments()) {
                         Boolean activo = d.getBoolean("activo");
-                        if (activo != null && !activo) continue; // si tienes flag, respétalo
+                        if (activo != null && !activo) continue;
                         String nombre = d.getString("nombre");
-
-                        // Fallbacks muy comunes por si algunos docs viejos no tienen "nombre"
                         if (TextUtils.isEmpty(nombre)) nombre = d.getString("organizacion");
                         if (TextUtils.isEmpty(nombre)) nombre = d.getString("institucion");
                         if (TextUtils.isEmpty(nombre)) nombre = d.getString("razonSocial");
                         if (TextUtils.isEmpty(nombre)) nombre = d.getString("displayName");
                         if (TextUtils.isEmpty(nombre)) nombre = d.getString("name");
                         if (TextUtils.isEmpty(nombre)) nombre = d.getString("titulo");
-
                         if (!TextUtils.isEmpty(nombre)) items.add(nombre.trim());
                     }
                     setComboAdapter(acSocio, items);
                 })
                 .addOnFailureListener(e -> {
-                    // 2) si falla el índice/orden, prueba sin orderBy
-                    android.util.Log.w("CATALOG", "socios orderBy(nombre) falló: " + e.getMessage() + " — reintentando sin ordenar");
+                    android.util.Log.w("CATALOG", "socios orderBy(nombre) falló: " + e.getMessage());
                     db.collection("socios").get()
                             .addOnSuccessListener(qs2 -> {
                                 List<String> items = new ArrayList<>();
@@ -454,16 +471,13 @@ public class ActivityFormFragment extends Fragment {
                             })
                             .addOnFailureListener(e2 -> {
                                 android.util.Log.e("CATALOG", "socios get(): " + e2.getMessage(), e2);
-                                setComboAdapter(acSocio, new ArrayList<>()); // deja adapter vacío y helper
+                                setComboAdapter(acSocio, new ArrayList<>());
                                 if (isAdded()) {
-                                    com.google.android.material.snackbar.Snackbar
-                                            .make(requireView(), "No pude cargar socios comunitarios", com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
-                                            .show();
+                                    Snackbar.make(requireView(), "No pude cargar socios comunitarios", Snackbar.LENGTH_LONG).show();
                                 }
                             });
                 });
     }
-
 
     private void setupDropdownBehavior(@Nullable AutoCompleteTextView combo) {
         if (combo == null) return;
@@ -635,7 +649,6 @@ public class ActivityFormFragment extends Fragment {
     private void onGuardar(View root) {
         android.util.Log.d("FORM", "=== INICIO onGuardar ===");
 
-        // ✅ Deshabilitar botón INMEDIATAMENTE
         btnGuardar.setEnabled(false);
         btnGuardar.setText("Validando...");
 
@@ -671,7 +684,6 @@ public class ActivityFormFragment extends Fragment {
             return;
         }
 
-        // ✅ VALIDACIÓN: Verificar que fecha no sea pasada
         if (!modoPeriodica) {
             Timestamp startAtPuntual = toStartAtTimestamp(fecha, hora);
             if (startAtPuntual == null) {
@@ -689,7 +701,6 @@ public class ActivityFormFragment extends Fragment {
                 return;
             }
         } else {
-            // Validar todas las fechas periódicas
             for (Timestamp ts : citasPeriodicas) {
                 ValidationResult validacionFecha = ActividadValidator.validarFechaFutura(ts.toDate());
                 if (!validacionFecha.isValid()) {
@@ -709,7 +720,6 @@ public class ActivityFormFragment extends Fragment {
             if (!s.isEmpty()) cupo = Integer.parseInt(s);
         } catch (Exception ignored) { }
 
-        // ✅ VALIDACIÓN: Verificar cupo
         if (cupo != null) {
             ValidationResult validacionCupo = ActividadValidator.validarCupoActividad(cupo);
             if (!validacionCupo.isValid()) {
@@ -723,10 +733,8 @@ public class ActivityFormFragment extends Fragment {
         String lugar         = getText(acLugar);
         String oferente      = getText(acOferente);
         String socio         = getText(acSocio);
-        String beneficiarios = getText(etBeneficiarios);
         String proyecto      = getText(acProyecto);
 
-        // ✅ VALIDACIÓN: Verificar campos obligatorios
         if (TextUtils.isEmpty(tipoActividad)) {
             mostrarDialogoError("Campo obligatorio", "Debes seleccionar un tipo de actividad", root);
             btnGuardar.setEnabled(true);
@@ -759,17 +767,14 @@ public class ActivityFormFragment extends Fragment {
         final Integer   cupoFinal            = cupo;
         final String    oferenteFinal        = oferente;
         final String    socioFinal           = socio;
-        final String    beneficiariosFinal   = beneficiarios;
         final String    proyectoFinal        = proyecto;
 
-        // ✅ PASO 1: Obtener información del lugar
         btnGuardar.setText("Validando lugar...");
         lugarRepository.getLugar(buscarIdLugar(lugarFinal), new LugarRepository.LugarCallback() {
             @Override
             public void onSuccess(Lugar lugar) {
                 lugarSeleccionado = lugar;
 
-                // ✅ VALIDACIÓN: Verificar cupo del lugar
                 if (cupoFinal != null) {
                     ValidationResult validacionCupoLugar = ActividadValidator.validarCupoLugar(lugar, cupoFinal);
                     if (!validacionCupoLugar.isValid()) {
@@ -785,7 +790,6 @@ public class ActivityFormFragment extends Fragment {
                     }
                 }
 
-                // ✅ PASO 2: Preparar fechas a validar
                 final ArrayList<Timestamp> aRevisar = new ArrayList<>();
                 if (modoPeriodicaFinal) {
                     aRevisar.addAll(citasPeriodicas);
@@ -794,7 +798,6 @@ public class ActivityFormFragment extends Fragment {
                     aRevisar.add(startAtPuntual);
                 }
 
-                // ✅ PASO 3: Verificar conflictos de horario
                 btnGuardar.setText("Verificando horarios...");
                 android.util.Log.d("FORM", "🔍 Iniciando verificación de conflictos para lugar: " + lugar.getNombre());
 
@@ -811,11 +814,10 @@ public class ActivityFormFragment extends Fragment {
                     public void onSinConflictos() {
                         android.util.Log.d("FORM", "✅ Sin conflictos - procediendo a guardar");
                         btnGuardar.setText("Guardando...");
-                        // ✅ Todo OK - proceder a guardar
                         subirAdjuntosYGuardar(
                                 root,
                                 nombreFinal, tipoActividadFinal, cupoFinal,
-                                oferenteFinal, socioFinal, beneficiariosFinal,
+                                oferenteFinal, socioFinal, /* beneficiarios texto ya no se usa */ null,
                                 lugarFinal, modoPeriodicaFinal,
                                 aRevisar.get(0), aRevisar,
                                 proyectoFinal
@@ -843,7 +845,7 @@ public class ActivityFormFragment extends Fragment {
 
     private void subirAdjuntosYGuardar(View root,
                                        String nombre, String tipoActividad, Integer cupo,
-                                       String oferente, String socio, String beneficiarios,
+                                       String oferente, String socio, String beneficiarios /*unused*/,
                                        String lugar, boolean modoPeriodica,
                                        @Nullable Timestamp startAtPuntual,
                                        List<Timestamp> timestamps,
@@ -853,7 +855,7 @@ public class ActivityFormFragment extends Fragment {
 
         if (attachmentUris.isEmpty()) {
             escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
-                    beneficiarios, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto);
+                    /* beneficiarios texto */ null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto);
             return;
         }
 
@@ -904,18 +906,18 @@ public class ActivityFormFragment extends Fragment {
                         Snackbar.make(root, "Algunos archivos no se pudieron subir. Se guardará el resto.", Snackbar.LENGTH_LONG).show();
                     }
                     escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
-                            beneficiarios, lugar, modoPeriodica, startAtPuntual, timestamps, adj, proyecto);
+                            null, lugar, modoPeriodica, startAtPuntual, timestamps, adj, proyecto);
                 })
                 .addOnFailureListener(e -> {
                     Snackbar.make(root, "No se pudieron subir los adjuntos (" + e.getMessage() + "). Guardando sin archivos.", Snackbar.LENGTH_LONG).show();
                     escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
-                            beneficiarios, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto);
+                            null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto);
                 });
     }
 
     private void escribirActividadYCitas(View root, String activityId,
                                          String nombre, String tipoActividad, Integer cupo,
-                                         String oferente, String socio, String beneficiarios,
+                                         String oferente, String socio, String beneficiarios /*unused*/,
                                          String lugar, boolean modoPeriodica,
                                          @Nullable Timestamp startAtPuntual,
                                          List<Timestamp> timestamps,
@@ -923,7 +925,11 @@ public class ActivityFormFragment extends Fragment {
                                          @Nullable String proyecto) {
 
         List<String> oferentesList = splitToList(oferente);
-        List<String> beneficiariosList = splitToList(beneficiarios);
+
+        // 🔽 NUEVO: nombres e IDs desde la selección
+        List<String> beneficiariosIds = new ArrayList<>(beneficiariosSeleccionadosIds);
+        List<String> beneficiariosNombres = new ArrayList<>();
+        for (Beneficiario b : beneficiariosSeleccionados) beneficiariosNombres.add(b.getNombre());
 
         Map<String, Object> activityDoc = new HashMap<>();
         activityDoc.put("nombre", nombre);
@@ -946,9 +952,11 @@ public class ActivityFormFragment extends Fragment {
 
         if (!TextUtils.isEmpty(socio)) activityDoc.put("socioComunitario", socio);
 
-        if (!beneficiariosList.isEmpty()) {
-            activityDoc.put("beneficiarios", beneficiariosList);
-            activityDoc.put("beneficiariosTexto", TextUtils.join(", ", beneficiariosList));
+        // 🔽 NUEVO: persistimos beneficiarios seleccionados
+        if (!beneficiariosIds.isEmpty()) {
+            activityDoc.put("beneficiariosIds", beneficiariosIds);
+            activityDoc.put("beneficiarios", beneficiariosNombres); // compatibilidad si antes guardabas nombres
+            activityDoc.put("beneficiariosTexto", TextUtils.join(", ", beneficiariosNombres));
         }
 
         if (!TextUtils.isEmpty(lugar)) activityDoc.put("lugarNombre", lugar);
@@ -975,12 +983,11 @@ public class ActivityFormFragment extends Fragment {
 
         List<com.google.firebase.firestore.DocumentReference> citaRefs = new ArrayList<>();
 
-        // 🔥 SECCIÓN PERIÓDICA - CON CAMBIO
         if (modoPeriodica) {
             for (Timestamp ts : timestamps) {
                 Map<String, Object> cita = new HashMap<>();
-                cita.put("startAt", ts);           // ← Campo principal
-                cita.put("fecha", ts);             // ← ✅ NUEVO: Compatibilidad
+                cita.put("startAt", ts);
+                cita.put("fecha", ts); // compat
                 if (!TextUtils.isEmpty(lugar)) cita.put("lugarNombre", lugar);
                 cita.put("estado", "PROGRAMADA");
                 cita.put("titulo", nombre);
@@ -992,10 +999,9 @@ public class ActivityFormFragment extends Fragment {
                 batch.set(citaRef, cita);
             }
         } else {
-            // 🔥 SECCIÓN PUNTUAL - CON CAMBIO
             Map<String, Object> cita = new HashMap<>();
-            cita.put("startAt", startAtPuntual);  // ← Campo principal
-            cita.put("fecha", startAtPuntual);    // ← ✅ NUEVO: Compatibilidad
+            cita.put("startAt", startAtPuntual);
+            cita.put("fecha", startAtPuntual);
             if (!TextUtils.isEmpty(lugar)) cita.put("lugarNombre", lugar);
             cita.put("estado", "PROGRAMADA");
             cita.put("titulo", nombre);
@@ -1146,7 +1152,6 @@ public class ActivityFormFragment extends Fragment {
         @Override public void afterTextChanged(Editable s) { onAfter.run(); }
     }
 
-
     /**
      * Busca el ID del lugar por nombre (simulado - en producción deberías tenerlo)
      */
@@ -1166,17 +1171,14 @@ public class ActivityFormFragment extends Fragment {
             return;
         }
 
-        // ✅ Obtener el nombre del lugar para la validación
         String lugarNombre = getText(acLugar);
         android.util.Log.d("FORM", "📍 Lugar seleccionado: " + lugarNombre);
 
-        // ✅ Validar cada fecha contra las citas existentes
         validarTodasLasFechas(lugarId, lugarNombre, fechas, 0, callback);
     }
     private void validarTodasLasFechas(String lugarId, String lugarNombre, List<Timestamp> fechas,
                                        int index, ConflictoCallback callback) {
         if (index >= fechas.size()) {
-            // Todas las fechas validadas correctamente
             android.util.Log.d("FORM", "✅ Todas las fechas validadas - sin conflictos");
             callback.onSinConflictos();
             return;
@@ -1188,13 +1190,11 @@ public class ActivityFormFragment extends Fragment {
         android.util.Log.d("FORM", "🔍 Validando fecha " + (index + 1) + "/" + fechas.size() + ": " +
                 DateUtils.timestampToString(fechaActual));
 
-        // ✅ Buscar citas existentes en ese lugar y fecha
         lugarRepository.getCitasEnLugar(lugarId, fechaDate, new LugarRepository.CitasEnLugarCallback() {
             @Override
             public void onSuccess(List<Date> citasExistentes) {
                 android.util.Log.d("FORM", "📊 Citas existentes encontradas: " + citasExistentes.size());
 
-                // ✅ Validar conflicto de horario (30 minutos de margen)
                 ValidationResult validacion = ActividadValidator.validarConflictoHorario(
                         lugarId, fechaDate, citasExistentes, 30
                 );
@@ -1205,7 +1205,6 @@ public class ActivityFormFragment extends Fragment {
                     return;
                 }
 
-                // ✅ Esta fecha está OK, validar la siguiente
                 validarTodasLasFechas(lugarId, lugarNombre, fechas, index + 1, callback);
             }
 
@@ -1217,6 +1216,45 @@ public class ActivityFormFragment extends Fragment {
         });
     }
 
+    // ---------- Beneficiarios: abrir sheet y render chips ----------
+    private void abrirSelectorBeneficiarios() {
+        BeneficiariosPickerSheet sheet = BeneficiariosPickerSheet.newInstance(beneficiariosSeleccionadosIds);
+        sheet.setListener(seleccionados -> {
+            beneficiariosSeleccionados.clear();
+            beneficiariosSeleccionados.addAll(seleccionados);
+
+            beneficiariosSeleccionadosIds.clear();
+            for (Beneficiario b : seleccionados) beneficiariosSeleccionadosIds.add(b.getId());
+
+            renderChipsBeneficiarios();
+        });
+        sheet.show(getChildFragmentManager(), "beneficiariosPicker");
+    }
+
+    private void renderChipsBeneficiarios() {
+        chipsBeneficiarios.removeAllViews();
+
+        if (beneficiariosSeleccionados.isEmpty()) {
+            tvBeneficiariosHint.setText("Seleccionar beneficiarios");
+            tvBeneficiariosHint.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        tvBeneficiariosHint.setVisibility(View.GONE);
+
+        for (Beneficiario b : beneficiariosSeleccionados) {
+            Chip chip = new Chip(requireContext());
+            chip.setText(b.getNombre());
+            chip.setCloseIconVisible(true);
+            chip.setCheckable(false);
+            chip.setOnCloseIconClickListener(v -> {
+                beneficiariosSeleccionadosIds.remove(b.getId());
+                beneficiariosSeleccionados.remove(b);
+                renderChipsBeneficiarios();
+            });
+            chipsBeneficiarios.addView(chip);
+        }
+    }
 
     /**
      * Mostrar diálogo de error simple
@@ -1237,7 +1275,6 @@ public class ActivityFormFragment extends Fragment {
                 .setTitle(titulo)
                 .setMessage(mensaje)
                 .setPositiveButton(accionAlternativa, (dialog, which) -> {
-                    // Enfocar el combo de lugar para que seleccione otro
                     acLugar.requestFocus();
                     acLugar.showDropDown();
                 })

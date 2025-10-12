@@ -2,6 +2,8 @@ package com.centroalerce.gestion.models;
 
 import com.google.firebase.Timestamp;
 
+import java.util.List;
+
 public class Cita {
     private String id;
     private String actividadId;
@@ -103,6 +105,23 @@ public class Cita {
 
     public boolean estaCompletada() {
         return "completada".equals(this.estado);
+    }
+// Dentro de tu clase Cita.java, junto a los otros campos
+
+// ... otros campos como actividadId, lugarId, fecha, etc.
+
+    // CAMPO A AÑADIR:
+    private List<String> beneficiariosIds;
+
+// ... otros getters y setters que ya tienes
+
+    // MÉTODOS A AÑADIR:
+    public List<String> getBeneficiariosIds() {
+        return beneficiariosIds;
+    }
+
+    public void setBeneficiariosIds(List<String> beneficiariosIds) {
+        this.beneficiariosIds = beneficiariosIds;
     }
 
     public boolean fueReagendada() {

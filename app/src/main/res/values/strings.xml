@@ -18,9 +18,11 @@
     <string name="titulo_tipos_actividad">Tipos de actividad</string>
     <string name="agregar_tipo_actividad">Agregar tipo de actividad</string>
 
+    <string name="editar">Editar</string>
+    <string name="eliminar">Eliminar</string>
 
-
-
+    <string name="cancelar">Cancelar</string>
+    <string name="guardar">Guardar</string>
 
     <string name="adjuntos">Adjuntos</string>
     <string name="aviso_previo">Aviso previo</string>

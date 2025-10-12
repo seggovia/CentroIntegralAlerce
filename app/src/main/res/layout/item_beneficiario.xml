@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardBackgroundColor="@color/card_surface"
+    app:cardElevation="2dp"
+    app:cardCornerRadius="14dp"
+    app:strokeColor="@color/cardStroke"
+    app:strokeWidth="1dp">
+
+    <LinearLayout
+        android:padding="12dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Fila superior: nombre + chip activo -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tvNombre"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Nombre"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="@color/textPrimary" />
+
+            <!-- Chip sin estilo externo (compatible M2/M3) -->
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipActivo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Activo"
+                app:chipMinHeight="32dp"
+                app:chipCornerRadius="16dp"
+                app:chipStrokeColor="@color/cardStroke"
+                app:chipStrokeWidth="1dp"
+                app:chipBackgroundColor="@color/chipBg"
+                app:textStartPadding="12dp"
+                app:textEndPadding="12dp"
+                android:checkable="false"
+                android:clickable="true"
+                />
+        </LinearLayout>
+
+        <!-- Fila secundaria: email / teléfono / socio -->
+        <TextView
+            android:id="@+id/tvInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="email • teléfono"
+            android:textColor="@color/textSecondary"
+            android:textSize="13sp"
+            android:layout_marginTop="2dp" />
+
+        <!-- Acciones -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="end"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/btnEditar"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:padding="4dp"
+                android:src="@android:drawable/ic_menu_edit"
+                app:tint="@color/textSecondary"
+                android:contentDescription="@string/editar" />
+
+            <Space
+                android:layout_width="8dp"
+                android:layout_height="wrap_content" />
+
+            <ImageView
+                android:id="@+id/btnEliminar"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:padding="4dp"
+                android:src="@android:drawable/ic_menu_delete"
+                app:tint="@color/textSecondary"
+                android:contentDescription="@string/eliminar" />
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

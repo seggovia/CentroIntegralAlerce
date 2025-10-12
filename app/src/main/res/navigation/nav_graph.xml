@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
     app:startDestination="@id/loginFragment">
+
 
     <!-- LOGIN -->
     <fragment
@@ -196,6 +198,11 @@
         <action
             android:id="@+id/action_maintainers_to_proyectosFragment"
             app:destination="@id/proyectosFragment" />
+
+        <!-- ✅ NUEVO: acción a Beneficiarios -->
+        <action
+            android:id="@+id/action_maintainers_to_beneficiariosFragment"
+            app:destination="@id/beneficiariosFragment" />
     </fragment>
 
     <!-- MANTENEDORES INDIVIDUALES -->
@@ -224,4 +231,10 @@
         android:name="com.centroalerce.ui.mantenedores.ProyectosFragment"
         android:label="Proyectos" />
 
+    <!-- ✅ NUEVO: destino Beneficiarios -->
+    <fragment
+        android:id="@+id/beneficiariosFragment"
+        android:name="com.centroalerce.ui.mantenedores.BeneficiariosFragment"
+        android:label="Beneficiarios"
+        tools:layout="@layout/fragment_beneficiarios" />
 </navigation>
