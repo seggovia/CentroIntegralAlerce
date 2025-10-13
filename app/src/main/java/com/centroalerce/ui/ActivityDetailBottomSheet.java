@@ -20,20 +20,21 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-// 👇 NUEVO: para aplicar insets de la barra de navegación
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
-import com.google.android.material.button.MaterialButton; // 👈 ya lo tenías
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
-// 👇 NUEVO: para escuchar updates en vivo
 import com.google.firebase.firestore.ListenerRegistration;
+
+// ✅ NUEVO: Importar UserRole
+import com.centroalerce.gestion.utils.UserRole;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -50,15 +51,21 @@ import java.util.Map;
 public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     private static final String TAG = "DetalleAdjuntos";
+    private static final String ARG_ACTIVIDAD_ID = "actividadId";
+    private static final String ARG_CITA_ID = "citaId";
+    private static final String ARG_USER_ROLE = "userRole"; // ✅ NUEVO
 
-    public static ActivityDetailBottomSheet newInstance(String actividadId, String citaId) {
+    // ✅ MODIFICADO: Agregar parámetro userRole
+    public static ActivityDetailBottomSheet newInstance(String actividadId, String citaId, UserRole userRole) {
         ActivityDetailBottomSheet f = new ActivityDetailBottomSheet();
         Bundle b = new Bundle();
-        b.putString("actividadId", actividadId);
-        b.putString("citaId", citaId);
+        b.putString(ARG_ACTIVIDAD_ID, actividadId);
+        b.putString(ARG_CITA_ID, citaId);
+        b.putString(ARG_USER_ROLE, userRole != null ? userRole.getValue() : UserRole.VISUALIZADOR.getValue()); // ✅ NUEVO
         f.setArguments(b);
         return f;
     }
+
     private MaterialButton btnCompletar;
 
     private int resId(String name, String defType) {
@@ -74,11 +81,11 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private TextView tvProyecto, tvDiasAviso, tvMotivoReagendo, tvFechaReagendo, tvMotivoCancelacion, tvFechaCancelacion;
 
     private LinearLayout llAdjuntos;
-    // 👇 NUEVO: tipar como MaterialButton para estilarlos correctamente
     private MaterialButton btnModificar, btnCancelar, btnReagendar, btnAdjuntar;
 
     // ---------- Data ----------
     private String actividadId, citaId;
+    private UserRole userRole; // ✅ NUEVO
     private FirebaseFirestore db;
 
     private boolean actividadCancelada = false;
@@ -86,9 +93,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private String estadoActual = "programada";
     private String actividadLugarFallback = null;
 
-    // 👇 NUEVO: listeners para datos en vivo
-    private ListenerRegistration actReg;   // escucha de actividad
-    private ListenerRegistration citaReg;  // escucha de cita
+    private ListenerRegistration actReg;
+    private ListenerRegistration citaReg;
 
     private static final String COL_EN = "activities";
     private static final String COL_ES = "actividades";
@@ -99,9 +105,19 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     @Override
     public void onStart() {
         super.onStart();
-        if (getDialog() == null) return;
-        View sheet = getDialog().findViewById(com.google.android.material.R.id.design_bottom_sheet);
-        if (sheet != null) sheet.setBackgroundColor(android.graphics.Color.WHITE);
+        if (getDialog() == null || getDialog().getWindow() == null) return;
+
+        // Configurar fondo blanco del bottom sheet
+        try {
+            View bottomSheet = getDialog().findViewById(
+                    getResources().getIdentifier("design_bottom_sheet", "id", "com.google.android.material")
+            );
+            if (bottomSheet != null) {
+                bottomSheet.setBackgroundColor(android.graphics.Color.WHITE);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "No se pudo cambiar el fondo del bottom sheet", e);
+        }
     }
 
     @Nullable
@@ -117,11 +133,16 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     @Override
     public void onViewCreated(@NonNull View root, @Nullable Bundle s) {
-
         super.onViewCreated(root, s);
 
-        actividadId = getArg("actividadId");
-        citaId      = getArg("citaId");
+        actividadId = getArg(ARG_ACTIVIDAD_ID);
+        citaId      = getArg(ARG_CITA_ID);
+
+        // ✅ NUEVO: Recuperar el rol del usuario
+        String roleString = getArg(ARG_USER_ROLE);
+        userRole = UserRole.fromString(roleString);
+
+        Log.d(TAG, "🔐 Usuario con rol: " + userRole.getValue());
 
         tvNombre        = root.findViewById(id("tvNombre"));
         tvTipoYPer      = root.findViewById(id("tvTipoYPeriodicidad"));
@@ -144,9 +165,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         btnCancelar     = root.findViewById(id("btnCancelar"));
         btnReagendar    = root.findViewById(id("btnReagendar"));
         btnAdjuntar     = root.findViewById(id("btnAdjuntar"));
-        btnCompletar    = root.findViewById(id("btnCompletar")); // 👈 NUEVO
+        btnCompletar    = root.findViewById(id("btnCompletar"));
 
-        // 👇 NUEVO: reservar espacio real para la barra de navegación
         View spacer = root.findViewById(id("navBarSpacer"));
         ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
             int bottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
@@ -158,7 +178,9 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             return insets;
         });
 
-        // === NUEVO helper: emitir acción al padre, conservando IDs ===
+        // ✅ NUEVO: Configurar UI según permisos del rol
+        setupUIBasedOnRole();
+
         Runnable emitEdit       = () -> emitActionToParent("edit", actividadId, citaId);
         Runnable emitReschedule = () -> emitActionToParent("reschedule", actividadId, citaId);
         Runnable emitAttach     = () -> emitActionToParent("attach", actividadId, citaId);
@@ -201,7 +223,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             btnAdjuntar.setOnClickListener(l);
         }
 
-        // 👇 NUEVO: Botón Completar
         if (btnCompletar != null) {
             View.OnClickListener l = view -> {
                 emitActionToParent("completar", actividadId, citaId);
@@ -211,10 +232,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             btnCompletar.setOnClickListener(l);
         }
 
-        // 👇 Fuerza estilos iniciales
         restyleButtonsActive();
 
-        // Listeners de resultados en el Parent FragmentManager
         getParentFragmentManager().setFragmentResultListener(
                 "adjuntos_change", getViewLifecycleOwner(),
                 (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
@@ -229,7 +248,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 }
         );
 
-        // 🔊 NUEVO: también escuchar en el SupportFragmentManager de la Activity
         requireActivity().getSupportFragmentManager().setFragmentResultListener(
                 "adjuntos_change", getViewLifecycleOwner(),
                 (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
@@ -253,7 +271,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
         db = FirebaseFirestore.getInstance();
 
-        // 👇 NUEVO: suscripciones en vivo + carga inicial
         subscribeActividad(actividadId);
         subscribeCita(actividadId, citaId);
         loadActividad(actividadId);
@@ -261,7 +278,52 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         loadAdjuntosAll(actividadId, citaId);
     }
 
-    // === NUEVO helper privado dentro de la clase ===
+    // ✅ NUEVO: Configurar la UI según el rol del usuario
+    private void setupUIBasedOnRole() {
+        Log.d(TAG, "🔐 Configurando UI para rol: " + userRole.getValue());
+
+        // VISUALIZADOR: Ocultar TODOS los botones de acción
+        if (userRole.isVisualizador()) {
+            Log.d(TAG, "👁️ Ocultando botones para VISUALIZADOR");
+            hideButton(btnModificar);
+            hideButton(btnReagendar);
+            hideButton(btnAdjuntar);
+            hideButton(btnCancelar);
+            hideButton(btnCompletar);
+            return;
+        }
+
+        // USUARIO o ADMINISTRADOR: Mostrar botones según permisos
+        if (!userRole.canModifyActivity()) {
+            hideButton(btnModificar);
+        }
+
+        if (!userRole.canRescheduleActivity()) {
+            hideButton(btnReagendar);
+        }
+
+        if (!userRole.canAttachFiles()) {
+            hideButton(btnAdjuntar);
+        }
+
+        if (!userRole.canCancelActivity()) {
+            hideButton(btnCancelar);
+        }
+
+        if (!userRole.canMarkCompleted()) {
+            hideButton(btnCompletar);
+        }
+
+        Log.d(TAG, "✅ UI configurada según permisos");
+    }
+
+    // ✅ NUEVO: Helper para ocultar botones
+    private void hideButton(@Nullable MaterialButton button) {
+        if (button != null) {
+            button.setVisibility(View.GONE);
+        }
+    }
+
     private void emitActionToParent(@NonNull String action, @Nullable String activityId, @Nullable String citaId) {
         Bundle b = new Bundle();
         b.putString("action", action);
@@ -270,7 +332,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         getParentFragmentManager().setFragmentResult("activity_detail_action", b);
     }
 
-    // 👇 NUEVO: liberar listeners para evitar fugas
     @Override
     public void onDestroyView() {
         if (actReg != null) { actReg.remove(); actReg = null; }
@@ -279,10 +340,10 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     }
 
     // ====== ESTILOS BOTONES (forzar visibilidad/contraste) ======
-    private static final int COLOR_PRIMARY = 0xFF6366F1; // Indigo-500 aprox
-    private static final int COLOR_ERROR   = 0xFFDC2626; // Red-600
-    private static final int COLOR_TEXT    = 0xFF111827; // Gray-900
-    private static final int COLOR_OUTLINE = 0xFF94A3B8; // Slate-400 para deshabilitado
+    private static final int COLOR_PRIMARY = 0xFF6366F1;
+    private static final int COLOR_ERROR   = 0xFFDC2626;
+    private static final int COLOR_TEXT    = 0xFF111827;
+    private static final int COLOR_OUTLINE = 0xFF94A3B8;
 
     private void styleOutlined(MaterialButton b, int color){
         if (b == null) return;
@@ -291,7 +352,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         b.setTextColor(color);
         b.setRippleColor(ColorStateList.valueOf((color & 0x00FFFFFF) | 0x33000000));
         b.setIconTint(ColorStateList.valueOf(color));
-        b.setBackgroundTintList(ColorStateList.valueOf(0x00000000)); // transparente
+        b.setBackgroundTintList(ColorStateList.valueOf(0x00000000));
     }
     private void styleFilled(MaterialButton b, int bg){
         if (b == null) return;
@@ -302,7 +363,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private void styleOutlinedDisabled(MaterialButton b){
         if (b == null) return;
         b.setEnabled(false);
-        b.setAlpha(1f); // mantenemos 1f para que se "vea"; contrastamos con gris
+        b.setAlpha(1f);
         styleOutlined(b, COLOR_OUTLINE);
     }
 
@@ -312,7 +373,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             styleOutlined(btnReagendar, COLOR_PRIMARY);
             styleFilled(btnAdjuntar,  COLOR_PRIMARY);
             styleFilled(btnCancelar,  COLOR_ERROR);
-            styleFilled(btnCompletar, 0xFF10B981); // Verde para completar
+            styleFilled(btnCompletar, 0xFF10B981);
         } catch (Exception ignored) {}
     }
 
@@ -321,20 +382,18 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             styleOutlinedDisabled(btnModificar);
             styleOutlinedDisabled(btnReagendar);
             styleOutlinedDisabled(btnAdjuntar);
-            styleOutlinedDisabled(btnCompletar); // Deshabilitar también
+            styleOutlinedDisabled(btnCompletar);
             styleFilled(btnCancelar, COLOR_ERROR);
             btnCancelar.setEnabled(true);
             btnCancelar.setAlpha(1f);
         } catch (Exception ignored) {}
     }
 
-
     // ====== FIN estilos ======
 
-    // ---------- Escuchas en vivo (NUEVO) ----------
-    private void subscribeActividad(String actividadId) { // 👈 NUEVO
+    // ---------- Escuchas en vivo ----------
+    private void subscribeActividad(String actividadId) {
         if (TextUtils.isEmpty(actividadId)) return;
-        // intentamos EN, si no existe caemos a ES
         actReg = act(actividadId, true).addSnapshotListener((doc, e) -> {
             if (e != null) { Log.w(TAG, "listen actividad EN error", e); return; }
             Log.d(TAG, "actividad EN snapshot recibido");
@@ -351,7 +410,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         });
     }
 
-    private void subscribeCita(String actividadId, String citaId) { // 👈 NUEVO
+    private void subscribeCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) return;
         citaReg = act(actividadId, true).collection("citas").document(citaId)
                 .addSnapshotListener((doc, e) -> {
@@ -370,7 +429,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                     }
                 });
     }
-    // ---------- Fin escuchas en vivo ----------
 
     // ---------- Actividad ----------
     private void loadActividad(String actividadId) {
@@ -406,13 +464,10 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         String beneficiarios = joinListOrText(beneficiariosList);
 
         String proyecto = pickString(doc, "proyectoNombre", "proyecto", "projectName");
-        // Prioriza la clave real de tu colección
         Long diasAviso  = safeLong(doc.get("diasAvisoPrevio"));
-// Compat con variantes antiguas si existieran
         if (diasAviso == null) diasAviso = safeLong(doc.get("diasAviso"));
         if (diasAviso == null) diasAviso = safeLong(doc.get("dias_aviso"));
         if (diasAviso == null) diasAviso = safeLong(doc.get("diasAvisoCancelacion"));
-
 
         actividadLugarFallback = pickString(doc, "lugarNombre", "lugar");
 
@@ -437,11 +492,11 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (actividadCancelada || citaCancelada) applyCanceledStateUI();
         else applyActiveStateUI();
 
-        // 👉 NUEVO: siempre prioriza el lugar de la ACTIVIDAD si está disponible
         if (chLugar != null && !TextUtils.isEmpty(actividadLugarFallback)) {
             chLugar.setText(actividadLugarFallback);
         }
     }
+
     private void completarCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) {
             toast("Faltan datos para completar la cita");
@@ -460,7 +515,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                         DocumentReference ref = (doc != null && doc.exists()) ? citaES : citaEN;
 
                         Map<String, Object> updates = new HashMap<>();
-                        updates.put("estado", "completada"); // 👈 Importante: minúsculas
+                        updates.put("estado", "completada");
                         updates.put("fechaModificacion", Timestamp.now());
 
                         ref.update(updates)
@@ -475,17 +530,14 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .show();
     }
 
-
     private void notifyChanged(){
         Bundle b = new Bundle();
         b.putString("actividadId", actividadId);
         if (!TextUtils.isEmpty(citaId)) b.putString("citaId", citaId);
 
-        // Notificar al ParentFragmentManager
         getParentFragmentManager().setFragmentResult("actividad_change", b);
         getParentFragmentManager().setFragmentResult("calendar_refresh", b);
 
-        // Notificar también al Activity (para refrescar calendario/lista)
         try {
             requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", b);
             requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b);
@@ -539,7 +591,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             chFechaHora.setText(fechaStr + " • " + horaStr);
         }
 
-        // 👉 NUEVO: preferir el lugar de la ACTIVIDAD si está disponible; si no, usar el de la cita
         if (chLugar != null) {
             String prefer = !TextUtils.isEmpty(actividadLugarFallback) ? actividadLugarFallback : lugar;
             if (!TextUtils.isEmpty(prefer)) chLugar.setText(prefer);
@@ -805,7 +856,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             chLugar.setTextColor(0xFFFFFFFF);
             try { chLugar.setChipBackgroundColor(ColorStateList.valueOf(0xFFEF4444)); } catch (Exception ignored) {}
         }
-        // En vez de bajar alpha, restilamos explícito para que "se vean" grises
         restyleButtonsCanceled();
     }
 
@@ -825,7 +875,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (b == null) return;
         b.setEnabled(false);
         b.setClickable(false);
-        // alpha lo maneja restyleButtonsCanceled()
     }
     private void enableButton(@Nullable View b){
         if (b == null) return;
@@ -897,7 +946,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         LinkedHashSet<String> set = new LinkedHashSet<>();
         for (String t : tokens) {
             String s = (t == null) ? "" : t.trim();
-            if (!s.isEmpty()) set.add(s);   // 👈 aquí era "st" por error
+            if (!s.isEmpty()) set.add(s);
         }
         out.addAll(set);
         return out;

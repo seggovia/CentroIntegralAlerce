@@ -1,23 +1,44 @@
 package com.centroalerce.gestion.utils;
 
+import android.util.Log;
+import androidx.annotation.NonNull;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
+
+/**
+ * Singleton para gestionar el rol del usuario actual
+ * Mantiene en caché el rol y lo sincroniza con Firebase
+ */
 public class RoleManager {
+
+    private static final String TAG = "RoleManager";
     private static RoleManager instance;
+
+    private FirebaseAuth auth;
+    private FirebaseFirestore db;
     private UserRole currentUserRole;
     private String currentUserId;
-    private final FirebaseFirestore db;
-    private final FirebaseAuth auth;
+    private ListenerRegistration roleListener;
 
-    private RoleManager() {
-        db = FirebaseFirestore.getInstance();
-        auth = FirebaseAuth.getInstance();
-        currentUserRole = UserRole.VISUALIZADOR; // Por defecto el más restrictivo
+    // Callback para notificar cambios de rol
+    public interface OnRoleLoadedListener {
+        void onRoleLoaded(UserRole role);
     }
 
-    /**
-     * Obtiene la instancia única del RoleManager
-     */
+    // ✅ MANTENER COMPATIBILIDAD con el callback anterior
+    public interface RoleLoadCallback {
+        void onRoleLoaded(UserRole role);
+    }
+
+    private RoleManager() {
+        auth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
+        currentUserRole = UserRole.VISUALIZADOR; // Default seguro
+    }
+
     public static synchronized RoleManager getInstance() {
         if (instance == null) {
             instance = new RoleManager();
@@ -26,52 +47,113 @@ public class RoleManager {
     }
 
     /**
-     * Carga el rol del usuario desde Firebase
-     * @param callback Callback que se ejecuta cuando el rol está cargado
+     * Carga el rol del usuario actual desde Firebase
+     * y lo mantiene en caché
      */
-    public void loadUserRole(RoleLoadCallback callback) {
-        if (auth.getCurrentUser() == null) {
+    public void loadUserRole(@NonNull OnRoleLoadedListener listener) {
+        FirebaseUser currentUser = auth.getCurrentUser();
+
+        if (currentUser == null) {
+            Log.w(TAG, "⚠️ No hay usuario autenticado");
             currentUserRole = UserRole.VISUALIZADOR;
-            callback.onRoleLoaded(UserRole.VISUALIZADOR);
+            currentUserId = null;
+            listener.onRoleLoaded(currentUserRole);
             return;
         }
 
-        currentUserId = auth.getCurrentUser().getUid();
+        String uid = currentUser.getUid();
+        currentUserId = uid;
+        Log.d(TAG, "🔍 Cargando rol para usuario: " + uid);
 
         db.collection("usuarios")
-                .document(currentUserId)
+                .document(uid)
                 .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        String rolString = documentSnapshot.getString("rol");
+                .addOnSuccessListener(document -> {
+                    if (document.exists()) {
+                        String rolString = document.getString("rol");
                         currentUserRole = UserRole.fromString(rolString);
+
+                        Log.d(TAG, "✅ Rol cargado: " + currentUserRole.getValue());
+                        listener.onRoleLoaded(currentUserRole);
                     } else {
-                        // Usuario no encontrado en Firestore, asignar rol por defecto
+                        Log.w(TAG, "⚠️ Documento de usuario no existe, asignando VISUALIZADOR");
                         currentUserRole = UserRole.VISUALIZADOR;
+                        listener.onRoleLoaded(currentUserRole);
                     }
-                    callback.onRoleLoaded(currentUserRole);
                 })
                 .addOnFailureListener(e -> {
-                    // En caso de error, usar rol más restrictivo
-                    currentUserRole = UserRole.VISUALIZADOR;
-                    callback.onRoleLoaded(currentUserRole);
+                    Log.e(TAG, "❌ Error al cargar rol: " + e.getMessage(), e);
+                    currentUserRole = UserRole.VISUALIZADOR; // Fallback seguro
+                    listener.onRoleLoaded(currentUserRole);
                 });
     }
 
     /**
-     * Obtiene el rol actual del usuario (desde memoria)
-     * IMPORTANTE: Debe haberse llamado a loadUserRole() primero
+     * ✅ Sobrecarga para mantener compatibilidad con código anterior
      */
-    public UserRole getCurrentUserRole() {
-        return currentUserRole;
+    public void loadUserRole(@NonNull RoleLoadCallback callback) {
+        loadUserRole((OnRoleLoadedListener) callback::onRoleLoaded);
     }
 
     /**
-     * Establece manualmente el rol del usuario actual
-     * Útil para testing o casos especiales
+     * Escucha cambios en el rol del usuario en tiempo real
+     * Útil si el administrador cambia roles desde otro lugar
      */
-    public void setCurrentUserRole(UserRole role) {
-        this.currentUserRole = role;
+    public void subscribeToRoleChanges(@NonNull OnRoleLoadedListener listener) {
+        FirebaseUser currentUser = auth.getCurrentUser();
+
+        if (currentUser == null) {
+            Log.w(TAG, "⚠️ No hay usuario para suscribirse a cambios");
+            return;
+        }
+
+        String uid = currentUser.getUid();
+        currentUserId = uid;
+
+        // Remover listener anterior si existe
+        if (roleListener != null) {
+            roleListener.remove();
+        }
+
+        roleListener = db.collection("usuarios")
+                .document(uid)
+                .addSnapshotListener((snapshot, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "❌ Error en listener de rol: " + error.getMessage(), error);
+                        return;
+                    }
+
+                    if (snapshot != null && snapshot.exists()) {
+                        String rolString = snapshot.getString("rol");
+                        UserRole newRole = UserRole.fromString(rolString);
+
+                        if (newRole != currentUserRole) {
+                            Log.d(TAG, "🔄 Rol actualizado: " + currentUserRole.getValue() + " → " + newRole.getValue());
+                            currentUserRole = newRole;
+                            listener.onRoleLoaded(currentUserRole);
+                        }
+                    }
+                });
+    }
+
+    /**
+     * ✅ Detiene la escucha de cambios de rol
+     * Llamar en onDestroy de Activities/Fragments
+     */
+    public void unsubscribeFromRoleChanges() {
+        if (roleListener != null) {
+            roleListener.remove();
+            roleListener = null;
+            Log.d(TAG, "🛑 Listener de rol removido");
+        }
+    }
+
+    /**
+     * Obtiene el rol actual en caché
+     * IMPORTANTE: Debe llamarse loadUserRole() primero
+     */
+    public UserRole getCurrentUserRole() {
+        return currentUserRole;
     }
 
     /**
@@ -82,17 +164,42 @@ public class RoleManager {
     }
 
     /**
-     * Limpia el rol almacenado (útil al cerrar sesión)
+     * Establece manualmente el rol (útil para testing)
+     */
+    public void setCurrentUserRole(UserRole role) {
+        this.currentUserRole = role;
+    }
+
+    /**
+     * Verifica si el rol ya está cargado
+     */
+    public boolean isRoleLoaded() {
+        return currentUserRole != null;
+    }
+
+    /**
+     * ✅ Limpia el caché del rol
+     * Útil al cerrar sesión
      */
     public void clearRole() {
         currentUserRole = UserRole.VISUALIZADOR;
         currentUserId = null;
+        unsubscribeFromRoleChanges();
+        Log.d(TAG, "🧹 Rol limpiado");
     }
 
     /**
-     * Callback que se ejecuta cuando el rol ha sido cargado
+     * Helper para verificar permisos rápidamente
      */
-    public interface RoleLoadCallback {
-        void onRoleLoaded(UserRole role);
+    public boolean canViewMaintainers() {
+        return currentUserRole != null && currentUserRole.canViewMaintainers();
+    }
+
+    public boolean canModifyActivities() {
+        return currentUserRole != null && currentUserRole.canModifyActivity();
+    }
+
+    public boolean isAdmin() {
+        return currentUserRole != null && currentUserRole.isAdmin();
     }
 }

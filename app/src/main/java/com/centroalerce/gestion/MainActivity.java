@@ -31,7 +31,7 @@ public class MainActivity extends AppCompatActivity {
     private NavController navController;
     private BottomNavigationView bottomNav;
 
-    // ✅ NUEVO: Sistema de roles
+    // ✅ Sistema de roles
     private RoleManager roleManager;
     private PermissionChecker permissionChecker;
     private FirebaseAuth auth;
@@ -42,21 +42,20 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // ✅ NUEVO: Inicializar Firebase Auth
+        // ✅ Inicializar Firebase Auth
         auth = FirebaseAuth.getInstance();
 
-        // ✅ NUEVO: Verificar si hay usuario autenticado
+        // ✅ Verificar si hay usuario autenticado
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null) {
-            // Si no hay usuario, redirigir al login
-            // (esto debería estar manejado por el grafo de navegación)
             Log.d(TAG, "⚠️ No hay usuario autenticado");
         }
 
-        // ✅ NUEVO: Inicializar sistema de roles
+        // ✅ Inicializar sistema de roles
         initializeRoleSystem();
 
-        // ✅ NUEVO: Ejecutar migración de roles (solo una vez)
+        // ✅ IMPORTANTE: Ejecutar migración de roles (solo una vez)
+        // Esto convierte TODOS los usuarios existentes en ADMINISTRADORES
         ejecutarMigracionRolesUnaVez();
 
         // 1) Obtener NavController desde el NavHostFragment
@@ -79,10 +78,11 @@ public class MainActivity extends AppCompatActivity {
 
         // 4) Configurar click del FAB con validación de permisos
         fabGlobal.setOnClickListener(v -> {
-            // ✅ MODIFICADO: Solo usuarios comunes y admins pueden crear actividades
-            if (permissionChecker.checkAndNotify(this,
-                    PermissionChecker.Permission.MODIFY_ACTIVITY)) {
+            // Solo usuarios comunes y admins pueden crear actividades
+            if (currentUserRole != null && currentUserRole.canInteractWithActivities()) {
                 navController.navigate(R.id.activityFormFragment);
+            } else {
+                Toast.makeText(this, "No tienes permisos para crear actividades", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -109,7 +109,7 @@ public class MainActivity extends AppCompatActivity {
 
             bottomNav.setVisibility(hideBottomNav ? View.GONE : View.VISIBLE);
 
-            // ✅ MODIFICADO: Mostrar FAB solo en CalendarFragment Y solo si tiene permisos
+            // Mostrar FAB solo en CalendarFragment Y solo si tiene permisos
             if (id == R.id.calendarFragment) {
                 // Solo mostrar FAB si puede crear actividades
                 if (currentUserRole != null && currentUserRole.canInteractWithActivities()) {
@@ -124,14 +124,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * ✅ NUEVO: Inicializa el sistema de roles
+     * ✅ Inicializa el sistema de roles
      */
     private void initializeRoleSystem() {
         roleManager = RoleManager.getInstance();
         permissionChecker = new PermissionChecker();
 
         // Cargar el rol del usuario actual
-        roleManager.loadUserRole(role -> {
+        roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
             currentUserRole = role;
             Log.d(TAG, "✅ Rol del usuario cargado: " + role.getValue());
 
@@ -151,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * ✅ NUEVO: Configura el menú de navegación según el rol del usuario
+     * ✅ Configura el menú de navegación según el rol del usuario
      */
     private void configureMenuByRole(UserRole role) {
         if (bottomNav == null || bottomNav.getMenu() == null) {
@@ -180,37 +180,48 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * ✅ NUEVO: Ejecuta la migración de roles una sola vez
-     * Esto normaliza roles antiguos ("admin" -> "administrador")
-     * y asigna rol "usuario" a usuarios sin rol
+     * ✅ Ejecuta la migración de roles una sola vez
+     * IMPORTANTE: Esto convierte TODOS los usuarios existentes en ADMINISTRADORES
      */
     private void ejecutarMigracionRolesUnaVez() {
         SharedPreferences prefs = getSharedPreferences("app_config", MODE_PRIVATE);
-        boolean migracionRealizada = prefs.getBoolean("migracion_roles_v1", false);
+        boolean migracionRealizada = prefs.getBoolean("migracion_roles_administrador_v1", false);
 
         if (!migracionRealizada) {
             Log.d(TAG, "🔄 Iniciando migración de roles...");
+            Log.d(TAG, "⚠️ TODOS los usuarios existentes serán ADMINISTRADORES");
 
             MigracionRoles migracion = new MigracionRoles();
 
-            // Primero normalizar roles existentes
-            migracion.normalizarRolesExistentes(new MigracionRoles.OnMigrationListener() {
+            // ✅ CORREGIDO: Usar el método correcto
+            migracion.asignarAdministradorATodos(new MigracionRoles.OnMigrationListener() {
                 @Override
                 public void onComplete(int total, int actualizados) {
-                    Log.d(TAG, "✅ Migración completada: " + actualizados + "/" + total + " usuarios actualizados");
+                    Log.d(TAG, "✅ Migración completada: " + actualizados + "/" + total + " usuarios son ahora ADMINISTRADORES");
 
                     // Marcar migración como realizada
-                    prefs.edit().putBoolean("migracion_roles_v1", true).apply();
+                    prefs.edit().putBoolean("migracion_roles_administrador_v1", true).apply();
 
                     // Opcional: Mostrar mensaje al usuario
-                    // Toast.makeText(MainActivity.this,
-                    //     "Sistema de roles actualizado",
-                    //     Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this,
+                            "Sistema de roles actualizado. " + actualizados + " usuario(s) migrado(s).",
+                            Toast.LENGTH_SHORT).show();
+
+                    // Recargar el rol del usuario actual
+                    if (roleManager != null) {
+                        roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
+                            currentUserRole = role;
+                            configureMenuByRole(role);
+                        });
+                    }
                 }
 
                 @Override
                 public void onError(Exception e) {
                     Log.e(TAG, "❌ Error en migración de roles", e);
+                    Toast.makeText(MainActivity.this,
+                            "Error al migrar roles: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
                 }
             });
         } else {
@@ -219,8 +230,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * ✅ NUEVO: Método para verificar roles actuales (debug)
-     * Llama a este método si quieres ver qué roles existen en tu base de datos
+     * ✅ Método para verificar roles actuales (debug)
+     * Descomenta la llamada en onCreate si quieres ver qué roles existen
      */
     private void verificarRolesActuales() {
         com.google.firebase.firestore.FirebaseFirestore.getInstance()
@@ -239,6 +250,13 @@ public class MainActivity extends AppCompatActivity {
                     for (java.util.Map.Entry<String, Integer> entry : conteoRoles.entrySet()) {
                         Log.d(TAG, "  " + entry.getKey() + ": " + entry.getValue() + " usuario(s)");
                     }
+
+                    // Mostrar en un Toast también
+                    StringBuilder mensaje = new StringBuilder("Roles en Firebase:\n");
+                    for (java.util.Map.Entry<String, Integer> entry : conteoRoles.entrySet()) {
+                        mensaje.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+                    }
+                    Toast.makeText(this, mensaje.toString(), Toast.LENGTH_LONG).show();
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Error al verificar roles", e);
@@ -249,9 +267,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
-        // ✅ NUEVO: Recargar el rol por si cambió (ej: admin cambió permisos)
+        // Recargar el rol por si cambió (ej: admin cambió permisos)
         if (roleManager != null) {
-            roleManager.loadUserRole(role -> {
+            roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
                 currentUserRole = role;
                 configureMenuByRole(role);
 
@@ -271,6 +289,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Limpiar recursos si es necesario
+        // Limpiar listener de roles
+        if (roleManager != null) {
+            roleManager.unsubscribeFromRoleChanges();
+        }
     }
 }
