@@ -1,10 +1,19 @@
 package com.centroalerce.gestion;
 
+import android.Manifest;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.NavigationUI;
@@ -19,10 +28,21 @@ public class MainActivity extends AppCompatActivity {
     private FloatingActionButton fabGlobal;
     private NavController navController;
 
+    // 🆕 NUEVO: Launcher para pedir permiso de notificaciones
+    private final ActivityResultLauncher<String> requestNotifPermission =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+                if (!granted) {
+                    mostrarDialogoIrAjustes();
+                }
+            });
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // 🆕 NUEVO: pedir permiso de notificaciones
+        asegurarPermisoNotificaciones();
 
         // 1) Obtener NavController desde el NavHostFragment
         NavHostFragment navHost = (NavHostFragment)
@@ -78,5 +98,40 @@ public class MainActivity extends AppCompatActivity {
                 fabGlobal.hide(); // Animación de salida
             }
         });
+    }
+
+    // 🆕 NUEVO: pedir permiso de notificaciones en Android 13+
+    private void asegurarPermisoNotificaciones() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            requestNotifPermission.launch(Manifest.permission.POST_NOTIFICATIONS);
+        } else {
+            boolean enabled = NotificationManagerCompat.from(this).areNotificationsEnabled();
+            if (!enabled) {
+                mostrarDialogoIrAjustes();
+            }
+        }
+    }
+
+    // 🆕 NUEVO: abrir ajustes si el usuario niega el permiso
+    private void mostrarDialogoIrAjustes() {
+        new AlertDialog.Builder(this)
+                .setTitle("Permitir notificaciones")
+                .setMessage("Para recibir recordatorios, activa las notificaciones de la aplicación.")
+                .setPositiveButton("Abrir ajustes", (d, w) -> abrirAjustesNotificaciones())
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    // 🆕 NUEVO: dirigir al usuario a la pantalla de ajustes
+    private void abrirAjustesNotificaciones() {
+        Intent intent = new Intent();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            intent.setAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+            intent.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+        } else {
+            intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.fromParts("package", getPackageName(), null));
+        }
+        startActivity(intent);
     }
 }

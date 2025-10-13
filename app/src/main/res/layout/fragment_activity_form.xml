@@ -191,6 +191,35 @@
                             android:layout_width="12dp"
                             android:layout_height="wrap_content" />
 
+                        <!-- Días de aviso previo -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="@string/dias_aviso_previo"
+                            app:boxBackgroundMode="outline"
+                            app:boxStrokeColor="@color/primary"
+                            app:boxCornerRadiusTopStart="12dp"
+                            app:boxCornerRadiusTopEnd="12dp"
+                            app:boxCornerRadiusBottomStart="12dp"
+                            app:boxCornerRadiusBottomEnd="12dp"
+                            app:helperText="Días antes para notificar"
+                            app:helperTextTextColor="@color/textSecondary">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etDiasAvisoPrevio"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/textPrimary"
+                                android:inputType="number"
+                                android:text="1" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <Space
+                            android:layout_width="12dp"
+                            android:layout_height="wrap_content" />
+
                         <!-- Lugar como Combo -->
                         <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="0dp"

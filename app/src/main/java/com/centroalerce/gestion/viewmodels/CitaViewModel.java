@@ -1,11 +1,15 @@
 package com.centroalerce.gestion.viewmodels;
 
+import android.content.Context;
+
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import com.centroalerce.gestion.models.Actividad;
 import com.centroalerce.gestion.models.Cita;
 import com.centroalerce.gestion.repositories.CitaRepository;
+import com.centroalerce.gestion.services.NotificationService;
 
 import java.util.Date;
 import java.util.List;
@@ -93,6 +97,58 @@ public class CitaViewModel extends ViewModel {
                 errorMessage.setValue(error);
             }
         });
+    }
+
+    // Cancelar cita con notificaciones
+    public void cancelarCitaConNotificaciones(Context context, String citaId, String motivo) {
+        isLoading.setValue(true);
+        citaRepository.cancelarCita(citaId, motivo, new CitaRepository.SimpleCallback() {
+            @Override
+            public void onSuccess() {
+                // Cancelar notificaciones programadas para esta cita
+                NotificationService notificationService = new NotificationService(context);
+                notificationService.cancelarNotificacionesCita(citaId);
+                
+                isLoading.setValue(false);
+                successMessage.setValue("Cita cancelada y notificaciones eliminadas");
+            }
+
+            @Override
+            public void onError(String error) {
+                isLoading.setValue(false);
+                errorMessage.setValue(error);
+            }
+        });
+    }
+
+    // Crear cita con notificaciones automáticas
+    public void crearCitaConNotificaciones(Context context, Cita cita, Actividad actividad, 
+                                         List<String> usuariosNotificar) {
+        isLoading.setValue(true);
+        
+        // TODO: Implementar método crearCita en CitaRepository
+        // citaRepository.crearCita(cita, new CitaRepository.SimpleCallback() {
+        //     @Override
+        //     public void onSuccess() {
+        //         // Programar notificaciones para la nueva cita
+        //         NotificationService notificationService = new NotificationService(context);
+        //         notificationService.programarNotificacionesCita(cita, actividad, usuariosNotificar);
+        //         
+        //         isLoading.setValue(false);
+        //         successMessage.setValue("Cita creada con notificaciones programadas");
+        //         loadCitasAgendadas(); // Recargar lista
+        //     }
+
+        //     @Override
+        //     public void onError(String error) {
+        //         isLoading.setValue(false);
+        //         errorMessage.setValue(error);
+        //     }
+        // });
+        
+        // Por ahora, solo mostrar mensaje de que no está implementado
+        isLoading.setValue(false);
+        errorMessage.setValue("Creación de citas no implementada aún");
     }
 
     // Reagendar cita

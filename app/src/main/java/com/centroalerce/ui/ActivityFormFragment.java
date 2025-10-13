@@ -66,11 +66,12 @@ import java.util.Map;
 // 🔽 NUEVO: selector de beneficiarios (BottomSheet) y modelo
 import com.centroalerce.ui.mantenedores.dialog.BeneficiariosPickerSheet;
 import com.centroalerce.gestion.models.Beneficiario;
+import com.centroalerce.gestion.services.NotificationService;
 
 public class ActivityFormFragment extends Fragment {
 
     // EditTexts que SÍ existen en tu XML
-    private TextInputEditText etNombre, etCupo, etFecha, etHora; // ← quitamos etBeneficiarios
+    private TextInputEditText etNombre, etCupo, etFecha, etHora, etDiasAvisoPrevio; // ← agregamos etDiasAvisoPrevio
     private TextInputLayout   tilFecha, tilHora;
 
     private MaterialButtonToggleGroup tgPeriodicidad;
@@ -137,6 +138,7 @@ public class ActivityFormFragment extends Fragment {
         etCupo           = v.findViewById(R.id.etCupo);
         etFecha          = v.findViewById(R.id.etFecha);
         etHora           = v.findViewById(R.id.etHora);
+        etDiasAvisoPrevio = v.findViewById(R.id.etDiasAvisoPrevio);
         tilFecha         = (TextInputLayout) etFecha.getParent().getParent();
         tilHora          = (TextInputLayout) etHora.getParent().getParent();
 
@@ -734,6 +736,18 @@ public class ActivityFormFragment extends Fragment {
         String oferente      = getText(acOferente);
         String socio         = getText(acSocio);
         String proyecto      = getText(acProyecto);
+        
+        // Obtener días de aviso previo
+        int diasAvisoPrevio = 1; // Valor por defecto
+        try {
+            String diasStr = getText(etDiasAvisoPrevio);
+            if (!TextUtils.isEmpty(diasStr)) {
+                diasAvisoPrevio = Integer.parseInt(diasStr);
+                if (diasAvisoPrevio < 0) diasAvisoPrevio = 0;
+            }
+        } catch (Exception e) {
+            // Mantener valor por defecto
+        }
 
         if (TextUtils.isEmpty(tipoActividad)) {
             mostrarDialogoError("Campo obligatorio", "Debes seleccionar un tipo de actividad", root);
@@ -768,6 +782,7 @@ public class ActivityFormFragment extends Fragment {
         final String    oferenteFinal        = oferente;
         final String    socioFinal           = socio;
         final String    proyectoFinal        = proyecto;
+        final int       diasAvisoPrevioFinal = diasAvisoPrevio;
 
         btnGuardar.setText("Validando lugar...");
         lugarRepository.getLugar(buscarIdLugar(lugarFinal), new LugarRepository.LugarCallback() {
@@ -820,7 +835,7 @@ public class ActivityFormFragment extends Fragment {
                                 oferenteFinal, socioFinal, /* beneficiarios texto ya no se usa */ null,
                                 lugarFinal, modoPeriodicaFinal,
                                 aRevisar.get(0), aRevisar,
-                                proyectoFinal
+                                proyectoFinal, diasAvisoPrevioFinal
                         );
                     }
 
@@ -849,13 +864,13 @@ public class ActivityFormFragment extends Fragment {
                                        String lugar, boolean modoPeriodica,
                                        @Nullable Timestamp startAtPuntual,
                                        List<Timestamp> timestamps,
-                                       @Nullable String proyecto) {
+                                       @Nullable String proyecto, int diasAvisoPrevio) {
 
         String activityId = db.collection("activities").document().getId();
 
         if (attachmentUris.isEmpty()) {
             escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
-                    /* beneficiarios texto */ null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto);
+                    /* beneficiarios texto */ null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
             return;
         }
 
@@ -906,12 +921,12 @@ public class ActivityFormFragment extends Fragment {
                         Snackbar.make(root, "Algunos archivos no se pudieron subir. Se guardará el resto.", Snackbar.LENGTH_LONG).show();
                     }
                     escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
-                            null, lugar, modoPeriodica, startAtPuntual, timestamps, adj, proyecto);
+                            null, lugar, modoPeriodica, startAtPuntual, timestamps, adj, proyecto, diasAvisoPrevio);
                 })
                 .addOnFailureListener(e -> {
                     Snackbar.make(root, "No se pudieron subir los adjuntos (" + e.getMessage() + "). Guardando sin archivos.", Snackbar.LENGTH_LONG).show();
                     escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
-                            null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto);
+                            null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
                 });
     }
 
@@ -922,7 +937,7 @@ public class ActivityFormFragment extends Fragment {
                                          @Nullable Timestamp startAtPuntual,
                                          List<Timestamp> timestamps,
                                          List<Map<String, Object>> adjuntos,
-                                         @Nullable String proyecto) {
+                                         @Nullable String proyecto, int diasAvisoPrevio) {
 
         List<String> oferentesList = splitToList(oferente);
 
@@ -944,6 +959,9 @@ public class ActivityFormFragment extends Fragment {
         }
 
         if (cupo != null) activityDoc.put("cupo", cupo);
+        
+        // Agregar días de aviso previo
+        activityDoc.put("diasAvisoPrevio", diasAvisoPrevio);
 
         if (!oferentesList.isEmpty()) {
             activityDoc.put("oferentes", oferentesList);
@@ -1028,16 +1046,49 @@ public class ActivityFormFragment extends Fragment {
                     android.util.Log.d("FS",
                             "Actividad " + activityId + " creada con " + citaRefs.size() +
                                     " cita(s) y " + (adjuntos == null ? 0 : adjuntos.size()) + " adjunto(s)");
+
+                    // 1️⃣ Programar notificaciones a nivel Actividad (para cumplir el requisito del documento)
+                    programarNotificacionesActividad(activityId, nombre, modoPeriodica, timestamps, diasAvisoPrevio);
+
+                    // 2️⃣ Programar notificaciones para cada cita creada
+                    NotificationService ns = new NotificationService(requireContext());
+
+                    // TODO: reemplazar con los UID reales
+                    List<String> usuariosNotificar = new ArrayList<>();
+                    usuariosNotificar.add("usuario_actual");
+
+                    com.centroalerce.gestion.models.Actividad act = new com.centroalerce.gestion.models.Actividad();
+                    act.setId(activityId);
+                    act.setNombre(!TextUtils.isEmpty(nombre) ? nombre : "Actividad");
+                    act.setPeriodicidad(modoPeriodica ? "Periodica" : "Puntual");
+                    act.setDiasAvisoPrevio(diasAvisoPrevio);
+
+                    if (modoPeriodica) {
+                        for (int i = 0; i < timestamps.size(); i++) {
+                            Timestamp ts = timestamps.get(i);
+                            com.centroalerce.gestion.models.Cita c = new com.centroalerce.gestion.models.Cita();
+                            c.setFecha(ts); // tu esquema usa startAt → se mapea como fecha
+                            ns.programarNotificacionesCita(c, act, usuariosNotificar);
+                        }
+                    } else {
+                        com.centroalerce.gestion.models.Cita c = new com.centroalerce.gestion.models.Cita();
+                        c.setFecha(startAtPuntual); // puntual → usa el mismo startAt
+                        ns.programarNotificacionesCita(c, act, usuariosNotificar);
+                    }
+
                     Snackbar.make(root,
-                            modoPeriodica ? "Actividad creada. " + timestamps.size() + " fechas programadas."
+                            modoPeriodica
+                                    ? "Actividad creada. " + timestamps.size() + " fechas programadas."
                                     : "Actividad creada y cita generada.",
                             Snackbar.LENGTH_LONG).show();
+
                     Navigation.findNavController(root).popBackStack();
                 })
                 .addOnFailureListener(e -> {
                     btnGuardar.setEnabled(true);
                     Snackbar.make(root, "Error al guardar: " + e.getMessage(), Snackbar.LENGTH_LONG).show();
                 });
+
     }
 
     private com.google.android.gms.tasks.Task<Boolean> chequearConflictos(
@@ -1309,6 +1360,39 @@ public class ActivityFormFragment extends Fragment {
     /**
      * Interface para callback de conflictos
      */
+    /**
+     * Programa notificaciones para una actividad recién creada
+     */
+    private void programarNotificacionesActividad(String activityId, String nombreActividad, 
+                                                 boolean modoPeriodica, List<Timestamp> timestamps, 
+                                                 int diasAvisoPrevio) {
+        if (getContext() == null) return;
+        
+        NotificationService notificationService = new NotificationService(getContext());
+        
+        // Crear objeto Actividad para el servicio de notificaciones
+        com.centroalerce.gestion.models.Actividad actividad = new com.centroalerce.gestion.models.Actividad();
+        actividad.setId(activityId);
+        actividad.setNombre(nombreActividad);
+        actividad.setDiasAvisoPrevio(diasAvisoPrevio);
+        actividad.setPeriodicidad(modoPeriodica ? "Periodica" : "Puntual");
+        
+        if (modoPeriodica && !timestamps.isEmpty()) {
+            actividad.setFechaInicio(timestamps.get(0));
+        }
+        
+        // Lista de usuarios a notificar (por ahora solo el usuario actual)
+        // TODO: Obtener lista real de usuarios que deben ser notificados
+        List<String> usuariosNotificar = new ArrayList<>();
+        usuariosNotificar.add("usuario_actual"); // Reemplazar con ID real del usuario
+        
+        // Programar notificaciones
+        notificationService.programarNotificacionesActividad(actividad, usuariosNotificar);
+        
+        android.util.Log.d("NOTIFICATIONS", "Notificaciones programadas para actividad: " + nombreActividad + 
+                          " con " + diasAvisoPrevio + " días de aviso previo");
+    }
+
     private interface ConflictoCallback {
         void onConflictoDetectado(String mensaje);
         void onSinConflictos();
