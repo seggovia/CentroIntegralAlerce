@@ -176,10 +176,9 @@ public class CalendarFragment extends Fragment {
         roleManager = RoleManager.getInstance();
 
         // Cargar rol del usuario
-        roleManager.loadUserRole(role -> {
+        roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
             currentUserRole = role;
 
-            // Actualizar el adapter con el nuevo rol
             if (eventAdapter != null) {
                 eventAdapter.updateUserRole(role);
             }

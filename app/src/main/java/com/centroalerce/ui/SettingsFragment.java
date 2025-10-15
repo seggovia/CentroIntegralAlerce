@@ -88,7 +88,7 @@ public class SettingsFragment extends Fragment {
      * ✅ NUEVO: Carga el rol del usuario y configura la UI según permisos
      */
     private void loadUserRoleAndConfigureUI() {
-        roleManager.loadUserRole(role -> {
+        roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
             currentUserRole = role;
             android.util.Log.d("SettingsFragment", "✅ Rol cargado: " + role.getValue());
 
