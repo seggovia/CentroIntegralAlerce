@@ -2,6 +2,7 @@ package com.centroalerce.auth;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.android.gms.tasks.Task;
 
 import android.os.Bundle;
@@ -23,6 +24,7 @@ public class LoginFragment extends Fragment {
     private TextInputEditText etEmail, etPass;
     private MaterialButton btnLogin;
     private FirebaseAuth auth;
+    private FirebaseFirestore db;
 
     public LoginFragment(){}
 
@@ -37,7 +39,7 @@ public class LoginFragment extends Fragment {
         TextView tvContacto = v.findViewById(R.id.tvContacto);
 
         // Botón "Crear cuenta"
-        com.google.android.material.button.MaterialButton btnSignup = v.findViewById(R.id.btnSignup);
+        MaterialButton btnSignup = v.findViewById(R.id.btnSignup);
         if (btnSignup != null) {
             btnSignup.setOnClickListener(x ->
                     Navigation.findNavController(v).navigate(R.id.action_loginFragment_to_signupFragment)
@@ -55,8 +57,9 @@ public class LoginFragment extends Fragment {
         etEmail.addTextChangedListener(watcher);
         etPass.addTextChangedListener(watcher);
 
-        // Inicializa Auth
+        // Inicializa Auth y Firestore
         if (auth == null) auth = FirebaseAuth.getInstance();
+        if (db == null) db = FirebaseFirestore.getInstance();
         auth.setLanguageCode("es");
 
         btnLogin.setOnClickListener(x -> doLogin(v));
@@ -149,8 +152,23 @@ public class LoginFragment extends Fragment {
                             return;
                         }
 
-                        // ✅ CAMBIO: Ahora navega directo al calendario
-                        Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+                        // ✅ NUEVO: Actualizar emailVerificado en Firestore
+                        if (db == null) db = FirebaseFirestore.getInstance();
+
+                        db.collection("usuarios")
+                                .document(user.getUid())
+                                .update("emailVerificado", true)
+                                .addOnSuccessListener(aVoid -> {
+                                    Toast.makeText(getContext(), "Bienvenido ✅", Toast.LENGTH_SHORT).show();
+                                    Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+                                })
+                                .addOnFailureListener(e -> {
+                                    // Si falla la actualización, igual permitir continuar
+                                    Toast.makeText(getContext(),
+                                            "Sesión iniciada (error al actualizar perfil)",
+                                            Toast.LENGTH_SHORT).show();
+                                    Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+                                });
                     });
                 });
     }
