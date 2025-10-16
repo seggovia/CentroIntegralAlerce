@@ -2,14 +2,18 @@
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="12dp"
-    app:cardCornerRadius="16dp"
+    android:layout_marginHorizontal="16dp"
+    android:layout_marginVertical="6dp"
+    app:cardCornerRadius="12dp"
     app:cardElevation="2dp"
-    app:strokeColor="@color/cardStroke"
-    app:strokeWidth="1dp"
-    app:cardBackgroundColor="@color/card_surface">
+    app:strokeWidth="0dp"
+    app:cardBackgroundColor="@color/surface"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -17,144 +21,124 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Título con icono de actividad -->
+        <!-- Header: Nombre + Estado -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📋"
-                android:textSize="20sp"
-                android:layout_marginEnd="8dp"/>
-
+            <!-- Nombre de la actividad -->
             <TextView
                 android:id="@+id/tvTitle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Nombre de la actividad"
+                android:textSize="17sp"
                 android:textStyle="bold"
-                android:textSize="18sp"
                 android:textColor="@color/textPrimary"
                 android:maxLines="2"
-                android:ellipsize="end"/>
+                android:ellipsize="end"
+                tools:text="Taller de cerámica" />
 
-            <!-- Estado -->
+            <!-- Estado (chip) -->
             <TextView
                 android:id="@+id/tvEstado"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
                 android:text="Programada"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold"
                 android:textColor="@color/state_programada_stroke"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:background="@drawable/bg_estado_pill"/>
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp"
+                android:background="@drawable/bg_chip_estado"
+                android:elevation="0dp"
+                tools:text="Programada" />
         </LinearLayout>
 
-        <!-- Subtítulo con icono -->
-        <LinearLayout
+        <!-- Subtítulo: Tipo • Periodicidad -->
+        <TextView
+            android:id="@+id/tvSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:text="Tipo • Periodicidad"
+            android:textSize="14sp"
+            android:textColor="@color/textSecondary"
+            android:maxLines="1"
+            android:ellipsize="end"
+            tools:text="Taller • PUNTUAL" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🏷️"
-                android:textSize="14sp"
-                android:layout_marginEnd="6dp"/>
-
-            <TextView
-                android:id="@+id/tvSubtitle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Tipo • PUNTUAL"
-                android:textSize="14sp"
-                android:textColor="@color/textSecondary"
-                android:maxLines="1"
-                android:ellipsize="end"/>
-        </LinearLayout>
-
-        <!-- Fecha con icono de reloj -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🕐"
-                android:textSize="16sp"
-                android:layout_marginEnd="6dp"/>
-
-            <TextView
-                android:id="@+id/tvFecha"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="01/01/2024 10:00 · Oficina del centro"
-                android:textSize="13sp"
-                android:textColor="@color/textSecondary"/>
-        </LinearLayout>
-
-        <!-- Divider sutil -->
+        <!-- Separador sutil -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="10dp"
-            android:background="@color/divider"
-            android:alpha="0.3"/>
+            android:layout_marginVertical="12dp"
+            android:background="@color/divider" />
 
-        <!-- Footer con badges -->
+        <!-- Fecha/Hora + Lugar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:orientation="vertical"
+            android:layout_marginTop="4dp">
 
-            <!-- Lugar con icono -->
-            <TextView
-                android:layout_width="wrap_content"
+            <!-- Fecha y hora -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="📍"
-                android:textSize="14sp"
-                android:layout_marginEnd="4dp"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Lugar"
-                android:textSize="12sp"
-                android:textColor="@color/textSecondary"
-                android:maxLines="1"
-                android:ellipsize="end"/>
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@android:drawable/ic_menu_recent_history"
+                    app:tint="@color/primary"
+                    android:contentDescription="Fecha" />
 
-            <!-- Indicador visual de estado con emoji -->
-            <TextView
-                android:id="@+id/tvEstadoEmoji"
-                android:layout_width="wrap_content"
+                <TextView
+                    android:id="@+id/tvFecha"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="01/01/2024 10:00"
+                    android:textSize="14sp"
+                    android:textColor="@color/textPrimary"
+                    tools:text="01/01/2024 10:00" />
+            </LinearLayout>
+
+            <!-- Lugar (separado para más claridad) -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="✓"
-                android:textSize="16sp"
-                android:layout_marginStart="8dp"
-                android:visibility="gone"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="8dp">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@android:drawable/ic_dialog_map"
+                    app:tint="@color/success"
+                    android:contentDescription="Lugar" />
+
+                <TextView
+                    android:id="@+id/tvLugar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="Lugar"
+                    android:textSize="14sp"
+                    android:textColor="@color/textPrimary"
+                    android:textStyle="bold"
+                    tools:text="Oficina del centro" />
+            </LinearLayout>
         </LinearLayout>
-
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

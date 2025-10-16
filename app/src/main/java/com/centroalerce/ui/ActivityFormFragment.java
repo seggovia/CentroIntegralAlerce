@@ -94,8 +94,10 @@ public class ActivityFormFragment extends Fragment {
     private final List<Beneficiario> beneficiariosSeleccionados = new ArrayList<>();
     private final List<String> beneficiariosSeleccionadosIds = new ArrayList<>();
 
-    private final List<Timestamp> citasPeriodicas = new ArrayList<>();
     private boolean esPeriodica = false;
+    private final List<Integer> diasSemanaSeleccionados = new ArrayList<>(); // 1=Domingo, 2=Lunes, ..., 7=Sábado
+    private Date fechaInicioPeriodo = null;
+    private Date fechaFinPeriodo = null;
 
     private final List<Uri> attachmentUris = new ArrayList<>();
 
@@ -539,17 +541,22 @@ public class ActivityFormFragment extends Fragment {
     // ---------- UX/Modo ----------
     private void aplicarModo() {
         if (esPeriodica) {
+            // Modo periódica: solicita rango de fechas y días de semana
             etFecha.setText(null);
             etHora.setText(null);
-            citasPeriodicas.clear();
+            diasSemanaSeleccionados.clear();
+            fechaInicioPeriodo = null;
+            fechaFinPeriodo = null;
 
-            tilFecha.setHint("Agregar fecha + hora");
-            tilHora.setHint("Se define al agregar cada fecha");
+            tilFecha.setHint("Seleccionar rango de fechas");
+            tilHora.setHint("Hora (aplicará a todas las fechas)");
 
-            etHora.setClickable(false);
+            etHora.setClickable(true);
             etHora.setFocusable(false);
-            tilHora.setEndIconMode(TextInputLayout.END_ICON_NONE);
+            tilHora.setEndIconMode(TextInputLayout.END_ICON_CUSTOM);
+            tilHora.setEndIconDrawable(android.R.drawable.ic_menu_recent_history);
         } else {
+            // Modo puntual: fecha y hora únicas
             tilFecha.setHint("Fecha (AAAA-MM-DD)");
             tilHora.setHint("Hora (HH:mm)");
 
@@ -561,10 +568,121 @@ public class ActivityFormFragment extends Fragment {
     // ---------- Pickers ----------
     private void onFechaClick() {
         if (esPeriodica) {
-            showPickerSecuencialYAgregar();
+            mostrarDialogoSeleccionPeriodicidad();
         } else {
             showDatePickerPuntual();
         }
+    }
+    private void mostrarDialogoSeleccionPeriodicidad() {
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_periodicidad, null);
+
+        // Referencias a vistas del diálogo personalizado
+        com.google.android.material.chip.ChipGroup chipGroupDias = dialogView.findViewById(R.id.chipGroupDias);
+        TextInputEditText etFechaInicio = dialogView.findViewById(R.id.etFechaInicio);
+        TextInputEditText etFechaFin = dialogView.findViewById(R.id.etFechaFin);
+        TextInputEditText etHoraPeriodicidad = dialogView.findViewById(R.id.etHoraPeriodicidad);
+
+        // Chips de días (Lunes=2, Martes=3, ..., Domingo=1)
+        final Map<Integer, com.google.android.material.chip.Chip> chipsMap = new HashMap<>();
+        chipsMap.put(2, dialogView.findViewById(R.id.chipLunes));
+        chipsMap.put(3, dialogView.findViewById(R.id.chipMartes));
+        chipsMap.put(4, dialogView.findViewById(R.id.chipMiercoles));
+        chipsMap.put(5, dialogView.findViewById(R.id.chipJueves));
+        chipsMap.put(6, dialogView.findViewById(R.id.chipViernes));
+        chipsMap.put(7, dialogView.findViewById(R.id.chipSabado));
+        chipsMap.put(1, dialogView.findViewById(R.id.chipDomingo));
+
+        // Pickers de fecha
+        etFechaInicio.setOnClickListener(v -> {
+            Calendar c = Calendar.getInstance();
+            new DatePickerDialog(requireContext(), (picker, y, m, d) -> {
+                fechaInicioPeriodo = toDate(y, m, d);
+                etFechaInicio.setText(String.format(Locale.getDefault(), "%04d-%02d-%02d", y, m+1, d));
+            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
+        });
+
+        etFechaFin.setOnClickListener(v -> {
+            Calendar c = Calendar.getInstance();
+            new DatePickerDialog(requireContext(), (picker, y, m, d) -> {
+                fechaFinPeriodo = toDate(y, m, d);
+                etFechaFin.setText(String.format(Locale.getDefault(), "%04d-%02d-%02d", y, m+1, d));
+            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
+        });
+
+        // Picker de hora
+        etHoraPeriodicidad.setOnClickListener(v -> {
+            Calendar c = Calendar.getInstance();
+            new TimePickerDialog(requireContext(), (picker, h, min) -> {
+                etHora.setText(String.format(Locale.getDefault(), "%02d:%02d", h, min));
+                etHoraPeriodicidad.setText(String.format(Locale.getDefault(), "%02d:%02d", h, min));
+            }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show();
+        });
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Configurar periodicidad")
+                .setView(dialogView)
+                .setPositiveButton("Confirmar", (dialog, which) -> {
+                    diasSemanaSeleccionados.clear();
+                    for (Map.Entry<Integer, com.google.android.material.chip.Chip> entry : chipsMap.entrySet()) {
+                        if (entry.getValue().isChecked()) {
+                            diasSemanaSeleccionados.add(entry.getKey());
+                        }
+                    }
+
+                    if (diasSemanaSeleccionados.isEmpty()) {
+                        Snackbar.make(requireView(), "Selecciona al menos un día de la semana", Snackbar.LENGTH_LONG).show();
+                        return;
+                    }
+                    if (fechaInicioPeriodo == null || fechaFinPeriodo == null) {
+                        Snackbar.make(requireView(), "Selecciona rango de fechas", Snackbar.LENGTH_LONG).show();
+                        return;
+                    }
+                    if (fechaFinPeriodo.before(fechaInicioPeriodo)) {
+                        Snackbar.make(requireView(), "La fecha de fin debe ser posterior a la de inicio", Snackbar.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    int totalCitas = calcularCitasPeriodicas(fechaInicioPeriodo, fechaFinPeriodo, diasSemanaSeleccionados).size();
+                    etFecha.setText("Fechas: " + totalCitas + " citas programadas");
+                    validarMinimos();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+    private List<Timestamp> calcularCitasPeriodicas(Date inicio, Date fin, List<Integer> diasSemana) {
+        List<Timestamp> citas = new ArrayList<>();
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(inicio);
+
+        String horaStr = getText(etHora);
+        if (TextUtils.isEmpty(horaStr)) return citas;
+
+        String[] parts = horaStr.split(":");
+        int hora = Integer.parseInt(parts[0]);
+        int minuto = Integer.parseInt(parts[1]);
+
+        while (!cal.getTime().after(fin)) {
+            int diaActual = cal.get(Calendar.DAY_OF_WEEK);
+
+            if (diasSemana.contains(diaActual)) {
+                Calendar citaCal = (Calendar) cal.clone();
+                citaCal.set(Calendar.HOUR_OF_DAY, hora);
+                citaCal.set(Calendar.MINUTE, minuto);
+                citaCal.set(Calendar.SECOND, 0);
+                citas.add(new Timestamp(citaCal.getTime()));
+            }
+
+            cal.add(Calendar.DAY_OF_MONTH, 1);
+        }
+
+        return citas;
+    }
+
+    private Date toDate(int year, int month, int day) {
+        Calendar c = Calendar.getInstance();
+        c.set(year, month, day, 0, 0, 0);
+        c.set(Calendar.MILLISECOND, 0);
+        return c.getTime();
     }
 
     private void showDatePickerPuntual() {
@@ -578,7 +696,7 @@ public class ActivityFormFragment extends Fragment {
 
     private void showTimePickerPuntual() {
         if (esPeriodica) {
-            Snackbar.make(requireView(), "En 'Periódica' la hora se define con cada fecha agregada.", Snackbar.LENGTH_SHORT).show();
+            Snackbar.make(requireView(), "En modo periódica, la hora se configura en el diálogo de periodicidad", Snackbar.LENGTH_SHORT).show();
             return;
         }
         Calendar c = Calendar.getInstance();
@@ -589,32 +707,6 @@ public class ActivityFormFragment extends Fragment {
         ).show();
     }
 
-    private void showPickerSecuencialYAgregar() {
-        Calendar c = Calendar.getInstance();
-        new DatePickerDialog(
-                requireContext(),
-                (picker, y, m, d) -> {
-                    LocalDate ld = LocalDate.of(y, m + 1, d);
-                    Calendar ch = Calendar.getInstance();
-                    new TimePickerDialog(
-                            requireContext(),
-                            (timePicker, h, min) -> {
-                                Timestamp ts = toStartAtTimestamp(ld, LocalTime.of(h, min));
-                                citasPeriodicas.add(ts);
-                                etFecha.setText("Fechas agregadas: " + citasPeriodicas.size());
-                                Snackbar.make(requireView(),
-                                        "Agregada: " + String.format(Locale.getDefault(),
-                                                "%04d-%02d-%02d %02d:%02d",
-                                                ld.getYear(), ld.getMonthValue(), ld.getDayOfMonth(), h, min),
-                                        Snackbar.LENGTH_SHORT).show();
-                                validarMinimos();
-                            },
-                            ch.get(Calendar.HOUR_OF_DAY), ch.get(Calendar.MINUTE), true
-                    ).show();
-                },
-                c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)
-        ).show();
-    }
 
     // ---------- Validaciones ----------
     private void validarMinimos() {
@@ -626,16 +718,24 @@ public class ActivityFormFragment extends Fragment {
         boolean ok;
 
         if (esPeriodica) {
-            ok = nombreOk && !citasPeriodicas.isEmpty();
+            boolean rangoOk = fechaInicioPeriodo != null && fechaFinPeriodo != null;
+            boolean diasOk = !diasSemanaSeleccionados.isEmpty();
+            boolean horaOk = !TextUtils.isEmpty(getText(etHora));
+
+            ok = nombreOk && rangoOk && diasOk && horaOk;
+
             if (!nombreOk) ((TextInputLayout) etNombre.getParent().getParent()).setError("Obligatorio");
-            if (citasPeriodicas.isEmpty()) tilFecha.setError("Agrega al menos una fecha + hora");
+            if (!rangoOk) tilFecha.setError("Configura el rango de fechas");
+            if (!diasOk) tilFecha.setError("Selecciona días de la semana");
+            if (!horaOk) tilHora.setError("Selecciona hora");
         } else {
             boolean fechaOk = !TextUtils.isEmpty(getText(etFecha));
-            boolean horaOk  = !TextUtils.isEmpty(getText(etHora));
+            boolean horaOk = !TextUtils.isEmpty(getText(etHora));
             ok = nombreOk && fechaOk && horaOk;
+
             if (!nombreOk) ((TextInputLayout) etNombre.getParent().getParent()).setError("Obligatorio");
-            if (!fechaOk)  tilFecha.setError("Requerido");
-            if (!horaOk)   tilHora.setError("Requerido");
+            if (!fechaOk) tilFecha.setError("Requerido");
+            if (!horaOk) tilHora.setError("Requerido");
         }
         btnGuardar.setEnabled(ok);
     }
@@ -679,11 +779,13 @@ public class ActivityFormFragment extends Fragment {
             btnGuardar.setText("Guardar actividad");
             return;
         }
-        if (modoPeriodica && citasPeriodicas.isEmpty()) {
-            Snackbar.make(root, "Agrega al menos una fecha + hora", Snackbar.LENGTH_LONG).show();
-            btnGuardar.setEnabled(true);
-            btnGuardar.setText("Guardar actividad");
-            return;
+        if (modoPeriodica) {
+            if (fechaInicioPeriodo == null || fechaFinPeriodo == null || diasSemanaSeleccionados.isEmpty()) {
+                Snackbar.make(root, "Configura la periodicidad correctamente", Snackbar.LENGTH_LONG).show();
+                btnGuardar.setEnabled(true);
+                btnGuardar.setText("Guardar actividad");
+                return;
+            }
         }
 
         if (!modoPeriodica) {
@@ -703,11 +805,13 @@ public class ActivityFormFragment extends Fragment {
                 return;
             }
         } else {
-            for (Timestamp ts : citasPeriodicas) {
+            // Validar todas las fechas periódicas calculadas
+            List<Timestamp> citasCalculadas = calcularCitasPeriodicas(fechaInicioPeriodo, fechaFinPeriodo, diasSemanaSeleccionados);
+            for (Timestamp ts : citasCalculadas) {
                 ValidationResult validacionFecha = ActividadValidator.validarFechaFutura(ts.toDate());
                 if (!validacionFecha.isValid()) {
                     mostrarDialogoError("Fecha inválida",
-                            "Una de las fechas agregadas ya pasó. Por favor revisa las fechas.", root);
+                            "Una de las fechas del rango ya pasó. Por favor ajusta el rango.", root);
                     btnGuardar.setEnabled(true);
                     btnGuardar.setText("Guardar actividad");
                     return;
@@ -809,7 +913,7 @@ public class ActivityFormFragment extends Fragment {
 
                 final ArrayList<Timestamp> aRevisar = new ArrayList<>();
                 if (modoPeriodicaFinal) {
-                    aRevisar.addAll(citasPeriodicas);
+                    aRevisar.addAll(calcularCitasPeriodicas(fechaInicioPeriodo, fechaFinPeriodo, diasSemanaSeleccionados));
                 } else {
                     Timestamp startAtPuntual = toStartAtTimestamp(getText(etFecha), getText(etHora));
                     aRevisar.add(startAtPuntual);
@@ -1146,45 +1250,7 @@ public class ActivityFormFragment extends Fragment {
                 });
     }
 
-    private com.google.android.gms.tasks.Task<Boolean> chequearConflictos(
-            final String lugarNombre, final List<com.google.firebase.Timestamp> fechas) {
 
-        if (TextUtils.isEmpty(lugarNombre) || fechas == null || fechas.isEmpty()) {
-            return com.google.android.gms.tasks.Tasks.forResult(false);
-        }
-
-        List<com.google.android.gms.tasks.Task<com.google.firebase.firestore.QuerySnapshot>> checks = new ArrayList<>();
-        FirebaseFirestore fdb = FirebaseFirestore.getInstance();
-
-        for (com.google.firebase.Timestamp ts : fechas) {
-            checks.add(fdb.collectionGroup("citas").whereEqualTo("startAt", ts).get());
-            checks.add(fdb.collection("citas").whereEqualTo("startAt", ts).get());
-            checks.add(fdb.collection("citas").whereEqualTo("fecha", ts).get());
-        }
-
-        return com.google.android.gms.tasks.Tasks.whenAllComplete(checks)
-                .continueWith(task -> {
-                    List<?> all = task.getResult();
-                    if (all == null || all.isEmpty()) return false;
-
-                    for (Object o : all) {
-                        if (!(o instanceof com.google.android.gms.tasks.Task)) continue;
-                        com.google.android.gms.tasks.Task<?> t = (com.google.android.gms.tasks.Task<?>) o;
-                        if (!t.isSuccessful()) continue;
-
-                        Object res = t.getResult();
-                        if (!(res instanceof com.google.firebase.firestore.QuerySnapshot)) continue;
-                        com.google.firebase.firestore.QuerySnapshot qs = (com.google.firebase.firestore.QuerySnapshot) res;
-
-                        for (com.google.firebase.firestore.DocumentSnapshot d : qs.getDocuments()) {
-                            String lugarDoc = d.getString("lugarNombre");
-                            if (lugarDoc == null) lugarDoc = d.getString("lugar");
-                            if (lugarNombre.equals(lugarDoc)) return true;
-                        }
-                    }
-                    return false;
-                });
-    }
 
     @Nullable
     private Timestamp toStartAtTimestamp(@NonNull String yyyyMMdd, @NonNull String HHmm) {
@@ -1397,9 +1463,15 @@ public class ActivityFormFragment extends Fragment {
                 .setMessage(mensaje + "\n\n¿Qué deseas hacer?")
                 .setPositiveButton("Cambiar fecha/hora", (dialog, which) -> {
                     if (esPeriodica) {
-                        citasPeriodicas.clear();
+                        // Limpiar configuración periódica
+                        diasSemanaSeleccionados.clear();
+                        fechaInicioPeriodo = null;
+                        fechaFinPeriodo = null;
                         etFecha.setText(null);
-                        Snackbar.make(root, "Vuelve a agregar las fechas", Snackbar.LENGTH_SHORT).show();
+                        etHora.setText(null);
+                        Snackbar.make(root, "Vuelve a configurar la periodicidad", Snackbar.LENGTH_SHORT).show();
+                        // Abrir diálogo nuevamente
+                        mostrarDialogoSeleccionPeriodicidad();
                     } else {
                         etFecha.requestFocus();
                     }

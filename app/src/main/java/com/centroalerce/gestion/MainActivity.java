@@ -28,7 +28,6 @@ public class MainActivity extends AppCompatActivity {
     private FloatingActionButton fabGlobal;
     private NavController navController;
 
-    // 🆕 NUEVO: Launcher para pedir permiso de notificaciones
     private final ActivityResultLauncher<String> requestNotifPermission =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
                 if (!granted) {

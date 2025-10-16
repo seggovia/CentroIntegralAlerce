@@ -58,6 +58,8 @@ public class CalendarFragment extends Fragment {
     // listeners por actividad para refrescar datos al vuelo
     private final Map<String, ListenerRegistration> activityNameRegs = new HashMap<>();
 
+    // ========== MÉTODO 1: onCreateView (COMPLETO) ==========
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle b) {
@@ -105,7 +107,7 @@ public class CalendarFragment extends Fragment {
         // ✅ Evita que los últimos ítems del calendario queden ocultos por el FAB o el BottomSheet
         rvEventos.setClipToPadding(false);
 
-// Espacio extra al final de la lista
+        // Espacio extra al final de la lista
         int extraBottom = dp(96);
         rvEventos.setPadding(
                 rvEventos.getPaddingLeft(),
@@ -114,7 +116,7 @@ public class CalendarFragment extends Fragment {
                 rvEventos.getPaddingBottom() + extraBottom
         );
 
-// Ajuste dinámico por la barra de navegación o gestos del sistema
+        // Ajuste dinámico por la barra de navegación o gestos del sistema
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rvEventos, (view, insets) -> {
             int sysBottom = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom;
             view.setPadding(
@@ -126,8 +128,6 @@ public class CalendarFragment extends Fragment {
             return insets;
         });
 
-
-
         // Navegación de semana
         v.findViewById(R.id.btnSemanaAnterior).setOnClickListener(x -> {
             weekStart = weekStart.minusWeeks(1);
@@ -138,25 +138,52 @@ public class CalendarFragment extends Fragment {
             fillWeek();
         });
 
-        // 👇 NUEVO: refrescar calendario y lista al guardar cambios en otra pantalla
+        // ✅ CORREGIDO: refrescar calendario con fuerza al guardar cambios
         getParentFragmentManager().setFragmentResultListener(
                 "calendar_refresh", getViewLifecycleOwner(),
-                (req, bundle) -> refreshFromExternalChange()
+                (req, bundle) -> {
+                    boolean force = bundle.getBoolean("forceRefresh", false);
+                    if (force) {
+                        // Forzar recarga completa limpiando caches
+                        activityNameCache.clear();
+                        activityTypeCache.clear();
+                        clearActivityNameListeners();
+                        weekEvents.clear(); // 👈 CRÍTICO: limpiar eventos actuales
+                    }
+                    refreshFromExternalChange();
+                }
         );
+
         // También si algún sitio solo emite "actividad_change"
         getParentFragmentManager().setFragmentResultListener(
                 "actividad_change", getViewLifecycleOwner(),
-                (req, bundle) -> refreshFromExternalChange()
+                (req, bundle) -> {
+                    weekEvents.clear(); // 👈 CRÍTICO: forzar recarga
+                    refreshFromExternalChange();
+                }
         );
 
-        // 👇 NUEVO: escuchar también los eventos emitidos a nivel de Activity
+        // ✅ NUEVO: escuchar también los eventos emitidos a nivel de Activity
         requireActivity().getSupportFragmentManager().setFragmentResultListener(
                 "calendar_refresh", getViewLifecycleOwner(),
-                (req, bundle) -> refreshFromExternalChange()
+                (req, bundle) -> {
+                    boolean force = bundle.getBoolean("forceRefresh", false);
+                    if (force) {
+                        activityNameCache.clear();
+                        activityTypeCache.clear();
+                        clearActivityNameListeners();
+                        weekEvents.clear(); // 👈 CRÍTICO: limpiar eventos
+                    }
+                    refreshFromExternalChange();
+                }
         );
+
         requireActivity().getSupportFragmentManager().setFragmentResultListener(
                 "actividad_change", getViewLifecycleOwner(),
-                (req, bundle) -> refreshFromExternalChange()
+                (req, bundle) -> {
+                    weekEvents.clear(); // 👈 CRÍTICO: forzar recarga
+                    refreshFromExternalChange();
+                }
         );
 
         fillWeek();
@@ -173,12 +200,29 @@ public class CalendarFragment extends Fragment {
         clearActivityNameListeners();
     }
 
+
     private void refreshFromExternalChange() {
+        android.util.Log.d("CAL", "🔄 refreshFromExternalChange() iniciado");
+
         // Limpia caches y vuelve a suscribirse a la semana actual para pintar cambios al instante
         activityNameCache.clear();
-        activityTypeCache.clear(); // 👈 NUEVO
+        activityTypeCache.clear();
         clearActivityNameListeners();
-        fillWeek();
+        weekEvents.clear(); // 👈 CRÍTICO: forzar actualización completa
+
+        // 👇 NUEVO: Detener listener anterior para evitar duplicados
+        if (weekListener != null) {
+            weekListener.remove();
+            weekListener = null;
+            android.util.Log.d("CAL", "🛑 Listener anterior detenido");
+        }
+
+        // 👇 NUEVO: Esperar 300ms para que Firestore sincronice
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            android.util.Log.d("CAL", "⏰ Ejecutando fillWeek() después del delay");
+            fillWeek(); // Recarga completa de la semana
+            android.util.Log.d("CAL", "✅ fillWeek() completado");
+        }, 300);
     }
 
     private void clearActivityNameListeners() {
@@ -264,6 +308,10 @@ public class CalendarFragment extends Fragment {
 
     // ==================== FIRESTORE ====================
 
+    // ========== MÉTODO 3: listenWeekFromFirestore (COMPLETO) ==========
+
+// ========== CalendarFragment.java - Método listenWeekFromFirestore (COMPLETO CON SOURCE.SERVER) ==========
+
     private void listenWeekFromFirestore(LocalDate monday, LocalDate sunday) {
         android.util.Log.d("CAL", "=== listenWeekFromFirestore INICIADO ===");
         android.util.Log.d("CAL", "monday=" + monday + ", sunday=" + sunday);
@@ -282,38 +330,63 @@ public class CalendarFragment extends Fragment {
         android.util.Log.d("CAL", "tsEnd=" + tsEnd.toDate());
         android.util.Log.d("CAL", "Ejecutando query collectionGroup...");
 
-        weekListener = db.collectionGroup("citas")
+        // 👇 CRÍTICO: Primero forzar carga del servidor
+        db.collectionGroup("citas")
                 .whereGreaterThanOrEqualTo("startAt", tsStart)
                 .whereLessThan("startAt", tsEnd)
                 .orderBy("startAt", Query.Direction.ASCENDING)
-                .addSnapshotListener((snap, err) -> {
-                    if (err != null) {
-                        android.util.Log.e("CAL", "❌ ERROR ESCUCHANDO CITAS", err);
-                        android.util.Log.e("CAL", "Error message: " + err.getMessage());
-                        return;
-                    }
-                    android.util.Log.d("CAL", "✅ Snapshot recibido: " + (snap != null ? snap.size() : 0) + " docs");
+                .get(com.google.firebase.firestore.Source.SERVER) // 👈 FORZAR SERVER
+                .addOnSuccessListener(serverSnapshot -> {
+                    android.util.Log.d("CAL", "🌐 Datos del servidor cargados: " + serverSnapshot.size());
+                    procesarSnapshot(serverSnapshot);
 
-                    if (snap == null) return;
+                    // Ahora sí, escuchar cambios en tiempo real
+                    weekListener = db.collectionGroup("citas")
+                            .whereGreaterThanOrEqualTo("startAt", tsStart)
+                            .whereLessThan("startAt", tsEnd)
+                            .orderBy("startAt", Query.Direction.ASCENDING)
+                            .addSnapshotListener((snap, err) -> {
+                                if (err != null) {
+                                    android.util.Log.e("CAL", "❌ ERROR ESCUCHANDO CITAS", err);
+                                    return;
+                                }
+                                if (snap == null) return;
 
-                    Map<LocalDate, List<EventItem>> map = new HashMap<>();
-                    Set<String> activityIdsInWeek = new HashSet<>();
+                                android.util.Log.d("CAL", "✅ Snapshot recibido: " + snap.size() + " docs | fuente: " +
+                                        (snap.getMetadata().isFromCache() ? "CACHE" : "SERVER"));
+                                procesarSnapshot(snap);
+                            });
 
-                    mapSnapshotToWeekEvents(snap, map, activityIdsInWeek);
-
-                    ensureActivityNameListeners(activityIdsInWeek);
-
-                    weekEvents.clear();
-                    weekEvents.putAll(map);
-                    dayAdapter.setEventDays(new HashSet<>(weekEvents.keySet()));
-                    loadEventsFor(selectedDay);
-
-                    android.util.Log.d("CAL", "📅 weekEvents.size()=" + weekEvents.size());
+                    android.util.Log.d("CAL", "Listener registrado correctamente");
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("CAL", "❌ Error cargando del servidor", e);
+                    // Fallback al cache si falla el servidor
+                    db.collectionGroup("citas")
+                            .whereGreaterThanOrEqualTo("startAt", tsStart)
+                            .whereLessThan("startAt", tsEnd)
+                            .orderBy("startAt", Query.Direction.ASCENDING)
+                            .get()
+                            .addOnSuccessListener(this::procesarSnapshot);
                 });
-
-        android.util.Log.d("CAL", "Listener registrado correctamente");
     }
 
+    // 👇 NUEVO: Método helper para procesar snapshots
+    private void procesarSnapshot(com.google.firebase.firestore.QuerySnapshot snap) {
+        weekEvents.clear();
+        Map<LocalDate, List<EventItem>> map = new HashMap<>();
+        Set<String> activityIdsInWeek = new HashSet<>();
+
+        mapSnapshotToWeekEvents(snap, map, activityIdsInWeek);
+        ensureActivityNameListeners(activityIdsInWeek);
+
+        weekEvents.putAll(map);
+        dayAdapter.setEventDays(new HashSet<>(weekEvents.keySet()));
+        loadEventsFor(selectedDay);
+        dayAdapter.notifyDataSetChanged();
+
+        android.util.Log.d("CAL", "📅 weekEvents.size()=" + weekEvents.size());
+    }
     // crea/actualiza listeners para actividades referenciadas en la semana
     private void ensureActivityNameListeners(Set<String> activityIdsInWeek) {
         // Eliminar listeners de actividades que ya no están visibles esta semana
@@ -399,7 +472,8 @@ public class CalendarFragment extends Fragment {
         mapSnapshotToWeekEvents(snap, map, ignore);
     }
 
-    // versión que también colecta activityIds para listeners de nombres
+    // ========== CalendarFragment.java - Método mapSnapshotToWeekEvents (AÑADIR LOGS) ==========
+
     private void mapSnapshotToWeekEvents(@NonNull QuerySnapshot snap,
                                          @NonNull Map<LocalDate, List<EventItem>> map,
                                          @NonNull Set<String> activityIdsOut) {
@@ -435,16 +509,20 @@ public class CalendarFragment extends Fragment {
             String activityId = getActivityIdFromRef(doc.getReference());
             String citaId = doc.getId();
 
-            // Título: 'titulo' de la cita si existe, si no, nombre de la actividad (cache/listener lo actualizarán)
             String titulo = doc.getString("titulo");
             if (titulo == null) titulo = getActivityNameSync(activityId);
 
-            String tipo = getActivityTypeSync(activityId); // 👈 NUEVO
+            String tipo = getActivityTypeSync(activityId);
 
             String estado = doc.getString("estado");
             if (estado == null) estado = "programada";
 
-            EventItem item = new EventItem(horaStr, titulo, lugarNombre, estado, activityId, citaId, tipo); // 👈 NUEVO
+            // 👇 AÑADIR LOG CRÍTICO AQUÍ
+            android.util.Log.d("CAL", "📄 Procesando cita: id=" + citaId +
+                    " | estado=" + estado +
+                    " | título=" + titulo);
+
+            EventItem item = new EventItem(horaStr, titulo, lugarNombre, estado, activityId, citaId, tipo);
 
             LocalDate key = local.toLocalDate();
             map.computeIfAbsent(key, k -> new ArrayList<>()).add(item);

@@ -47,6 +47,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
+
 public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     private static final String TAG = "DetalleAdjuntos";
@@ -351,23 +352,56 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         });
     }
 
-    private void subscribeCita(String actividadId, String citaId) { // 👈 NUEVO
+    // ========== ActivityDetailBottomSheet.java - Método subscribeCita (COMPLETO CORREGIDO) ==========
+
+    private void subscribeCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) return;
-        citaReg = act(actividadId, true).collection("citas").document(citaId)
-                .addSnapshotListener((doc, e) -> {
-                    if (e != null) { Log.w(TAG, "listen cita EN error", e); return; }
-                    Log.d(TAG, "cita EN snapshot recibido");
+
+        // 👇 CRÍTICO: Forzar lectura del SERVER primero, luego escuchar cambios
+        DocumentReference citaRefEN = act(actividadId, true).collection("citas").document(citaId);
+        DocumentReference citaRefES = act(actividadId, false).collection("citas").document(citaId);
+
+        // Intentar EN primero
+        citaRefEN.get(com.google.firebase.firestore.Source.SERVER) // 👈 FORZAR SERVER
+                .addOnSuccessListener(doc -> {
                     if (doc != null && doc.exists()) {
                         bindCitaDoc(doc);
+                        // Ahora sí, escuchar cambios en tiempo real
+                        citaReg = citaRefEN.addSnapshotListener((doc2, e) -> {
+                            if (e != null) {
+                                Log.w(TAG, "listen cita EN error", e);
+                                return;
+                            }
+                            Log.d(TAG, "cita EN snapshot recibido");
+                            if (doc2 != null && doc2.exists()) bindCitaDoc(doc2);
+                        });
                     } else {
-                        if (citaReg != null) { citaReg.remove(); citaReg = null; }
-                        citaReg = act(actividadId, false).collection("citas").document(citaId)
-                                .addSnapshotListener((doc2, e2) -> {
-                                    if (e2 != null) { Log.w(TAG, "listen cita ES error", e2); return; }
-                                    Log.d(TAG, "cita ES snapshot recibido");
-                                    if (doc2 != null && doc2.exists()) bindCitaDoc(doc2);
-                                });
+                        // Probar ES
+                        citaRefES.get(com.google.firebase.firestore.Source.SERVER) // 👈 FORZAR SERVER
+                                .addOnSuccessListener(docES -> {
+                                    if (docES != null && docES.exists()) {
+                                        bindCitaDoc(docES);
+                                        // Escuchar cambios
+                                        citaReg = citaRefES.addSnapshotListener((doc2, e2) -> {
+                                            if (e2 != null) {
+                                                Log.w(TAG, "listen cita ES error", e2);
+                                                return;
+                                            }
+                                            Log.d(TAG, "cita ES snapshot recibido");
+                                            if (doc2 != null && doc2.exists()) bindCitaDoc(doc2);
+                                        });
+                                    }
+                                })
+                                .addOnFailureListener(e -> Log.e(TAG, "Error cargando cita ES", e));
                     }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error cargando cita EN", e);
+                    // Intentar ES como fallback
+                    citaRefES.get(com.google.firebase.firestore.Source.SERVER)
+                            .addOnSuccessListener(docES -> {
+                                if (docES != null && docES.exists()) bindCitaDoc(docES);
+                            });
                 });
     }
     // ---------- Fin escuchas en vivo ----------
@@ -442,6 +476,9 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             chLugar.setText(actividadLugarFallback);
         }
     }
+
+// ========== MÉTODO COMPLETO: completarCita (SIN FieldValue) ==========
+
     private void completarCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) {
             toast("Faltan datos para completar la cita");
@@ -459,23 +496,71 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                     citaES.get().addOnSuccessListener(doc -> {
                         DocumentReference ref = (doc != null && doc.exists()) ? citaES : citaEN;
 
+                        // 👇 LOG: Ver qué colección estamos usando
+                        android.util.Log.d("CAL", "🔧 Actualizando en: " + ref.getPath());
+
                         Map<String, Object> updates = new HashMap<>();
-                        updates.put("estado", "completada"); // 👈 Importante: minúsculas
-                        updates.put("fechaModificacion", Timestamp.now());
+                        updates.put("estado", "completada");
+                        updates.put("fechaModificacion", com.google.firebase.Timestamp.now());
+                        updates.put("_lastUpdate", System.currentTimeMillis());
+
+                        // 👇 LOG: Ver qué vamos a guardar
+                        android.util.Log.d("CAL", "📝 Updates a guardar: " + updates);
 
                         ref.update(updates)
                                 .addOnSuccessListener(u -> {
+                                    android.util.Log.d("CAL", "✅ Update exitoso en Firestore");
+
+                                    // Verificar que se guardó correctamente
+                                    ref.get(com.google.firebase.firestore.Source.SERVER)
+                                            .addOnSuccessListener(docVerify -> {
+                                                String estadoGuardado = docVerify.getString("estado");
+                                                android.util.Log.d("CAL", "🔍 Verificación - estado guardado: " + estadoGuardado);
+                                            });
+
                                     toast("Cita marcada como completada ✅");
-                                    notifyChanged();
+
+                                    Bundle b = new Bundle();
+                                    b.putBoolean("forceRefresh", true);
+                                    b.putString("actividadId", actividadId);
+                                    b.putString("citaId", citaId);
+                                    b.putLong("timestamp", System.currentTimeMillis());
+
+                                    getParentFragmentManager().setFragmentResult("calendar_refresh", b);
+                                    getParentFragmentManager().setFragmentResult("actividad_change", b);
+                                    requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b);
+                                    requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", b);
+
+                                    // Refresh con delays
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                        android.util.Log.d("CAL", "🔄 Refresh forzado 1/3");
+                                        try {
+                                            getParentFragmentManager().setFragmentResult("calendar_refresh", b);
+                                            requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b);
+                                        } catch (Exception ignore) {}
+                                    }, 300);
+
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                        android.util.Log.d("CAL", "🔄 Refresh forzado 2/3");
+                                        try {
+                                            getParentFragmentManager().setFragmentResult("calendar_refresh", b);
+                                            requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b);
+                                        } catch (Exception ignore) {}
+                                    }, 800);
+
                                     dismiss();
                                 })
-                                .addOnFailureListener(e -> toast("Error: " + e.getMessage()));
-                    }).addOnFailureListener(e -> toast("Error: " + e.getMessage()));
+                                .addOnFailureListener(e -> {
+                                    android.util.Log.e("CAL", "❌ Error al guardar: " + e.getMessage());
+                                    toast("Error: " + e.getMessage());
+                                });
+                    }).addOnFailureListener(e -> {
+                        android.util.Log.e("CAL", "❌ Error al buscar documento: " + e.getMessage());
+                        toast("Error: " + e.getMessage());
+                    });
                 })
                 .show();
     }
-
-
     private void notifyChanged(){
         Bundle b = new Bundle();
         b.putString("actividadId", actividadId);
@@ -493,14 +578,23 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     }
 
     // ---------- Cita ----------
+    // ========== ActivityDetailBottomSheet.java - Método loadCita (COMPLETO CORREGIDO) ==========
+
     private void loadCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) return;
-        act(actividadId, true).collection("citas").document(citaId).get()
+
+        // 👇 FORZAR LECTURA DEL SERVIDOR
+        act(actividadId, true).collection("citas").document(citaId)
+                .get(com.google.firebase.firestore.Source.SERVER) // 👈 CRÍTICO
                 .addOnSuccessListener(doc -> {
-                    if (doc != null && doc.exists()) bindCitaDoc(doc);
-                    else act(actividadId, false).collection("citas").document(citaId).get()
-                            .addOnSuccessListener(this::bindCitaDoc)
-                            .addOnFailureListener(e -> toast("No se pudo cargar la cita"));
+                    if (doc != null && doc.exists()) {
+                        bindCitaDoc(doc);
+                    } else {
+                        act(actividadId, false).collection("citas").document(citaId)
+                                .get(com.google.firebase.firestore.Source.SERVER) // 👈 CRÍTICO
+                                .addOnSuccessListener(this::bindCitaDoc)
+                                .addOnFailureListener(e -> toast("No se pudo cargar la cita"));
+                    }
                 })
                 .addOnFailureListener(e -> toast("No se pudo cargar la cita"));
     }
