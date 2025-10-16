@@ -736,9 +736,9 @@ public class ActivityFormFragment extends Fragment {
         String oferente      = getText(acOferente);
         String socio         = getText(acSocio);
         String proyecto      = getText(acProyecto);
-        
+
         // Obtener días de aviso previo
-        int diasAvisoPrevio = 1; // Valor por defecto
+        int diasAvisoPrevio = 1;
         try {
             String diasStr = getText(etDiasAvisoPrevio);
             if (!TextUtils.isEmpty(diasStr)) {
@@ -785,7 +785,9 @@ public class ActivityFormFragment extends Fragment {
         final int       diasAvisoPrevioFinal = diasAvisoPrevio;
 
         btnGuardar.setText("Validando lugar...");
-        lugarRepository.getLugar(buscarIdLugar(lugarFinal), new LugarRepository.LugarCallback() {
+
+        // ✅ CAMBIO CRÍTICO: Usar getLugarPorNombre en lugar de getLugar
+        lugarRepository.getLugarPorNombre(lugarFinal, new LugarRepository.LugarCallback() {
             @Override
             public void onSuccess(Lugar lugar) {
                 lugarSeleccionado = lugar;
@@ -816,7 +818,8 @@ public class ActivityFormFragment extends Fragment {
                 btnGuardar.setText("Verificando horarios...");
                 android.util.Log.d("FORM", "🔍 Iniciando verificación de conflictos para lugar: " + lugar.getNombre());
 
-                verificarConflictosConValidacion(lugar.getId(), aRevisar, new ConflictoCallback() {
+                // ✅ Pasar el NOMBRE del lugar (no el ID) porque así se guarda en las citas
+                verificarConflictosConValidacion(lugar.getNombre(), aRevisar, new ConflictoCallback() {
                     @Override
                     public void onConflictoDetectado(String mensaje) {
                         android.util.Log.w("FORM", "⚠️ CONFLICTO DETECTADO: " + mensaje);
@@ -832,7 +835,7 @@ public class ActivityFormFragment extends Fragment {
                         subirAdjuntosYGuardar(
                                 root,
                                 nombreFinal, tipoActividadFinal, cupoFinal,
-                                oferenteFinal, socioFinal, /* beneficiarios texto ya no se usa */ null,
+                                oferenteFinal, socioFinal, null,
                                 lugarFinal, modoPeriodicaFinal,
                                 aRevisar.get(0), aRevisar,
                                 proyectoFinal, diasAvisoPrevioFinal
@@ -941,7 +944,7 @@ public class ActivityFormFragment extends Fragment {
 
         List<String> oferentesList = splitToList(oferente);
 
-        // 🔽 NUEVO: nombres e IDs desde la selección
+        // Nombres e IDs desde la selección
         List<String> beneficiariosIds = new ArrayList<>(beneficiariosSeleccionadosIds);
         List<String> beneficiariosNombres = new ArrayList<>();
         for (Beneficiario b : beneficiariosSeleccionados) beneficiariosNombres.add(b.getNombre());
@@ -959,28 +962,35 @@ public class ActivityFormFragment extends Fragment {
         }
 
         if (cupo != null) activityDoc.put("cupo", cupo);
-        
+
         // Agregar días de aviso previo
         activityDoc.put("diasAvisoPrevio", diasAvisoPrevio);
 
         if (!oferentesList.isEmpty()) {
             activityDoc.put("oferentes", oferentesList);
             activityDoc.put("oferente", oferentesList.get(0));
+            activityDoc.put("oferenteNombre", oferentesList.get(0)); // ✅ NUEVO
         }
 
-        if (!TextUtils.isEmpty(socio)) activityDoc.put("socioComunitario", socio);
+        if (!TextUtils.isEmpty(socio)) {
+            activityDoc.put("socioComunitario", socio);
+            activityDoc.put("socio_nombre", socio); // ✅ NUEVO
+        }
 
-        // 🔽 NUEVO: persistimos beneficiarios seleccionados
+        // Persistir beneficiarios seleccionados
         if (!beneficiariosIds.isEmpty()) {
             activityDoc.put("beneficiariosIds", beneficiariosIds);
-            activityDoc.put("beneficiarios", beneficiariosNombres); // compatibilidad si antes guardabas nombres
+            activityDoc.put("beneficiarios", beneficiariosNombres);
             activityDoc.put("beneficiariosTexto", TextUtils.join(", ", beneficiariosNombres));
         }
 
-        if (!TextUtils.isEmpty(lugar)) activityDoc.put("lugarNombre", lugar);
+        // ✅ SIEMPRE guardar lugar en el doc de actividad
+        if (!TextUtils.isEmpty(lugar)) {
+            activityDoc.put("lugarNombre", lugar);
+            activityDoc.put("lugar", lugar); // redundancia
+        }
 
         if (!adjuntos.isEmpty()) activityDoc.put("adjuntos", adjuntos);
-        activityDoc.put("diasAvisoPrevio", 1);
         activityDoc.put("createdAt", FieldValue.serverTimestamp());
         activityDoc.put("updatedAt", FieldValue.serverTimestamp());
 
@@ -1002,13 +1012,37 @@ public class ActivityFormFragment extends Fragment {
         List<com.google.firebase.firestore.DocumentReference> citaRefs = new ArrayList<>();
 
         if (modoPeriodica) {
+            // ✅ CITAS PERIÓDICAS: Copiar TODOS los campos
             for (Timestamp ts : timestamps) {
                 Map<String, Object> cita = new HashMap<>();
                 cita.put("startAt", ts);
-                cita.put("fecha", ts); // compat
-                if (!TextUtils.isEmpty(lugar)) cita.put("lugarNombre", lugar);
-                cita.put("estado", "PROGRAMADA");
+                cita.put("fecha", ts);
+
+                // ✅ Copiar datos de la actividad a CADA cita
+                cita.put("actividadNombre", nombre);
                 cita.put("titulo", nombre);
+
+                if (!TextUtils.isEmpty(lugar)) {
+                    cita.put("lugarNombre", lugar);
+                    cita.put("lugar", lugar);
+                }
+
+                if (!TextUtils.isEmpty(tipoActividad)) {
+                    cita.put("tipoActividad", tipoActividad);
+                    cita.put("tipo", tipoActividad);
+                }
+
+                if (!oferentesList.isEmpty()) {
+                    cita.put("oferenteNombre", oferentesList.get(0));
+                    cita.put("oferente", oferentesList.get(0));
+                }
+
+                if (!beneficiariosIds.isEmpty()) {
+                    cita.put("beneficiariosIds", beneficiariosIds);
+                }
+
+                cita.put("estado", "PROGRAMADA"); // mayúsculas consistentes
+                cita.put("periodicidad", "PERIODICA");
 
                 com.google.firebase.firestore.DocumentReference citaRef =
                         db.collection("activities").document(activityId)
@@ -1017,12 +1051,35 @@ public class ActivityFormFragment extends Fragment {
                 batch.set(citaRef, cita);
             }
         } else {
+            // ✅ CITA PUNTUAL: Copiar TODOS los campos
             Map<String, Object> cita = new HashMap<>();
             cita.put("startAt", startAtPuntual);
             cita.put("fecha", startAtPuntual);
-            if (!TextUtils.isEmpty(lugar)) cita.put("lugarNombre", lugar);
-            cita.put("estado", "PROGRAMADA");
+
+            cita.put("actividadNombre", nombre);
             cita.put("titulo", nombre);
+
+            if (!TextUtils.isEmpty(lugar)) {
+                cita.put("lugarNombre", lugar);
+                cita.put("lugar", lugar);
+            }
+
+            if (!TextUtils.isEmpty(tipoActividad)) {
+                cita.put("tipoActividad", tipoActividad);
+                cita.put("tipo", tipoActividad);
+            }
+
+            if (!oferentesList.isEmpty()) {
+                cita.put("oferenteNombre", oferentesList.get(0));
+                cita.put("oferente", oferentesList.get(0));
+            }
+
+            if (!beneficiariosIds.isEmpty()) {
+                cita.put("beneficiariosIds", beneficiariosIds);
+            }
+
+            cita.put("estado", "PROGRAMADA");
+            cita.put("periodicidad", "PUNTUAL");
 
             com.google.firebase.firestore.DocumentReference citaRef =
                     db.collection("activities").document(activityId)
@@ -1044,16 +1101,14 @@ public class ActivityFormFragment extends Fragment {
         batch.commit()
                 .addOnSuccessListener(ignored -> {
                     android.util.Log.d("FS",
-                            "Actividad " + activityId + " creada con " + citaRefs.size() +
+                            "✅ Actividad " + activityId + " creada con " + citaRefs.size() +
                                     " cita(s) y " + (adjuntos == null ? 0 : adjuntos.size()) + " adjunto(s)");
 
-                    // 1️⃣ Programar notificaciones a nivel Actividad (para cumplir el requisito del documento)
+                    // 1️⃣ Programar notificaciones a nivel Actividad
                     programarNotificacionesActividad(activityId, nombre, modoPeriodica, timestamps, diasAvisoPrevio);
 
-                    // 2️⃣ Programar notificaciones para cada cita creada
+                    // 2️⃣ Programar notificaciones para cada cita
                     NotificationService ns = new NotificationService(requireContext());
-
-                    // TODO: reemplazar con los UID reales
                     List<String> usuariosNotificar = new ArrayList<>();
                     usuariosNotificar.add("usuario_actual");
 
@@ -1067,12 +1122,12 @@ public class ActivityFormFragment extends Fragment {
                         for (int i = 0; i < timestamps.size(); i++) {
                             Timestamp ts = timestamps.get(i);
                             com.centroalerce.gestion.models.Cita c = new com.centroalerce.gestion.models.Cita();
-                            c.setFecha(ts); // tu esquema usa startAt → se mapea como fecha
+                            c.setFecha(ts);
                             ns.programarNotificacionesCita(c, act, usuariosNotificar);
                         }
                     } else {
                         com.centroalerce.gestion.models.Cita c = new com.centroalerce.gestion.models.Cita();
-                        c.setFecha(startAtPuntual); // puntual → usa el mismo startAt
+                        c.setFecha(startAtPuntual);
                         ns.programarNotificacionesCita(c, act, usuariosNotificar);
                     }
 
@@ -1086,9 +1141,9 @@ public class ActivityFormFragment extends Fragment {
                 })
                 .addOnFailureListener(e -> {
                     btnGuardar.setEnabled(true);
+                    btnGuardar.setText("Guardar actividad");
                     Snackbar.make(root, "Error al guardar: " + e.getMessage(), Snackbar.LENGTH_LONG).show();
                 });
-
     }
 
     private com.google.android.gms.tasks.Task<Boolean> chequearConflictos(
