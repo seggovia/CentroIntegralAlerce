@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -75,6 +76,7 @@ public class CalendarFragment extends Fragment {
         tvTituloDia   = v.findViewById(R.id.tvTituloDia);
         rvDays        = v.findViewById(R.id.rvDays);
         RecyclerView rvEventos = v.findViewById(R.id.rvEventos);
+
 
         // ✅ NUEVO: Inicializar sistema de roles
         initializeRoleSystem();
@@ -210,6 +212,8 @@ public class CalendarFragment extends Fragment {
         }
         activityNameRegs.clear();
     }
+
+
 
     private void applyAdaptiveLayoutForWeek() {
         if (rvDays == null || rvDays.getWidth() == 0) return;

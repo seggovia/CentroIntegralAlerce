@@ -10,7 +10,6 @@
         android:name="com.centroalerce.auth.LoginFragment"
         android:label="Login">
 
-        <!-- ✅ CAMBIO: Ahora va directo a calendario -->
         <action
             android:id="@+id/action_loginFragment_to_calendarFragment"
             app:destination="@id/calendarFragment"
@@ -174,6 +173,7 @@
             android:name="activityId"
             app:argType="string" />
     </fragment>
+
 
     <!-- MANTENEDORES -->
     <fragment

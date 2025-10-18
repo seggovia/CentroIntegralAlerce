@@ -28,18 +28,6 @@
         app:labelVisibilityMode="labeled"
         app:menu="@menu/bottom_nav_menu"/>
 
-    <Button
-        android:id="@+id/btnOpenMigration"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="🧭 Migrar Roles"
-        android:layout_gravity="bottom|start"
-        android:layout_marginStart="24dp"
-        android:layout_marginBottom="88dp"
-        android:backgroundTint="@color/primary"
-        android:textColor="@android:color/white"
-        android:visibility="gone" /> <!-- 👈 oculto por defecto -->
-
 
     <!-- 🆕 FAB GLOBAL - controlado desde MainActivity -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton

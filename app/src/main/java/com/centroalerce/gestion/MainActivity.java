@@ -12,7 +12,6 @@ import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.NavigationUI;
 
-import com.centroalerce.gestion.utils.MigracionRoles;
 import com.centroalerce.gestion.utils.PermissionChecker;
 import com.centroalerce.gestion.utils.RoleManager;
 import com.centroalerce.gestion.utils.UserRole;
@@ -37,6 +36,9 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseAuth auth;
     private UserRole currentUserRole;
 
+    // ✅ NUEVO: Flag para saber si el NavController está listo
+    private boolean navControllerReady = false;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -51,20 +53,14 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "⚠️ No hay usuario autenticado");
         }
 
-        // ✅ Inicializar sistema de roles
-        initializeRoleSystem();
-
-        // ✅ IMPORTANTE: Ejecutar migración de roles (solo una vez)
-        // Esto convierte TODOS los usuarios existentes en ADMINISTRADORES
-        ejecutarMigracionRolesUnaVez();
-
-        // 1) Obtener NavController desde el NavHostFragment
+        // 1) Obtener NavController desde el NavHostFragment PRIMERO
         NavHostFragment navHost = (NavHostFragment)
                 getSupportFragmentManager().findFragmentById(R.id.nav_host);
         if (navHost == null) {
             throw new IllegalStateException("No se encontró NavHostFragment con id @id/nav_host");
         }
         navController = Objects.requireNonNull(navHost).getNavController();
+        navControllerReady = true; // ✅ NUEVO: Marcar que el NavController está listo
 
         // 2) Conectar BottomNavigationView con NavController
         bottomNav = findViewById(R.id.bottom_nav);
@@ -121,6 +117,10 @@ public class MainActivity extends AppCompatActivity {
                 fabGlobal.hide();
             }
         });
+
+        // ✅ Inicializar sistema de roles DESPUÉS de que todo esté listo
+        initializeRoleSystem();
+
     }
 
     /**
@@ -138,8 +138,8 @@ public class MainActivity extends AppCompatActivity {
             // Configurar el menú según el rol
             configureMenuByRole(role);
 
-            // Actualizar visibilidad del FAB si estamos en el calendario
-            if (navController.getCurrentDestination() != null &&
+            // ✅ CORREGIDO: Verificar que navController esté listo antes de usarlo
+            if (navControllerReady && navController.getCurrentDestination() != null &&
                     navController.getCurrentDestination().getId() == R.id.calendarFragment) {
                 if (role.canInteractWithActivities()) {
                     fabGlobal.show();
@@ -179,55 +179,6 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "✅ Menú configurado correctamente");
     }
 
-    /**
-     * ✅ Ejecuta la migración de roles una sola vez
-     * IMPORTANTE: Esto convierte TODOS los usuarios existentes en ADMINISTRADORES
-     */
-    private void ejecutarMigracionRolesUnaVez() {
-        SharedPreferences prefs = getSharedPreferences("app_config", MODE_PRIVATE);
-        boolean migracionRealizada = prefs.getBoolean("migracion_roles_administrador_v1", false);
-
-        if (!migracionRealizada) {
-            Log.d(TAG, "🔄 Iniciando migración de roles...");
-            Log.d(TAG, "⚠️ TODOS los usuarios existentes serán ADMINISTRADORES");
-
-            MigracionRoles migracion = new MigracionRoles();
-
-            // ✅ CORREGIDO: Usar el método correcto
-            migracion.asignarAdministradorATodos(new MigracionRoles.OnMigrationListener() {
-                @Override
-                public void onComplete(int total, int actualizados) {
-                    Log.d(TAG, "✅ Migración completada: " + actualizados + "/" + total + " usuarios son ahora ADMINISTRADORES");
-
-                    // Marcar migración como realizada
-                    prefs.edit().putBoolean("migracion_roles_administrador_v1", true).apply();
-
-                    // Opcional: Mostrar mensaje al usuario
-                    Toast.makeText(MainActivity.this,
-                            "Sistema de roles actualizado. " + actualizados + " usuario(s) migrado(s).",
-                            Toast.LENGTH_SHORT).show();
-
-                    // Recargar el rol del usuario actual
-                    if (roleManager != null) {
-                        roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
-                            currentUserRole = role;
-                            configureMenuByRole(role);
-                        });
-                    }
-                }
-
-                @Override
-                public void onError(Exception e) {
-                    Log.e(TAG, "❌ Error en migración de roles", e);
-                    Toast.makeText(MainActivity.this,
-                            "Error al migrar roles: " + e.getMessage(),
-                            Toast.LENGTH_LONG).show();
-                }
-            });
-        } else {
-            Log.d(TAG, "✅ Migración de roles ya ejecutada anteriormente");
-        }
-    }
 
     /**
      * ✅ Método para verificar roles actuales (debug)
@@ -273,8 +224,8 @@ public class MainActivity extends AppCompatActivity {
                 currentUserRole = role;
                 configureMenuByRole(role);
 
-                // Actualizar FAB si estamos en el calendario
-                if (navController.getCurrentDestination() != null &&
+                // ✅ CORREGIDO: Verificar que navController esté listo
+                if (navControllerReady && navController.getCurrentDestination() != null &&
                         navController.getCurrentDestination().getId() == R.id.calendarFragment) {
                     if (role.canInteractWithActivities()) {
                         fabGlobal.show();
