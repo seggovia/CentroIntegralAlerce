@@ -7,6 +7,8 @@ import android.view.*;
 import android.widget.Toast;
 import androidx.annotation.*;
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.utils.PermissionChecker;
+import com.centroalerce.gestion.utils.RoleManager;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
@@ -35,6 +37,10 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
         return FirebaseFirestore.getInstance().collection(preferEN ? COL_EN : COL_ES).document(actividadId);
     }
 
+    // ✅ NUEVO: Sistema de roles
+    private PermissionChecker permissionChecker;
+    private RoleManager roleManager;
+
     private FirebaseFirestore db;
     private String actividadId, citaId;
     private TextInputEditText etMotivo, etFecha, etHora;
@@ -49,19 +55,43 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
     }
 
     @Override public void onViewCreated(@NonNull View v, @Nullable Bundle b) {
-        super.onViewCreated(v,b);
+        super.onViewCreated(v, b);
+
+        // ✅ NUEVO: Inicializar sistema de roles
+        permissionChecker = new PermissionChecker();
+        roleManager = RoleManager.getInstance();
+
+        // ✅ NUEVO: Verificar permisos ANTES de hacer cualquier cosa
+        if (!permissionChecker.checkAndNotify(getContext(),
+                PermissionChecker.Permission.RESCHEDULE_ACTIVITY)) {
+            android.util.Log.d("ReagendarSheet", "🚫 Usuario sin permisos para reagendar");
+            dismiss();
+            return;
+        }
+
+        android.util.Log.d("ReagendarSheet", "✅ Usuario autorizado para reagendar");
+
         db = FirebaseFirestore.getInstance();
         Bundle args = getArguments();
         actividadId = args != null ? args.getString(ARG_ACTIVIDAD_ID) : null;
-        citaId      = args != null ? args.getString(ARG_CITA_ID) : null;
+        citaId = args != null ? args.getString(ARG_CITA_ID) : null;
 
         etMotivo = v.findViewById(R.id.etMotivo);
-        etFecha  = v.findViewById(R.id.etFecha);
-        etHora   = v.findViewById(R.id.etHora);
+        etFecha = v.findViewById(R.id.etFecha);
+        etHora = v.findViewById(R.id.etHora);
 
         etFecha.setOnClickListener(x -> abrirDatePicker());
         etHora.setOnClickListener(x -> abrirTimePicker());
-        ((MaterialButton) v.findViewById(R.id.btnGuardarNuevaFecha)).setOnClickListener(x -> reagendar());
+        MaterialButton btnGuardar = v.findViewById(R.id.btnGuardarNuevaFecha);
+        if (btnGuardar != null) {
+            btnGuardar.setOnClickListener(x -> {
+                // ✅ NUEVO: Doble verificación antes de guardar
+                if (permissionChecker.checkAndNotify(getContext(),
+                        PermissionChecker.Permission.RESCHEDULE_ACTIVITY)) {
+                    reagendar();
+                }
+            });
+        }
     }
 
     private void abrirDatePicker(){
@@ -281,8 +311,15 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                         up.put("slotDay", dayKey);  // útil para índices
                         up.put("slotHHmm", timeKey);
 
+                        // ✅ NUEVO: Log de auditoría con usuario
+                        String userId = roleManager.getCurrentUserId();
+                        if (userId != null) {
+                            up.put("lastModifiedBy", userId);
+                        }
+
                         ref.update(up)
                                 .addOnSuccessListener(u -> {
+                                    android.util.Log.d("ReagendarSheet", "✅ Cita reagendada por usuario: " + userId);
                                     toast("Cita reagendada con éxito");
                                     registrarAuditoria("reagendar_cita", motivo);
                                     notifyChanged();
@@ -305,6 +342,10 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
             audit.put("timestamp", Timestamp.now());
             audit.put("actividadId", actividadId);
             if (!TextUtils.isEmpty(citaId)) audit.put("citaId", citaId);
+
+            // ✅ NUEVO: Registrar quién hizo la acción
+            String userId = roleManager.getCurrentUserId();
+            if (userId != null) audit.put("userId", userId);
 
             db.collection("auditoria").add(audit);
         } catch (Exception ignored) {}

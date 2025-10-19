@@ -17,7 +17,10 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.centroalerce.gestion.utils.PermissionChecker;
+import com.centroalerce.gestion.utils.RoleManager;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
@@ -30,6 +33,10 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
 
     private Uri fileUri;
     private ActivityResultLauncher<Intent> pickerLauncher;
+
+    // ✅ NUEVO: Sistema de roles
+    private PermissionChecker permissionChecker;
+    private RoleManager roleManager;
 
     public static AdjuntarComunicacionSheet newInstance(String actividadId) {
         AdjuntarComunicacionSheet f = new AdjuntarComunicacionSheet();
@@ -48,6 +55,10 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
     @Override
     public void onCreate(@Nullable Bundle s) {
         super.onCreate(s);
+
+        // ✅ NUEVO: Inicializar sistema de roles
+        permissionChecker = new PermissionChecker();
+        roleManager = RoleManager.getInstance();
 
         pickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -71,13 +82,22 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        // layout file: res/layout/sheet_adjuntar_comunicacion.xml
         return inflater.inflate(layout("sheet_adjuntar_comunicacion"), container, false);
     }
 
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle s) {
         super.onViewCreated(v, s);
+
+        // ✅ NUEVO: Verificar permisos ANTES de hacer cualquier cosa
+        if (!permissionChecker.checkAndNotify(getContext(),
+                PermissionChecker.Permission.ATTACH_FILES)) {
+            android.util.Log.d("AdjuntarSheet", "🚫 Usuario sin permisos para adjuntar archivos");
+            dismiss();
+            return;
+        }
+
+        android.util.Log.d("AdjuntarSheet", "✅ Usuario autorizado para adjuntar archivos");
 
         String actividadId = getArguments() != null ? getArguments().getString("actividadId", "") : "";
 
@@ -93,6 +113,12 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
         });
 
         btnSubir.setOnClickListener(view -> {
+            // ✅ NUEVO: Doble verificación antes de subir
+            if (!permissionChecker.checkAndNotify(getContext(),
+                    PermissionChecker.Permission.ATTACH_FILES)) {
+                return;
+            }
+
             if (fileUri == null) {
                 Toast.makeText(requireContext(), "Selecciona un archivo", Toast.LENGTH_SHORT).show();
                 return;
@@ -102,45 +128,84 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
                 return;
             }
 
-            FirebaseStorage storage = FirebaseStorage.getInstance();
-            String fileName = obtenerNombreArchivo(fileUri);
-            StorageReference ref =
-                    storage.getReference().child("activities").child(actividadId).child("adjuntos").child(fileName);
-
-            // Subir a Storage y luego guardar metadata
-            ref.putFile(fileUri)
-                    .continueWithTask(task -> {
-                        if (!task.isSuccessful()) throw task.getException();
-                        return ref.getDownloadUrl();
-                    })
-                    .addOnSuccessListener(download -> {
-                        FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-                        Map<String,Object> meta = new HashMap<>();
-                        meta.put("nombre", fileName);
-                        meta.put("url", download.toString());
-                        meta.put("creadoEn", FieldValue.serverTimestamp());
-
-                        // subcolección (para queries ordenadas)
-                        db.collection("activities").document(actividadId)
-                                .collection("adjuntos").add(meta);
-
-                        // espejo en array del doc principal (opcional)
-                        db.collection("activities").document(actividadId)
-                                .update("adjuntos", FieldValue.arrayUnion(meta));
-
-                        // Notifica al detalle para que recargue
-                        Bundle res = new Bundle();
-                        res.putBoolean("adjunto_subido", true);
-                        getParentFragmentManager().setFragmentResult("adjuntos_change", res);
-
-                        Toast.makeText(requireContext(), "Adjunto subido", Toast.LENGTH_SHORT).show();
-                        dismiss();
-                    })
-                    .addOnFailureListener(e ->
-                            Toast.makeText(requireContext(), "Error al subir: " + e.getMessage(), Toast.LENGTH_LONG).show()
-                    );
+            subirArchivo(actividadId);
         });
+    }
+
+    private void subirArchivo(String actividadId) {
+        FirebaseStorage storage = FirebaseStorage.getInstance();
+        String fileName = obtenerNombreArchivo(fileUri);
+        StorageReference ref =
+                storage.getReference().child("activities").child(actividadId).child("adjuntos").child(fileName);
+
+        // Subir a Storage y luego guardar metadata
+        ref.putFile(fileUri)
+                .continueWithTask(task -> {
+                    if (!task.isSuccessful()) throw task.getException();
+                    return ref.getDownloadUrl();
+                })
+                .addOnSuccessListener(download -> {
+                    FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+                    Map<String, Object> meta = new HashMap<>();
+                    meta.put("nombre", fileName);
+                    meta.put("url", download.toString());
+                    meta.put("creadoEn", Timestamp.now());
+
+                    // ✅ NUEVO: Registrar quién adjuntó el archivo
+                    String userId = roleManager.getCurrentUserId();
+                    if (userId != null) {
+                        meta.put("subidoPor", userId);
+                    }
+
+                    // Subcolección
+                    db.collection("activities").document(actividadId)
+                            .collection("adjuntos").add(meta);
+
+                    // Espejo en array del doc principal (opcional)
+                    db.collection("activities").document(actividadId)
+                            .update("adjuntos", FieldValue.arrayUnion(meta));
+
+                    // ✅ NUEVO: Registrar auditoría
+                    registrarAuditoria("adjuntar_archivo", actividadId, fileName);
+
+                    // Notifica al detalle para que recargue
+                    Bundle res = new Bundle();
+                    res.putBoolean("adjunto_subido", true);
+                    res.putString("actividadId", actividadId);
+                    try {
+                        getParentFragmentManager().setFragmentResult("adjuntos_change", res);
+                    } catch (Exception ignore) {}
+
+                    android.util.Log.d("AdjuntarSheet", "✅ Archivo adjuntado por usuario: " + userId);
+                    Toast.makeText(requireContext(), "Adjunto subido", Toast.LENGTH_SHORT).show();
+                    dismiss();
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("AdjuntarSheet", "❌ Error al subir archivo: " + e.getMessage());
+                    Toast.makeText(requireContext(), "Error al subir: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+    }
+
+    /**
+     * ✅ NUEVO: Registra la acción de adjuntar en auditoría
+     */
+    private void registrarAuditoria(String accion, String actividadId, String nombreArchivo) {
+        try {
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            Map<String, Object> audit = new HashMap<>();
+            audit.put("accion", accion);
+            audit.put("actividadId", actividadId);
+            audit.put("nombreArchivo", nombreArchivo);
+            audit.put("timestamp", Timestamp.now());
+
+            String userId = roleManager.getCurrentUserId();
+            if (userId != null) {
+                audit.put("userId", userId);
+            }
+
+            db.collection("auditoria").add(audit);
+        } catch (Exception ignored) {}
     }
 
     private String obtenerNombreArchivo(Uri uri) {
