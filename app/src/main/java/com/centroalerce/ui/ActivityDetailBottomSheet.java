@@ -672,6 +672,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private interface Done { void run(); }
     private void loadAdjuntosAll(String actividadId, String citaId) {
         if (llAdjuntos == null) return;
+        android.util.Log.d("DETAIL", "🚀 Iniciando carga de adjuntos - Actividad: " + actividadId + ", Cita: " + citaId);
         llAdjuntos.removeAllViews();
         addNoFilesRow();
 
@@ -719,16 +720,21 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     }
     private void loadAdjuntosActividad(String actividadId, boolean preferEN, Done onEmpty) {
         if (TextUtils.isEmpty(actividadId)) { onEmpty.run(); return; }
+        android.util.Log.d("DETAIL", "🔍 Cargando adjuntos para actividad: " + actividadId);
         act(actividadId, preferEN).get()
                 .addOnSuccessListener(doc -> {
+                    android.util.Log.d("DETAIL", "📄 Documento obtenido: " + (doc != null && doc.exists()));
                     boolean any = false;
                     if (doc != null && doc.exists()) {
                         Object raw = doc.get("adjuntos");
+                        android.util.Log.d("DETAIL", "📎 Campo adjuntos: " + (raw != null ? raw.getClass().getSimpleName() : "null"));
                         if (raw instanceof List) {
                             List<?> arr = (List<?>) raw;
+                            android.util.Log.d("DETAIL", "📎 Lista de adjuntos con " + arr.size() + " elementos");
                             if (!arr.isEmpty()) {
                                 llAdjuntos.removeAllViews();
-                                for (Object o : arr) {
+                                for (int i = 0; i < arr.size(); i++) {
+                                    Object o = arr.get(i);
                                     if (o instanceof Map) {
                                         @SuppressWarnings("unchecked")
                                         Map<String, Object> it = (Map<String, Object>) o;
@@ -737,6 +743,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                                                 stringOr(it.get("nombre"), null));
                                         String url = stringOr(it.get("url"), null);
                                         String id = stringOr(it.get("id"), null);
+                                        android.util.Log.d("DETAIL", "📎 Adjunto " + (i+1) + ": " + nombre + " | URL: " + url);
                                         addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, TextUtils.isEmpty(id) ? null : id);
                                         any = true;
                                     }
@@ -744,7 +751,10 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                             }
                         }
                     }
-                    if (any) return;
+                    if (any) {
+                        android.util.Log.d("DETAIL", "✅ Adjuntos encontrados en documento principal");
+                        return;
+                    }
                     loadAdjuntosFromSubcollection(actividadId, "adjuntos", preferEN, () ->
                             loadAdjuntosFromSubcollection(actividadId, "archivos", preferEN, () ->
                                     loadAdjuntosFromSubcollection(actividadId, "attachments", preferEN, onEmpty)));
@@ -772,23 +782,34 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .addOnFailureListener(e -> onEmpty.run());
     }
     private void loadAdjuntosFromSubcollection(String actividadId, String sub, boolean preferEN, Done onEmpty) {
+        android.util.Log.d("DETAIL", "🔍 Cargando desde subcolección: " + sub + " para actividad: " + actividadId);
         act(actividadId, preferEN).collection(sub)
                 .orderBy("creadoEn", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(q -> {
-                    if (q == null || q.isEmpty()) { onEmpty.run(); return; }
+                    android.util.Log.d("DETAIL", "📄 Query resultado para " + sub + ": " + (q != null ? q.size() : "null") + " documentos");
+                    if (q == null || q.isEmpty()) { 
+                        android.util.Log.d("DETAIL", "❌ Sin documentos en subcolección " + sub);
+                        onEmpty.run(); 
+                        return; 
+                    }
                     llAdjuntos.removeAllViews();
                     int added = 0;
                     for (DocumentSnapshot d : q.getDocuments()) {
                         String nombre = firstNonEmpty(d.getString("nombre"), d.getString("name"));
                         String url    = d.getString("url");
                         String did    = d.getId();
+                        android.util.Log.d("DETAIL", "📎 Adjunto desde " + sub + ": " + nombre + " | URL: " + url + " | ID: " + did);
                         addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, did);
                         added++;
                     }
+                    android.util.Log.d("DETAIL", "✅ Agregados " + added + " adjuntos desde subcolección " + sub);
                     if (added == 0) onEmpty.run();
                 })
-                .addOnFailureListener(e -> onEmpty.run());
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("DETAIL", "❌ Error cargando subcolección " + sub + ": " + e.getMessage());
+                    onEmpty.run();
+                });
     }
     private void showPlaceholderIfEmpty() {
         if (llAdjuntos == null) return;

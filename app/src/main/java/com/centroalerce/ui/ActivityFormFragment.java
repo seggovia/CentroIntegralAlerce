@@ -618,36 +618,46 @@ public class ActivityFormFragment extends Fragment {
             }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show();
         });
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Configurar periodicidad")
+        // Referencias a los botones del XML
+        MaterialButton btnCancelar = dialogView.findViewById(R.id.btnCancelar);
+        MaterialButton btnConfirmar = dialogView.findViewById(R.id.btnConfirmar);
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(dialogView)
-                .setPositiveButton("Confirmar", (dialog, which) -> {
-                    diasSemanaSeleccionados.clear();
-                    for (Map.Entry<Integer, com.google.android.material.chip.Chip> entry : chipsMap.entrySet()) {
-                        if (entry.getValue().isChecked()) {
-                            diasSemanaSeleccionados.add(entry.getKey());
-                        }
-                    }
+                .create();
 
-                    if (diasSemanaSeleccionados.isEmpty()) {
-                        Snackbar.make(requireView(), "Selecciona al menos un día de la semana", Snackbar.LENGTH_LONG).show();
-                        return;
-                    }
-                    if (fechaInicioPeriodo == null || fechaFinPeriodo == null) {
-                        Snackbar.make(requireView(), "Selecciona rango de fechas", Snackbar.LENGTH_LONG).show();
-                        return;
-                    }
-                    if (fechaFinPeriodo.before(fechaInicioPeriodo)) {
-                        Snackbar.make(requireView(), "La fecha de fin debe ser posterior a la de inicio", Snackbar.LENGTH_LONG).show();
-                        return;
-                    }
+        dialog.show();
 
-                    int totalCitas = calcularCitasPeriodicas(fechaInicioPeriodo, fechaFinPeriodo, diasSemanaSeleccionados).size();
-                    etFecha.setText("Fechas: " + totalCitas + " citas programadas");
-                    validarMinimos();
-                })
-                .setNegativeButton("Cancelar", null)
-                .show();
+        // Click del botón Cancelar
+        btnCancelar.setOnClickListener(v -> dialog.dismiss());
+
+        // Click del botón Confirmar
+        btnConfirmar.setOnClickListener(v -> {
+            diasSemanaSeleccionados.clear();
+            for (Map.Entry<Integer, com.google.android.material.chip.Chip> entry : chipsMap.entrySet()) {
+                if (entry.getValue().isChecked()) {
+                    diasSemanaSeleccionados.add(entry.getKey());
+                }
+            }
+
+            if (diasSemanaSeleccionados.isEmpty()) {
+                Snackbar.make(requireView(), "Selecciona al menos un día de la semana", Snackbar.LENGTH_LONG).show();
+                return;
+            }
+            if (fechaInicioPeriodo == null || fechaFinPeriodo == null) {
+                Snackbar.make(requireView(), "Selecciona rango de fechas", Snackbar.LENGTH_LONG).show();
+                return;
+            }
+            if (fechaFinPeriodo.before(fechaInicioPeriodo)) {
+                Snackbar.make(requireView(), "La fecha de fin debe ser posterior a la de inicio", Snackbar.LENGTH_LONG).show();
+                return;
+            }
+
+            int totalCitas = calcularCitasPeriodicas(fechaInicioPeriodo, fechaFinPeriodo, diasSemanaSeleccionados).size();
+            etFecha.setText("Fechas: " + totalCitas + " citas programadas");
+            validarMinimos();
+            dialog.dismiss();
+        });
     }
     private List<Timestamp> calcularCitasPeriodicas(Date inicio, Date fin, List<Integer> diasSemana) {
         List<Timestamp> citas = new ArrayList<>();
@@ -981,52 +991,120 @@ public class ActivityFormFragment extends Fragment {
             return;
         }
 
+        // ✅ VERIFICAR AUTENTICACIÓN ANTES DE SUBIR ARCHIVOS
+        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            android.util.Log.e("FS-UPLOAD", "❌ Usuario no autenticado - no se pueden subir archivos");
+            Snackbar.make(root, "Debes estar autenticado para subir archivos. Guardando actividad sin adjuntos.", Snackbar.LENGTH_LONG).show();
+            escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
+                    null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
+            return;
+        }
+
+        android.util.Log.d("FS-UPLOAD", "✅ Usuario autenticado: " + currentUser.getEmail() + " (UID: " + currentUser.getUid() + ")");
+
         StorageReference baseRef = storage.getReference().child("activities").child(activityId).child("attachments");
+        android.util.Log.d("FS-UPLOAD", "🚀 Iniciando subida de " + attachmentUris.size() + " archivos");
+        android.util.Log.d("FS-UPLOAD", "🔧 Firebase Storage bucket: " + storage.getReference().getBucket());
+        android.util.Log.d("FS-UPLOAD", "🔧 Ruta de subida: " + baseRef.getPath());
 
         List<Task<Uri>> urlTasks = new ArrayList<>();
         List<Uri> srcs = new ArrayList<>();
-        for (Uri uri : attachmentUris) {
+        for (int i = 0; i < attachmentUris.size(); i++) {
+            Uri uri = attachmentUris.get(i);
             String fileName = getDisplayName(uri);
             String mime = getMime(uri);
+            
+            android.util.Log.d("FS-UPLOAD", "📎 Procesando archivo " + (i+1) + "/" + attachmentUris.size() + ": " + fileName + " (MIME: " + mime + ")");
+            
+            // Validar que el archivo tenga un nombre válido
+            if (TextUtils.isEmpty(fileName) || fileName.equals("archivo")) {
+                fileName = "archivo_" + System.currentTimeMillis() + "_" + i;
+                android.util.Log.w("FS-UPLOAD", "⚠️ Nombre de archivo inválido, usando: " + fileName);
+            }
+            
+            // Validar que la URI sea válida
+            if (uri == null) {
+                android.util.Log.e("FS-UPLOAD", "❌ URI nula para archivo " + (i+1));
+                continue;
+            }
 
-            StorageReference fileRef = baseRef.child(fileName);
+            // Crear variables finales para usar en lambdas
+            final String finalFileName = fileName;
+            final Uri finalUri = uri;
+            final String finalMime = mime;
+
+            StorageReference fileRef = baseRef.child(finalFileName);
 
             com.google.firebase.storage.StorageMetadata md =
                     new com.google.firebase.storage.StorageMetadata.Builder()
-                            .setContentType(mime != null ? mime : "application/octet-stream")
+                            .setContentType(finalMime != null ? finalMime : "application/octet-stream")
                             .build();
 
-            UploadTask up = fileRef.putFile(uri, md);
-            up.addOnFailureListener(e ->
-                    android.util.Log.e("FS-UPLOAD", "Falló subir " + fileName + ": " + e.getMessage(), e));
+            UploadTask up = fileRef.putFile(finalUri, md);
+            up.addOnFailureListener(e -> {
+                android.util.Log.e("FS-UPLOAD", "❌ Falló subir " + finalFileName + ": " + e.getMessage(), e);
+                android.util.Log.e("FS-UPLOAD", "❌ URI del archivo: " + finalUri.toString());
+            });
+            
+            up.addOnSuccessListener(taskSnapshot -> {
+                android.util.Log.d("FS-UPLOAD", "✅ Archivo subido exitosamente: " + finalFileName);
+            });
 
             Task<Uri> urlTask = up.continueWithTask(task -> {
-                if (!task.isSuccessful()) throw task.getException();
+                if (!task.isSuccessful()) {
+                    android.util.Log.e("FS-UPLOAD", "❌ Error obteniendo URL para " + finalFileName + ": " + task.getException().getMessage());
+                    throw task.getException();
+                }
+                android.util.Log.d("FS-UPLOAD", "🔗 Obteniendo URL de descarga para: " + finalFileName);
                 return fileRef.getDownloadUrl();
             });
             urlTasks.add(urlTask);
-            srcs.add(uri);
+            srcs.add(finalUri);
         }
 
         com.google.android.gms.tasks.Tasks.whenAllComplete(urlTasks)
                 .addOnSuccessListener(list -> {
+                    android.util.Log.d("FS-UPLOAD", "📊 Procesando resultados de " + list.size() + " tareas de subida");
                     List<Map<String, Object>> adj = new ArrayList<>();
+                    List<String> archivosFallidos = new ArrayList<>();
+                    
                     for (int j = 0; j < list.size(); j++) {
                         Task<?> t = (Task<?>) list.get(j);
+                        Uri src = srcs.get(j);
+                        String fileName = getDisplayName(src);
+                        
                         if (t.isSuccessful() && t.getResult() instanceof Uri) {
                             Uri download = (Uri) t.getResult();
-                            Uri src = srcs.get(j);
                             Map<String, Object> item = new HashMap<>();
-                            item.put("name", getDisplayName(src));
+                            item.put("name", fileName);
+                            item.put("nombre", fileName); // Agregar también 'nombre' para compatibilidad
                             String mime = getMime(src);
                             if (mime != null) item.put("mime", mime);
                             item.put("url", download.toString());
+                            item.put("id", "adj_" + System.currentTimeMillis() + "_" + j); // ID único para cada adjunto
                             adj.add(item);
+                            android.util.Log.d("FS-UPLOAD", "✅ Adjunto procesado exitosamente: " + fileName);
+                        } else {
+                            archivosFallidos.add(fileName);
+                            android.util.Log.e("FS-UPLOAD", "❌ Falló procesar adjunto: " + fileName + " - Error: " + 
+                                    (t.getException() != null ? t.getException().getMessage() : "Error desconocido"));
                         }
                     }
-                    if (adj.size() < attachmentUris.size()) {
-                        Snackbar.make(root, "Algunos archivos no se pudieron subir. Se guardará el resto.", Snackbar.LENGTH_LONG).show();
+                    
+                    android.util.Log.d("FS-UPLOAD", "📈 Resumen: " + adj.size() + " exitosos, " + archivosFallidos.size() + " fallidos");
+                    
+                    if (!archivosFallidos.isEmpty()) {
+                        String mensaje = "Los siguientes archivos no se pudieron subir: " + String.join(", ", archivosFallidos);
+                        Snackbar.make(root, mensaje, Snackbar.LENGTH_LONG).show();
+                        android.util.Log.w("FS-UPLOAD", "⚠️ " + mensaje);
                     }
+                    
+                    if (adj.isEmpty()) {
+                        Snackbar.make(root, "No se pudieron subir ningún archivo. Guardando actividad sin adjuntos.", Snackbar.LENGTH_LONG).show();
+                        android.util.Log.w("FS-UPLOAD", "⚠️ No se subió ningún archivo - guardando sin adjuntos");
+                    }
+                    
                     escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
                             null, lugar, modoPeriodica, startAtPuntual, timestamps, adj, proyecto, diasAvisoPrevio);
                 })
@@ -1094,7 +1172,14 @@ public class ActivityFormFragment extends Fragment {
             activityDoc.put("lugar", lugar); // redundancia
         }
 
-        if (!adjuntos.isEmpty()) activityDoc.put("adjuntos", adjuntos);
+        if (!adjuntos.isEmpty()) {
+            activityDoc.put("adjuntos", adjuntos);
+            android.util.Log.d("FS", "📎 Guardando " + adjuntos.size() + " adjuntos en documento principal de actividad");
+            for (int i = 0; i < adjuntos.size(); i++) {
+                Map<String, Object> adj = adjuntos.get(i);
+                android.util.Log.d("FS", "📎 Adjunto " + (i+1) + ": " + adj.get("name") + " | URL: " + adj.get("url"));
+            }
+        }
         activityDoc.put("createdAt", FieldValue.serverTimestamp());
         activityDoc.put("updatedAt", FieldValue.serverTimestamp());
 
@@ -1102,6 +1187,7 @@ public class ActivityFormFragment extends Fragment {
         batch.set(db.collection("activities").document(activityId), activityDoc);
 
         if (!adjuntos.isEmpty()) {
+            android.util.Log.d("FS", "📎 Guardando " + adjuntos.size() + " adjuntos en subcolección adjuntos");
             for (Map<String, Object> a : adjuntos) {
                 Map<String, Object> sub = new HashMap<>(a);
                 sub.put("creadoEn", FieldValue.serverTimestamp());
@@ -1145,6 +1231,11 @@ public class ActivityFormFragment extends Fragment {
                     cita.put("beneficiariosIds", beneficiariosIds);
                 }
 
+                // ✅ AGREGAR ADJUNTOS DIRECTAMENTE AL DOCUMENTO DE CADA CITA PERIÓDICA
+                if (!adjuntos.isEmpty()) {
+                    cita.put("adjuntos", adjuntos);
+                }
+
                 cita.put("estado", "PROGRAMADA"); // mayúsculas consistentes
                 cita.put("periodicidad", "PERIODICA");
 
@@ -1182,6 +1273,12 @@ public class ActivityFormFragment extends Fragment {
                 cita.put("beneficiariosIds", beneficiariosIds);
             }
 
+            // ✅ AGREGAR ADJUNTOS DIRECTAMENTE AL DOCUMENTO DE LA CITA
+            if (!adjuntos.isEmpty()) {
+                cita.put("adjuntos", adjuntos);
+                android.util.Log.d("FS", "📎 Agregando " + adjuntos.size() + " adjuntos al documento de cita puntual");
+            }
+
             cita.put("estado", "PROGRAMADA");
             cita.put("periodicidad", "PUNTUAL");
 
@@ -1193,6 +1290,7 @@ public class ActivityFormFragment extends Fragment {
         }
 
         if (!adjuntos.isEmpty()) {
+            android.util.Log.d("FS", "📎 Copiando " + adjuntos.size() + " adjuntos a " + citaRefs.size() + " citas");
             for (com.google.firebase.firestore.DocumentReference citaRef : citaRefs) {
                 for (Map<String, Object> a : adjuntos) {
                     Map<String, Object> sub = new HashMap<>(a);
@@ -1283,10 +1381,18 @@ public class ActivityFormFragment extends Fragment {
                 .query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
             if (c != null && c.moveToFirst()) {
                 String n = c.getString(0);
-                if (!TextUtils.isEmpty(n)) return n;
+                if (!TextUtils.isEmpty(n)) {
+                    android.util.Log.d("FS-UPLOAD", "📝 Nombre obtenido del cursor: " + n);
+                    return n;
+                }
             }
-        } catch (Exception ignored) {}
-        return fallback == null ? "archivo" : fallback;
+        } catch (Exception e) {
+            android.util.Log.w("FS-UPLOAD", "⚠️ Error obteniendo nombre del cursor: " + e.getMessage());
+        }
+        
+        String result = fallback == null ? "archivo" : fallback;
+        android.util.Log.d("FS-UPLOAD", "📝 Usando nombre fallback: " + result);
+        return result;
     }
 
     @Nullable
@@ -1526,3 +1632,4 @@ public class ActivityFormFragment extends Fragment {
         void onError(String error);
     }
 }
+
