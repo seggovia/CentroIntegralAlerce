@@ -4,35 +4,59 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
+    android:background="@drawable/bg_mantenedores_soft">
 
     <LinearLayout
         android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Título principal -->
-        <TextView
-            android:id="@+id/tvTitulo"
+        <!-- Header con gradiente -->
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/titulo_proyectos"
-            android:textStyle="bold"
-            android:textSize="20sp"
-            android:gravity="center"
-            android:textColor="@color/textPrimary"
-            android:padding="16dp" />
+            android:layout_height="160dp"
+            android:background="@drawable/bg_header_alerce">
 
-        <!-- Lista de proyectos -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:layout_gravity="center"
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Proyectos"
+                    android:textStyle="bold"
+                    android:textSize="32sp"
+                    android:textColor="@android:color/white"
+                    android:letterSpacing="0.02"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Proyectos del centro"
+                    android:textSize="15sp"
+                    android:alpha="0.9"
+                    android:textColor="@android:color/white"/>
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Lista -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvLista"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:padding="8dp" />
+            android:padding="8dp"
+            android:paddingBottom="96dp"
+            android:clipToPadding="false"/>
     </LinearLayout>
 
-    <!-- Botón flotante de agregar -->
+    <!-- FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAgregar"
         android:layout_width="wrap_content"
@@ -43,6 +67,5 @@
         app:srcCompat="@android:drawable/ic_input_add"
         app:backgroundTint="@color/primary"
         app:tint="@android:color/white"
-        android:contentDescription="@string/agregar_proyecto" />
-
+        android:contentDescription="@string/agregar_proyecto"/>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -5,88 +5,90 @@
     android:id="@+id/cardEvent"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginVertical="3dp"
+    android:layout_marginVertical="6dp"
     android:layout_marginHorizontal="4dp"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?android:attr/selectableItemBackground"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="1dp"
-    app:strokeWidth="0dp"
-    app:cardBackgroundColor="@android:color/transparent">
+    app:cardCornerRadius="16dp"
+    app:cardElevation="3dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="@color/cardStroke"
+    app:cardBackgroundColor="@color/card_surface">
 
-    <!-- Contenedor con gradiente -->
     <LinearLayout
-        android:id="@+id/containerGradient"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="10dp"
-        android:background="@drawable/bg_header_gradient">
+        android:orientation="vertical">
 
-        <!-- Estado -->
-        <TextView
-            android:id="@+id/tvEstado"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="3dp"
-            android:text="Programada"
-            android:textStyle="bold"
-            android:textColor="@android:color/white"
-            android:textSize="11sp"
-            android:background="@drawable/bg_status_chip"
-            android:layout_marginBottom="4dp"/>
-
-        <!-- Hora -->
-        <TextView
-            android:id="@+id/tvHora"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="10:00"
-            android:textStyle="bold"
-            android:textSize="12sp"
-            android:textColor="@android:color/white"
-            android:alpha="0.9"/>
-
-        <!-- Nombre actividad -->
-        <TextView
-            android:id="@+id/tvNombre"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Título actividad"
-            android:textStyle="bold"
-            android:textSize="15sp"
-            android:textColor="@android:color/white"
-            android:maxLines="2"
-            android:ellipsize="end"/>
-
-        <!-- Lugar -->
+        <!-- Header con gradiente (cambia según estado) -->
         <LinearLayout
+            android:id="@+id/containerGradient"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="5dp"
-            android:gravity="center_vertical">
+            android:orientation="vertical"
+            android:padding="14dp"
+            android:background="@drawable/bg_header_gradient">
 
-            <ImageView
-                android:layout_width="12dp"
-                android:layout_height="12dp"
-                android:src="@android:drawable/ic_menu_mylocation"
-                app:tint="@android:color/white"
-                android:alpha="0.85"/>
+            <!-- Fila: Hora + Estado -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
+                <!-- Hora -->
+                <TextView
+                    android:id="@+id/tvHora"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="10:00"
+                    android:textStyle="bold"
+                    android:textSize="14sp"
+                    android:textColor="@android:color/white"
+                    android:drawablePadding="6dp"
+                    android:gravity="center_vertical"/>
+
+                <!-- Estado (chip) -->
+                <TextView
+                    android:id="@+id/tvEstado"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="4dp"
+                    android:text="Programada"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/white"
+                    android:textSize="11sp"
+                    android:background="@drawable/bg_status_chip"/>
+            </LinearLayout>
+
+            <!-- Nombre actividad -->
+            <TextView
+                android:id="@+id/tvNombre"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Título actividad"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="@android:color/white"
+                android:maxLines="2"
+                android:ellipsize="end"/>
+
+            <!-- Lugar (SIN ImageView duplicado) -->
             <TextView
                 android:id="@+id/tvLugar"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="5dp"
+                android:layout_marginTop="6dp"
                 android:text="Lugar"
                 android:textSize="13sp"
-                android:alpha="0.85"
+                android:alpha="0.9"
                 android:textColor="@android:color/white"
+                android:drawablePadding="6dp"
+                android:gravity="center_vertical"
                 android:maxLines="1"
                 android:ellipsize="end"/>
         </LinearLayout>

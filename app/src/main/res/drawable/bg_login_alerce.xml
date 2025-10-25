@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Background con textura natural para login -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Base: Gradiente suave -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#F5F7F6"
+                android:endColor="#EDF5F1"
+                android:angle="135"/>
+        </shape>
+    </item>
+
+    <!-- Blob superior derecha: Verde -->
+    <item
+        android:width="360dp"
+        android:height="360dp"
+        android:gravity="top|end"
+        android:right="-80dp"
+        android:top="-80dp">
+        <shape android:shape="oval">
+            <solid android:color="#1A5A9B82"/>
+        </shape>
+    </item>
+
+    <!-- Blob inferior izquierda: Azul agua -->
+    <item
+        android:width="420dp"
+        android:height="420dp"
+        android:gravity="bottom|start"
+        android:left="-100dp"
+        android:bottom="-100dp">
+        <shape android:shape="oval">
+            <solid android:color="#1A4A7C9E"/>
+        </shape>
+    </item>
+
+</layer-list>

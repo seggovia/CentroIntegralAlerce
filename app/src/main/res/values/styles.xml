@@ -1,20 +1,175 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Tema del BottomSheet con fondo blanco -->
-    <style name="BottomSheetDialogThemeWhite" parent="Theme.Material3.Light.BottomSheetDialog">
-        <!-- Hace blanco el fondo del dialog -->
+    <!-- ============================================ -->
+    <!-- BOTTOM SHEET CON FONDO BLANCO -->
+    <!-- ============================================ -->
+    <style name="BottomSheetDialogThemeAlerce" parent="Theme.Material3.Light.BottomSheetDialog">
         <item name="android:background">@color/surface</item>
-
-        <!-- Aplica fondo blanco al contenedor del sheet -->
-        <item name="bottomSheetStyle">@style/App.BottomSheet.White</item>
+        <item name="bottomSheetStyle">@style/App.BottomSheet.Alerce</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
     </style>
 
-    <style name="App.BottomSheet.White" parent="Widget.Material3.BottomSheet.Modal">
-        <!-- Para Material3, esta es la forma correcta -->
+    <style name="App.BottomSheet.Alerce" parent="Widget.Material3.BottomSheet.Modal">
         <item name="backgroundTint">@color/surface</item>
-        <!-- Bordes/redondeado material opcional -->
-        <item name="shapeAppearance">@style/ShapeAppearance.Material3.MediumComponent</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.BottomSheet.Rounded</item>
+    </style>
+
+    <style name="ShapeAppearance.BottomSheet.Rounded" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">24dp</item>
+        <item name="cornerSizeTopRight">24dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+    </style>
+
+    <!-- ============================================ -->
+    <!-- HEADERS - COMPATIBLE CON REFERENCIAS EXISTENTES -->
+    <!-- ============================================ -->
+
+    <!-- Estilo base Header (OBLIGATORIO para Android) -->
+    <style name="Header">
+        <item name="android:padding">24dp</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <!-- Header con gradiente (hereda de Header) -->
+    <style name="Header.Gradient">
+        <item name="android:background">@drawable/bg_header_gradient</item>
+    </style>
+
+    <!-- ============================================ -->
+    <!-- BOTONES -->
+    <!-- ============================================ -->
+
+    <!-- Botón primario con gradiente -->
+    <style name="Button.Primary.Alerce" parent="Widget.Material3.Button">
+        <item name="backgroundTint">@color/primary</item>
+        <item name="android:textColor">@color/textOnPrimary</item>
+        <item name="cornerRadius">28dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.02</item>
+        <item name="rippleColor">@color/ripple</item>
+    </style>
+
+    <!-- Botón outlined -->
+    <style name="Button.Outlined.Alerce" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="strokeColor">@color/primary</item>
+        <item name="strokeWidth">2dp</item>
+        <item name="android:textColor">@color/primary</item>
+        <item name="cornerRadius">28dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="rippleColor">@color/ripple</item>
+    </style>
+
+    <!-- ============================================ -->
+    <!-- TEXT INPUT LAYOUTS -->
+    <!-- ============================================ -->
+
+    <style name="TextInputLayout.Alerce" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">@color/primary</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeWidthFocused">2dp</item>
+        <item name="boxCornerRadiusTopStart">12dp</item>
+        <item name="boxCornerRadiusTopEnd">12dp</item>
+        <item name="boxCornerRadiusBottomStart">12dp</item>
+        <item name="boxCornerRadiusBottomEnd">12dp</item>
+        <item name="hintTextColor">@color/primary</item>
+        <item name="android:textColorHint">@color/textSecondary</item>
+        <item name="errorTextColor">@color/error</item>
+    </style>
+
+    <!-- ============================================ -->
+    <!-- CARDS -->
+    <!-- ============================================ -->
+
+    <style name="CardView.Alerce" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardCornerRadius">16dp</item>
+        <item name="cardElevation">2dp</item>
+        <item name="strokeColor">@color/cardStroke</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="cardBackgroundColor">@color/card_surface</item>
+    </style>
+
+    <!-- ============================================ -->
+    <!-- CHIPS -->
+    <!-- ============================================ -->
+
+    <style name="Chip.Alerce" parent="Widget.Material3.Chip.Filter">
+        <item name="chipBackgroundColor">@color/chipBg</item>
+        <item name="chipStrokeColor">@color/cardStroke</item>
+        <item name="chipStrokeWidth">1dp</item>
+        <item name="chipCornerRadius">16dp</item>
+        <item name="android:textColor">@color/textPrimary</item>
+        <item name="chipIconTint">@color/primary</item>
+    </style>
+
+    <!-- ============================================ -->
+    <!-- TEXTOS -->
+    <!-- ============================================ -->
+
+    <!-- Título principal -->
+    <style name="Text.Title.Large" parent="TextAppearance.Material3.HeadlineLarge">
+        <item name="android:textSize">32sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/textPrimary</item>
+        <item name="android:letterSpacing">0.02</item>
+    </style>
+
+    <!-- Título mediano -->
+    <style name="Text.Title.Medium" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:textSize">24sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/textPrimary</item>
+    </style>
+
+    <!-- Body -->
+    <style name="Text.Body" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/textPrimary</item>
+    </style>
+
+    <!-- Caption/Secondary -->
+    <style name="Text.Caption" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/textSecondary</item>
+    </style>
+
+    <!-- ============================================ -->
+    <!-- FAB -->
+    <!-- ============================================ -->
+
+    <style name="FAB.Alerce" parent="Widget.Material3.FloatingActionButton.Primary">
+        <item name="backgroundTint">@color/primary</item>
+        <item name="tint">@android:color/white</item>
+        <item name="elevation">16dp</item>
+        <item name="rippleColor">@color/ripple</item>
+    </style>
+
+    <!-- ============================================ -->
+    <!-- CHECKBOXES -->
+    <!-- ============================================ -->
+
+    <style name="CheckBox.Alerce" parent="Widget.Material3.CompoundButton.CheckBox">
+        <item name="android:textColor">@color/textPrimary</item>
+        <item name="buttonTint">@color/primary</item>
+    </style>
+
+    <!-- ============================================ -->
+    <!-- ESTILOS ANTIGUOS COMPATIBLES -->
+    <!-- ============================================ -->
+
+    <style name="BottomSheetDialogThemeWhite" parent="BottomSheetDialogThemeAlerce"/>
+
+    <style name="CheckBoxUniformTheme" parent="ThemeOverlay.MaterialComponents.Light">
+        <item name="colorControlActivated">@color/primary</item>
+        <item name="colorControlHighlight">@color/primary</item>
+        <item name="android:colorControlActivated">@color/primary</item>
+        <item name="android:colorAccent">@color/primary</item>
     </style>
 
     <!-- Forma para headers redondeados abajo -->
@@ -25,11 +180,18 @@
         <item name="cornerSizeBottomLeft">24dp</item>
         <item name="cornerSizeBottomRight">24dp</item>
     </style>
-    <style name="CheckBoxUniformTheme" parent="ThemeOverlay.MaterialComponents.Light">
-        <item name="colorControlActivated">@color/primary</item>
-        <item name="colorControlHighlight">@color/primary</item>
-        <item name="android:colorControlActivated">@color/primary</item>
-        <item name="android:colorAccent">@color/primary</item>
+
+    <!-- ============================================ -->
+    <!-- BOTTOM NAVIGATION ACTIVE INDICATOR -->
+    <!-- ============================================ -->
+    <style name="BottomNav.ActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/primary_light</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.BottomNav.Pill</item>
+    </style>
+
+    <style name="ShapeAppearance.BottomNav.Pill" parent="ShapeAppearance.Material3.Corner.Full">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
     </style>
 
 </resources>

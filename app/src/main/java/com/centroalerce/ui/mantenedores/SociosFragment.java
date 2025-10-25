@@ -2,7 +2,7 @@ package com.centroalerce.ui.mantenedores;
 
 import android.os.Bundle;
 import android.view.*;
-import android.widget.TextView;
+
 import androidx.annotation.*;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.*;
@@ -20,12 +20,11 @@ public class SociosFragment extends Fragment {
     private SocioAdapter adapter;
 
     @Nullable @Override public View onCreateView(@NonNull LayoutInflater i, @Nullable ViewGroup c, @Nullable Bundle b){
-        return i.inflate(R.layout.fragment_lugares, c, false);
+        return i.inflate(R.layout.fragment_socios, c, false);
     }
 
     @Override public void onViewCreated(@NonNull View v, @Nullable Bundle b){
         super.onViewCreated(v,b);
-        ((TextView)v.findViewById(R.id.tvTitulo)).setText("Socios comunitarios");
 
         RecyclerView rv=v.findViewById(R.id.rvLista);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));

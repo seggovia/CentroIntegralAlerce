@@ -2,6 +2,7 @@ package com.centroalerce.ui;
 
 import android.content.res.ColorStateList; // 👈 NUEVO
 import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -644,50 +645,134 @@ public class CalendarFragment extends Fragment {
             // ✅ Hora
             h.tvHora.setText(it.hora == null ? "" : it.hora);
 
-            // ✅ Mostrar nombre y lugarNombre (de la cita)
-            h.tvTitulo.setText(it.titulo == null ? "Sin nombre" : it.titulo);  // ← usa campo "nombre"
-            h.tvLugar.setText(it.lugar == null ? "Sin lugar" : it.lugar);      // ← usa campo "lugarNombre"
+            // ✅ Título y lugar
+            h.tvTitulo.setText(it.titulo == null ? "Sin nombre" : it.titulo);
+            h.tvLugar.setText(it.lugar == null ? "Sin lugar" : it.lugar);
 
-            // ================== ESTADOS ==================
+            // ================== ESTADOS CON COLORES ADAPTATIVOS ==================
             String estado = it.estado == null ? "programada" : it.estado.toLowerCase(Locale.ROOT);
+
+            int lugarIconColor; // Variable para el color del ícono del lugar
+
             switch (estado) {
                 case "cancelada":
                     h.tvEstado.setText("Cancelada");
+                    h.tvEstado.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
                     h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_pill)
                     ));
                     h.containerGradient.setBackgroundColor(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_bg)
                     );
+
+                    h.tvHora.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_text));
+                    h.tvTitulo.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_text));
+                    h.tvLugar.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_text));
+
+                    // Ícono de hora (X)
+                    h.tvHora.setCompoundDrawablesWithIntrinsicBounds(
+                            android.R.drawable.ic_delete, 0, 0, 0
+                    );
+                    h.tvHora.setCompoundDrawableTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_text)
+                    ));
+
+                    lugarIconColor = ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_text);
                     break;
+
                 case "reagendada":
                     h.tvEstado.setText("Reagendada");
+                    h.tvEstado.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
                     h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_pill)
                     ));
                     h.containerGradient.setBackgroundColor(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_bg)
                     );
+
+                    h.tvHora.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_text));
+                    h.tvTitulo.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_text));
+                    h.tvLugar.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_text));
+
+                    // Ícono de hora (refresh)
+                    h.tvHora.setCompoundDrawablesWithIntrinsicBounds(
+                            android.R.drawable.ic_popup_sync, 0, 0, 0
+                    );
+                    h.tvHora.setCompoundDrawableTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_text)
+                    ));
+
+                    lugarIconColor = ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_text);
                     break;
+
                 case "finalizada":
-                    h.tvEstado.setText("Finalizada");
+                case "completada":
+                    h.tvEstado.setText("Completada");
+                    h.tvEstado.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
                     h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_pill)
                     ));
                     h.containerGradient.setBackgroundColor(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_bg)
                     );
+
+                    h.tvHora.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_text));
+                    h.tvTitulo.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_text));
+                    h.tvLugar.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_text));
+
+                    // Ícono de hora (check)
+                    h.tvHora.setCompoundDrawablesWithIntrinsicBounds(
+                            android.R.drawable.checkbox_on_background, 0, 0, 0
+                    );
+                    h.tvHora.setCompoundDrawableTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_text)
+                    ));
+
+                    lugarIconColor = ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_text);
                     break;
-                default:
+
+                default: // programada
                     h.tvEstado.setText("Programada");
+                    h.tvEstado.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
                     h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
-                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_programada_stroke)
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_programada_pill)
                     ));
                     h.containerGradient.setBackgroundResource(R.drawable.bg_header_gradient);
+
+                    h.tvHora.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
+                    h.tvTitulo.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
+                    h.tvLugar.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
+
+                    // Ícono de hora (reloj)
+                    h.tvHora.setCompoundDrawablesWithIntrinsicBounds(
+                            android.R.drawable.ic_menu_recent_history, 0, 0, 0
+                    );
+                    h.tvHora.setCompoundDrawableTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), android.R.color.white)
+                    ));
+
+                    lugarIconColor = ContextCompat.getColor(h.itemView.getContext(), android.R.color.white);
                     break;
             }
 
-            // Acción al tocar el item
+            // ✅ LUGAR - Configurar ícono UNA SOLA VEZ con tamaño reducido
+            Drawable lugarIcon = ContextCompat.getDrawable(
+                    h.itemView.getContext(),
+                    android.R.drawable.ic_dialog_map
+            );
+
+            if (lugarIcon != null) {
+                // 🔹 REDUCIR TAMAÑO: 14dp (más pequeño que antes)
+                int iconSize = (int) (14 * h.itemView.getContext().getResources().getDisplayMetrics().density);
+                lugarIcon.setBounds(0, 0, iconSize, iconSize);
+                lugarIcon.setTint(lugarIconColor);
+
+                h.tvLugar.setCompoundDrawables(lugarIcon, null, null, null);
+            } else {
+                h.tvLugar.setCompoundDrawables(null, null, null, null);
+            }
+
+            // Acción al tocar
             h.itemView.setOnClickListener(x -> cb.onTap(it));
         }
 

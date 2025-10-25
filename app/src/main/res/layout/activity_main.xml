@@ -15,7 +15,7 @@
         app:navGraph="@navigation/nav_graph"
         app:defaultNavHost="true"/>
 
-    <!-- Bottom Navigation -->
+    <!-- Bottom Navigation MEJORADO con paleta Alerce -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_nav"
         android:layout_width="match_parent"
@@ -25,10 +25,15 @@
         android:elevation="8dp"
         app:itemIconTint="@color/bottom_nav_color"
         app:itemTextColor="@color/bottom_nav_color"
+        app:itemIconSize="24dp"
+        app:itemTextAppearanceActive="@style/Text.Caption"
+        app:itemTextAppearanceInactive="@style/Text.Caption"
         app:labelVisibilityMode="labeled"
+        app:itemRippleColor="@color/ripple"
+        app:itemActiveIndicatorStyle="@style/BottomNav.ActiveIndicator"
         app:menu="@menu/bottom_nav_menu"/>
 
-    <!-- 🆕 FAB GLOBAL - controlado desde MainActivity -->
+    <!-- FAB GLOBAL -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAddGlobal"
         android:layout_width="wrap_content"
@@ -41,9 +46,9 @@
         android:visibility="gone"
         app:tint="@android:color/white"
         app:backgroundTint="@color/primary"
-        app:elevation="16dp"
-        app:pressedTranslationZ="20dp"
-        app:rippleColor="@android:color/white"
+        app:elevation="12dp"
+        app:pressedTranslationZ="16dp"
+        app:rippleColor="@color/ripple"
         app:fabSize="normal"/>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

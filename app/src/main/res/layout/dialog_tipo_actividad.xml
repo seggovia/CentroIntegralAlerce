@@ -102,7 +102,8 @@
                 android:layout_marginTop="16dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:padding="8dp">
+                android:padding="8dp"
+                android:background="@drawable/bg_chip_light">
 
                 <TextView
                     android:layout_width="0dp"
@@ -110,13 +111,16 @@
                     android:layout_weight="1"
                     android:text="Tipo de actividad activo"
                     android:textSize="15sp"
-                    android:textColor="@color/textPrimary" />
+                    android:textStyle="bold"
+                    android:textColor="@color/textPrimary"/>
 
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/swActivoTipo"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:checked="true" />
+                    android:checked="true"
+                    app:thumbTint="@android:color/white"
+                    app:trackTint="@color/primary"/>
             </LinearLayout>
 
             <!-- Nota informativa -->
@@ -137,7 +141,7 @@
             android:background="@color/cardStroke"
             android:layout_marginTop="4dp"/>
 
-        <!-- Acciones -->
+        <!-- Botones -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -147,7 +151,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancelar"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+                style="@style/Button.Outlined.Alerce"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Cancelar"
@@ -155,12 +159,13 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnGuardar"
-                style="@style/Widget.MaterialComponents.Button"
+                style="@style/Button.Primary.Alerce"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Guardar"
                 android:textAllCaps="false"
-                android:layout_marginStart="8dp"/>
+                android:layout_marginStart="8dp"
+                app:backgroundTint="@color/primary"/>
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

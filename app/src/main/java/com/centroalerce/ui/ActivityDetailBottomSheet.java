@@ -440,13 +440,10 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         String beneficiarios = joinListOrText(beneficiariosList);
 
         String proyecto = pickString(doc, "proyectoNombre", "proyecto", "projectName");
-        // Prioriza la clave real de tu colección
         Long diasAviso  = safeLong(doc.get("diasAvisoPrevio"));
-// Compat con variantes antiguas si existieran
         if (diasAviso == null) diasAviso = safeLong(doc.get("diasAviso"));
         if (diasAviso == null) diasAviso = safeLong(doc.get("dias_aviso"));
         if (diasAviso == null) diasAviso = safeLong(doc.get("diasAvisoCancelacion"));
-
 
         actividadLugarFallback = pickString(doc, "lugarNombre", "lugar");
 
@@ -471,9 +468,24 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (actividadCancelada || citaCancelada) applyCanceledStateUI();
         else applyActiveStateUI();
 
-        // 👉 NUEVO: siempre prioriza el lugar de la ACTIVIDAD si está disponible
         if (chLugar != null && !TextUtils.isEmpty(actividadLugarFallback)) {
             chLugar.setText(actividadLugarFallback);
+
+            try {
+                // 🔹 Resetear el estilo completamente
+                chLugar.setChipBackgroundColorResource(0); // Limpiar recurso
+                chLugar.setBackgroundColor(0xFFD1FAE5); // Fondo directo
+                chLugar.setChipBackgroundColor(ColorStateList.valueOf(0xFFD1FAE5));
+
+                // 🔹 Colores
+                chLugar.setTextColor(0xFF065F46);
+                chLugar.setChipIconTint(ColorStateList.valueOf(0xFF059669));
+                chLugar.setChipStrokeColor(ColorStateList.valueOf(0xFF6EE7B7));
+                chLugar.setChipStrokeWidth(dp(1));
+
+                // 🔹 Asegurar que no haya tema sobrescribiendo
+                chLugar.setEnsureMinTouchTargetSize(false);
+            } catch (Exception ignored) {}
         }
     }
 
@@ -631,13 +643,14 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             String fechaStr = local.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
             String horaStr  = local.format(DateTimeFormatter.ofPattern("HH:mm"));
             chFechaHora.setText(fechaStr + " • " + horaStr);
+
+            try {
+                chFechaHora.setChipBackgroundColor(ColorStateList.valueOf(0xFFDBEAFE));
+                chFechaHora.setTextColor(0xFF1E40AF);
+                chFechaHora.setChipIconTint(ColorStateList.valueOf(0xFF3B82F6));
+            } catch (Exception ignored) {}
         }
 
-        // 👉 NUEVO: preferir el lugar de la ACTIVIDAD si está disponible; si no, usar el de la cita
-        if (chLugar != null) {
-            String prefer = !TextUtils.isEmpty(actividadLugarFallback) ? actividadLugarFallback : lugar;
-            if (!TextUtils.isEmpty(prefer)) chLugar.setText(prefer);
-        }
 
         String estadoCita = firstNonEmpty(doc.getString("estado"), doc.getString("status"));
         if (!TextUtils.isEmpty(estadoCita)) {
@@ -863,25 +876,48 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     // ---------- Estado / estilos ----------
     private void updateEstadoChip(@Nullable String estadoRaw) {
         if (chEstado == null) return;
+
         String e = (estadoRaw == null) ? "" : estadoRaw.toLowerCase();
-        int bg, fg = 0xFFFFFFFF;
+        int bg, fg;
         String text;
+
         switch (e) {
             case "cancelada":
             case "canceled":
-                bg = 0xFFDC2626; text = "Cancelada"; break;
+                bg = 0xFFDC2626; // Rojo
+                fg = 0xFFFFFFFF; // Blanco
+                text = "Cancelada";
+                break;
             case "reagendada":
             case "rescheduled":
-                bg = 0xFFF59E0B; text = "Reagendada"; break;
+                bg = 0xFFF59E0B; // Naranja
+                fg = 0xFFFFFFFF; // Blanco
+                text = "Reagendada";
+                break;
             case "finalizada":
+            case "completada":
             case "completed":
-                bg = 0xFF10B981; text = "Finalizada"; break;
+                bg = 0xFF059669; // Verde éxito
+                fg = 0xFFFFFFFF; // Blanco
+                text = "Completada";
+                break;
             default:
-                bg = 0xFF6366F1; text = "Programada"; break;
+                bg = 0xFF5A9B82; // Verde Alerce
+                fg = 0xFFFFFFFF; // Blanco
+                text = "Programada";
+                break;
         }
+
         chEstado.setText(text);
-        try { chEstado.setChipBackgroundColor(ColorStateList.valueOf(bg)); } catch (Exception ignored) {}
+        try {
+            chEstado.setChipBackgroundColor(ColorStateList.valueOf(bg));
+        } catch (Exception ignored) {}
         chEstado.setTextColor(fg);
+
+        // 👇 NUEVO: Asegurar que ícono sea visible
+        try {
+            chEstado.setChipIconTint(ColorStateList.valueOf(fg));
+        } catch (Exception ignored) {}
     }
 
     private void applyCanceledStateUI() {

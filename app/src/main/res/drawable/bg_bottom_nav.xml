@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Background para bottom navigation -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Sombra superior -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#08000000"/>
+        </shape>
+    </item>
+
+    <!-- Fondo -->
+    <item android:top="2dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/surface"/>
+        </shape>
+    </item>
+
+</layer-list>

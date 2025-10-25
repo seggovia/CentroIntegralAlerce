@@ -1,69 +1,112 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Paleta principal Centro Integral Alerce -->
-    <color name="primary">#4C3BCF</color>
-    <color name="primary_dark">#3A2CA0</color>
-    <color name="primary_light">#7C6EE6</color>
-    <color name="accent">#5B4CC4</color>
+    <!-- ============================================ -->
+    <!-- PALETA PRINCIPAL - IDENTIDAD ALERCE/SUR DE CHILE -->
+    <!-- ============================================ -->
 
-    <!-- Backgrounds -->
-    <color name="background">#F6F7FB</color>
-    <color name="surface">#FFFFFF</color>
+    <!-- Primarios: Verde bosque/natural (Alerce) -->
+    <color name="primary">#2D5F4F</color>           <!-- Verde bosque profundo -->
+    <color name="primary_dark">#1A3D2F</color>      <!-- Verde oscuro -->
+    <color name="primary_light">#5A9B82</color>     <!-- Verde claro/menta -->
+
+    <!-- Secundarios: Azul lago/agua (Puerto Montt) -->
+    <color name="secondary">#4A7C9E</color>         <!-- Azul agua -->
+    <color name="secondary_dark">#2D4F6B</color>    <!-- Azul profundo -->
+    <color name="secondary_light">#7BA8C3</color>   <!-- Azul cielo -->
+
+    <!-- Acentos: Tierra/madera -->
+    <color name="accent">#8B6F47</color>            <!-- Café madera -->
+    <color name="accent_warm">#B8956A</color>       <!-- Beige cálido -->
+
+    <!-- ============================================ -->
+    <!-- BACKGROUNDS Y SUPERFICIES -->
+    <!-- ============================================ -->
+    <color name="background">#F5F7F6</color>        <!-- Gris muy claro verdoso -->
+    <color name="surface">#FFFFFF</color>           <!-- Blanco puro -->
     <color name="card_surface">#FFFFFF</color>
+    <color name="surface_overlay">#F9FAFB</color>   <!-- Gris ultra claro -->
 
-    <!-- Text -->
-    <color name="textPrimary">#111827</color>
-    <color name="textSecondary">#6B7280</color>
-    <color name="textTertiary">#9CA3AF</color>
+    <!-- ============================================ -->
+    <!-- TEXTOS -->
+    <!-- ============================================ -->
+    <color name="textPrimary">#1F2937</color>       <!-- Gris carbón -->
+    <color name="textSecondary">#6B7280</color>     <!-- Gris medio -->
+    <color name="textTertiary">#9CA3AF</color>      <!-- Gris claro -->
+    <color name="textOnPrimary">#FFFFFF</color>     <!-- Blanco sobre primary -->
 
-    <!-- UI Elements -->
+    <!-- ============================================ -->
+    <!-- UI ELEMENTS -->
+    <!-- ============================================ -->
     <color name="divider">#E5E7EB</color>
-    <color name="cardStroke">#E5E7EB</color>
-    <color name="chipBg">#F3F4F6</color>
+    <color name="cardStroke">#D1D5DB</color>
+    <color name="chipBg">#EDF5F1</color>            <!-- Verde muy claro -->
+    <color name="ripple">#1A2D5F4F</color>          <!-- Primary con alpha -->
 
-    <!-- Status -->
-    <color name="success">#10B981</color>
-    <color name="error">#EF4444</color>
-    <color name="warning">#F59E0B</color>
+    <!-- ============================================ -->
+    <!-- STATUS COLORS -->
+    <!-- ============================================ -->
+    <color name="success">#059669</color>           <!-- Verde éxito -->
+    <color name="error">#DC2626</color>             <!-- Rojo error -->
+    <color name="warning">#F59E0B</color>           <!-- Amarillo advertencia -->
+    <color name="info">#3B82F6</color>              <!-- Azul info -->
 
-    <!-- Avatar -->
-    <color name="avatarBg">#E0DBFF</color>
-    <color name="avatarText">#4C3BCF</color>
+    <!-- ============================================ -->
+    <!-- ESTADOS DE ACTIVIDAD (SISTEMA CONSISTENTE) -->
+    <!-- ============================================ -->
 
-    <!-- Gradiente header -->
-    <color name="gradient_start">#5B4CC4</color>
-    <color name="gradient_end">#7C6EE6</color>
+    <!-- PROGRAMADA: Verde natural -->
+    <color name="state_programada_bg">#2D5F4F</color>
+    <color name="state_programada_stroke">#5A9B82</color>
+    <color name="state_programada_pill">#5A9B82</color>
+    <color name="state_programada_text">#1A3D2F</color>
 
-    <!-- ========================================== -->
-    <!-- ESTADOS DE CITAS (CONSISTENTES CON CÓDIGO) -->
-    <!-- ========================================== -->
+    <!-- REAGENDADA: Amarillo/Ámbar -->
+    <color name="state_reagendada_bg">#FEF3C7</color>
+    <color name="state_reagendada_stroke">#F59E0B</color>
+    <color name="state_reagendada_pill">#F59E0B</color>
+    <color name="state_reagendada_text">#92400E</color>
 
-    <!-- PROGRAMADA (Púrpura/Indigo - estado por defecto) -->
-    <color name="state_programada_bg">#4F46E5</color>        <!-- indigo-600 fondo -->
-    <color name="state_programada_stroke">#6366F1</color>    <!-- indigo-500 borde/pill -->
-    <color name="state_programada_pill">#6366F1</color>      <!-- indigo-500 etiqueta -->
-    <color name="state_programada_text">#312E81</color>      <!-- indigo-900 texto -->
+    <!-- CANCELADA: Rojo -->
+    <color name="state_cancelada_bg">#FEE2E2</color>
+    <color name="state_cancelada_stroke">#DC2626</color>
+    <color name="state_cancelada_pill">#DC2626</color>
+    <color name="state_cancelada_text">#991B1B</color>
 
-    <!-- REAGENDADA (Amarillo/Amber - alta visibilidad) -->
-    <color name="state_reagendada_bg">#FDE68A</color>        <!-- amber-200 fondo -->
-    <color name="state_reagendada_stroke">#F59E0B</color>    <!-- amber-500 borde -->
-    <color name="state_reagendada_pill">#F59E0B</color>      <!-- amber-500 etiqueta -->
-    <color name="state_reagendada_text">#92400E</color>      <!-- amber-800 texto -->
+    <!-- COMPLETADA: Verde éxito suave -->
+    <color name="state_finalizada_bg">#D1FAE5</color>
+    <color name="state_finalizada_stroke">#059669</color>
+    <color name="state_finalizada_pill">#059669</color>
+    <color name="state_finalizada_text">#064E3B</color>
 
-    <!-- CANCELADA (Rojo - alerta crítica) -->
-    <color name="state_cancelada_bg">#FEE2E2</color>         <!-- red-100 fondo -->
-    <color name="state_cancelada_stroke">#EF4444</color>     <!-- red-500 borde -->
-    <color name="state_cancelada_pill">#DC2626</color>       <!-- red-600 etiqueta -->
-    <color name="state_cancelada_text">#991B1B</color>       <!-- red-900 texto -->
+    <!-- ============================================ -->
+    <!-- GRADIENTES (PARA DRAWABLES) -->
+    <!-- ============================================ -->
+    <color name="gradient_start">#2D5F4F</color>    <!-- Verde bosque -->
+    <color name="gradient_end">#4A7C9E</color>      <!-- Azul agua -->
+    <color name="gradient_overlay">#1A2D5F4F</color><!-- Overlay suave -->
 
-    <!-- COMPLETADA/FINALIZADA (Verde/Gris - neutral) -->
-    <color name="state_finalizada_bg">#D1FAE5</color>        <!-- green-100 fondo -->
-    <color name="state_finalizada_stroke">#10B981</color>    <!-- green-500 borde -->
-    <color name="state_finalizada_pill">#059669</color>      <!-- green-600 etiqueta -->
-    <color name="state_finalizada_text">#064E3B</color>      <!-- green-900 texto -->
+    <!-- ============================================ -->
+    <!-- AVATARES Y CÍRCULOS -->
+    <!-- ============================================ -->
+    <color name="avatarBg">#C7E6D8</color>          <!-- Verde menta claro -->
+    <color name="avatarText">#2D5F4F</color>        <!-- Verde oscuro -->
 
-    <!-- Toggle buttons -->
-    <color name="toggle_bg">#F3F4F6</color>
-    <color name="toggle_stroke">#D1D5DB</color>
-    <color name="toggle_text">#374151</color>
+    <!-- ============================================ -->
+    <!-- OTROS ELEMENTOS -->
+    <!-- ============================================ -->
+    <color name="toggle_bg">#EDF5F1</color>
+    <color name="toggle_stroke">#C7E6D8</color>
+    <color name="toggle_text">#2D5F4F</color>
+
+    <!-- Transparentes útiles -->
+    <color name="transparent">#00000000</color>
+    <color name="scrim">#80000000</color>           <!-- Negro 50% -->
+
+    <!-- ============================================ -->
+    <!-- MODO OSCURO (NIGHT) - Preparado para themes-night.xml -->
+    <!-- ============================================ -->
+    <color name="background_dark">#0F1419</color>
+    <color name="surface_dark">#1C2128</color>
+    <color name="textPrimary_dark">#E6EDF3</color>
+    <color name="textSecondary_dark">#8B949E</color>
 </resources>
