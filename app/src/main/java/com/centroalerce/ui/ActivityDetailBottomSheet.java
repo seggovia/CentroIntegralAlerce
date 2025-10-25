@@ -942,34 +942,85 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void applyCanceledStateUI() {
+        // ❌ ELIMINAR: Ya NO cambiar el color del título
+        // El título SIEMPRE debe estar en blanco (se define en el XML)
+
+        // ✅ Solo agregar el texto "(CANCELADA)" si no existe
         if (tvNombre != null) {
-            tvNombre.setTextColor(0xFFB91C1C);
             CharSequence cur = tvNombre.getText();
             String s = (cur == null) ? "" : cur.toString();
-            if (!s.toUpperCase().contains("CANCELADA")) tvNombre.setText(s + "  (CANCELADA)");
+            if (!s.toUpperCase().contains("CANCELADA")) {
+                tvNombre.setText(s + "  (CANCELADA)");
+            }
+            // El color se mantiene BLANCO del XML
         }
+
+        // ✅ Chip Fecha/Hora mantiene colores AZULES normales
         if (chFechaHora != null) {
-            chFechaHora.setTextColor(0xFFFFFFFF);
-            try { chFechaHora.setChipBackgroundColor(ColorStateList.valueOf(0xFFDC2626)); } catch (Exception ignored) {}
+            try {
+                chFechaHora.setChipBackgroundColor(ColorStateList.valueOf(0xFFDBEAFE)); // Azul claro
+                chFechaHora.setTextColor(0xFF1E40AF); // Azul oscuro
+                chFechaHora.setChipIconTint(ColorStateList.valueOf(0xFF3B82F6)); // Azul ícono
+                chFechaHora.setChipStrokeColor(ColorStateList.valueOf(0xFF93C5FD)); // Azul borde
+                chFechaHora.setChipStrokeWidth(dp(1));
+            } catch (Exception ignored) {}
         }
+
+        // ✅ Chip Lugar mantiene colores VERDES normales
         if (chLugar != null) {
-            chLugar.setTextColor(0xFFFFFFFF);
-            try { chLugar.setChipBackgroundColor(ColorStateList.valueOf(0xFFEF4444)); } catch (Exception ignored) {}
+            try {
+                chLugar.setChipBackgroundColor(ColorStateList.valueOf(0xFFD1FAE5)); // Verde claro
+                chLugar.setTextColor(0xFF065F46); // Verde oscuro
+                chLugar.setChipIconTint(ColorStateList.valueOf(0xFF059669)); // Verde ícono
+                chLugar.setChipStrokeColor(ColorStateList.valueOf(0xFF6EE7B7)); // Verde borde
+                chLugar.setChipStrokeWidth(dp(1));
+            } catch (Exception ignored) {}
         }
-        // En vez de bajar alpha, restilamos explícito para que "se vean" grises
+
+        // ✅ Chip Estado YA está en rojo (se maneja en updateEstadoChip())
+
+        // Deshabilitar botones con estilos grises
         restyleButtonsCanceled();
     }
 
     private void applyActiveStateUI() {
-        if (tvNombre != null) tvNombre.setTextColor(0xFF111827);
-        if (chFechaHora != null) { try { chFechaHora.setChipBackgroundColor(null); chFechaHora.setTextColor(0xFF000000); } catch (Exception ignored) {} }
-        if (chLugar != null) { try { chLugar.setChipBackgroundColor(null); chLugar.setTextColor(0xFF000000); } catch (Exception ignored) {} }
+        // ❌ ELIMINAR: Ya NO cambiar el color del título
+        // El título SIEMPRE debe estar en blanco (del XML)
+
+        // ✅ Chip Fecha/Hora con colores normales
+        if (chFechaHora != null) {
+            try {
+                chFechaHora.setChipBackgroundColor(ColorStateList.valueOf(0xFFDBEAFE));
+                chFechaHora.setTextColor(0xFF1E40AF);
+                chFechaHora.setChipIconTint(ColorStateList.valueOf(0xFF3B82F6));
+                chFechaHora.setChipStrokeColor(ColorStateList.valueOf(0xFF93C5FD));
+                chFechaHora.setChipStrokeWidth(dp(1));
+            } catch (Exception ignored) {}
+        }
+
+        // ✅ Chip Lugar con colores normales
+        if (chLugar != null) {
+            try {
+                chLugar.setChipBackgroundColor(ColorStateList.valueOf(0xFFD1FAE5));
+                chLugar.setTextColor(0xFF065F46);
+                chLugar.setChipIconTint(ColorStateList.valueOf(0xFF059669));
+                chLugar.setChipStrokeColor(ColorStateList.valueOf(0xFF6EE7B7));
+                chLugar.setChipStrokeWidth(dp(1));
+            } catch (Exception ignored) {}
+        }
+
+        // Reestiliza botones ACTIVOS
         restyleButtonsActive();
+
+        // Habilita todos los botones
         enableButton(btnModificar);
         enableButton(btnReagendar);
         enableButton(btnAdjuntar);
-        btnCancelar.setEnabled(true);
-        btnCancelar.setAlpha(1f);
+        if (btnCompletar != null) enableButton(btnCompletar);
+        if (btnCancelar != null) {
+            btnCancelar.setEnabled(true);
+            btnCancelar.setAlpha(1f);
+        }
     }
 
     private void disableButton(@Nullable View b){
