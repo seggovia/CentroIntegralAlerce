@@ -41,6 +41,14 @@ public class LugaresFragment extends Fragment {
         TextView tv = view.findViewById(R.id.tvTitulo);
         if (tv != null) tv.setText("Lugares"); // luego pásalo a strings.xml
 
+        // Botón de retroceso
+        com.google.android.material.button.MaterialButton btnVolver = view.findViewById(R.id.btnVolver);
+        if (btnVolver != null) {
+            btnVolver.setOnClickListener(v -> {
+                androidx.navigation.fragment.NavHostFragment.findNavController(this).popBackStack();
+            });
+        }
+
         RecyclerView rv = view.findViewById(R.id.rvLista);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
 

@@ -17,6 +17,19 @@
             android:layout_height="160dp"
             android:background="@drawable/bg_header_alerce">
 
+            <!-- Botón de retroceso -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnVolver"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_margin="16dp"
+                android:backgroundTint="@android:color/transparent"
+                android:contentDescription="Volver"
+                app:icon="@android:drawable/ic_menu_revert"
+                app:iconTint="@android:color/white"
+                app:iconSize="24dp"/>
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

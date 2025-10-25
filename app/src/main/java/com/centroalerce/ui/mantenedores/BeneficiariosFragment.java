@@ -54,6 +54,14 @@ public class BeneficiariosFragment extends Fragment {
         rv = v.findViewById(R.id.rvLista);
         fab = v.findViewById(R.id.fabAgregar);
 
+        // Botón de retroceso
+        com.google.android.material.button.MaterialButton btnVolver = v.findViewById(R.id.btnVolver);
+        if (btnVolver != null) {
+            btnVolver.setOnClickListener(view -> {
+                androidx.navigation.fragment.NavHostFragment.findNavController(this).popBackStack();
+            });
+        }
+
         db = FirebaseFirestore.getInstance();
 
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));

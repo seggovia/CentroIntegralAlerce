@@ -81,17 +81,21 @@ public class MainActivity extends AppCompatActivity {
                             id == R.id.activityRescheduleFragment ||
                             id == R.id.detalleActividadFragment ||
                             id == R.id.perfilFragment ||
+                            id == R.id.registroActividadesFragment ||
+                            id == R.id.registroUsuariosFragment ||
+                            id == R.id.gestionUsuariosFragment ||
                             id == R.id.maintainersFragment ||
                             id == R.id.tiposActividadFragment ||
                             id == R.id.lugaresFragment ||
                             id == R.id.oferentesFragment ||
                             id == R.id.sociosFragment ||
-                            id == R.id.proyectosFragment;
+                            id == R.id.proyectosFragment ||
+                            id == R.id.beneficiariosFragment;
 
             bottomNav.setVisibility(hideBottomNav ? View.GONE : View.VISIBLE);
 
-            // 🆕 Mostrar FAB SOLO en CalendarFragment
-            if (id == R.id.calendarFragment) {
+            // 🆕 Mostrar FAB en CalendarFragment y ActivitiesListFragment
+            if (id == R.id.calendarFragment || id == R.id.activitiesListFragment) {
                 fabGlobal.show(); // Animación de entrada
             } else {
                 fabGlobal.hide(); // Animación de salida

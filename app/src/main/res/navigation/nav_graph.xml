@@ -122,6 +122,14 @@
             app:destination="@id/perfilFragment" />
 
         <action
+            android:id="@+id/action_settingsFragment_to_registroActividadesFragment"
+            app:destination="@id/registroActividadesFragment" />
+
+        <action
+            android:id="@+id/action_settingsFragment_to_gestionUsuariosFragment"
+            app:destination="@id/gestionUsuariosFragment" />
+
+        <action
             android:id="@+id/action_settingsFragment_to_loginFragment"
             app:destination="@id/loginFragment"
             app:popUpTo="@id/loginFragment"
@@ -133,6 +141,29 @@
         android:id="@+id/perfilFragment"
         android:name="com.centroalerce.ui.PerfilFragment"
         android:label="Mi Perfil" />
+
+    <!-- REGISTRO DE ACTIVIDADES -->
+    <fragment
+        android:id="@+id/registroActividadesFragment"
+        android:name="com.centroalerce.ui.RegistroActividadesFragment"
+        android:label="Registro de Actividades" />
+
+    <!-- REGISTRO DE USUARIOS -->
+    <fragment
+        android:id="@+id/registroUsuariosFragment"
+        android:name="com.centroalerce.ui.RegistroUsuariosFragment"
+        android:label="Registro de Usuarios" />
+
+    <!-- GESTIÓN DE USUARIOS -->
+    <fragment
+        android:id="@+id/gestionUsuariosFragment"
+        android:name="com.centroalerce.ui.GestionUsuariosFragment"
+        android:label="Gestión de Usuarios">
+
+        <action
+            android:id="@+id/action_gestionUsuariosFragment_to_registroUsuariosFragment"
+            app:destination="@id/registroUsuariosFragment" />
+    </fragment>
 
     <!-- DETALLE ACTIVIDAD -->
     <fragment

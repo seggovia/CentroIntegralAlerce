@@ -23,8 +23,26 @@ public class SettingsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        MaterialCardView cardRegistroActividades = view.findViewById(R.id.cardRegistroActividades);
+        MaterialCardView cardGestionUsuarios = view.findViewById(R.id.cardGestionUsuarios);
         MaterialCardView cardMantenedores = view.findViewById(R.id.cardMantenedores);
         MaterialCardView cardCerrarSesion = view.findViewById(R.id.cardCerrarSesion);
+
+        // 👉 NUEVO: card Registro de Actividades
+        if (cardRegistroActividades != null) {
+            cardRegistroActividades.setOnClickListener(v ->
+                    NavHostFragment.findNavController(this)
+                            .navigate(R.id.action_settingsFragment_to_registroActividadesFragment)
+            );
+        }
+
+        // 👉 NUEVO: card Gestión de Usuarios
+        if (cardGestionUsuarios != null) {
+            cardGestionUsuarios.setOnClickListener(v ->
+                    NavHostFragment.findNavController(this)
+                            .navigate(R.id.action_settingsFragment_to_gestionUsuariosFragment)
+            );
+        }
 
         // 👉 NUEVO: card Perfil
         MaterialCardView cardPerfil = view.findViewById(R.id.cardPerfil);

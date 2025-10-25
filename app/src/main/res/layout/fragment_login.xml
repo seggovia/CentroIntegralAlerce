@@ -18,28 +18,22 @@
             android:layout_width="1dp"
             android:layout_height="60dp"/>
 
-        <!-- Logo/Avatar del centro -->
-        <FrameLayout
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            android:background="@drawable/bg_avatar_circle">
-
-            <TextView
-                android:id="@+id/tvAvatarInitials"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="CIA"
-                android:textStyle="bold"
-                android:textSize="40sp"
-                android:textColor="@color/avatarText"/>
-        </FrameLayout>
+        <!-- Logo del centro -->
+        <ImageView
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_marginTop="20dp"
+            android:src="@drawable/ic_centro_alerce"
+            android:scaleType="centerCrop"
+            android:background="@drawable/bg_logo_circle"
+            android:clipToOutline="true"
+            android:outlineProvider="background"/>
 
         <!-- Título principal -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
+            android:layout_marginTop="16dp"
             android:text="Centro Integral Alerce"
             android:textStyle="bold"
             android:textSize="28sp"
@@ -144,46 +138,6 @@
             android:visibility="gone"
             android:indeterminateTint="@color/primary"/>
 
-        <!-- Divider con "o" -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="28dp">
-
-            <View
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1"
-                android:background="@color/divider"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="o"
-                android:textColor="@color/textSecondary"
-                android:paddingHorizontal="16dp"
-                android:textSize="14sp"/>
-
-            <View
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1"
-                android:background="@color/divider"/>
-        </LinearLayout>
-
-        <!-- Botón crear cuenta -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSignup"
-            style="@style/Button.Outlined.Alerce"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="20dp"
-            android:text="Crear cuenta"
-            app:icon="@android:drawable/ic_input_add"
-            app:iconGravity="textStart"
-            app:iconTint="@color/primary"/>
 
         <!-- Espaciador flexible -->
         <View

@@ -33,6 +33,14 @@ public class OferentesFragment extends Fragment {
     public void onViewCreated(@NonNull View v, @Nullable Bundle b){
         super.onViewCreated(v,b);
 
+        // Botón de retroceso
+        com.google.android.material.button.MaterialButton btnVolver = v.findViewById(R.id.btnVolver);
+        if (btnVolver != null) {
+            btnVolver.setOnClickListener(view -> {
+                androidx.navigation.fragment.NavHostFragment.findNavController(this).popBackStack();
+            });
+        }
+
         RecyclerView rv = v.findViewById(R.id.rvLista);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
 
