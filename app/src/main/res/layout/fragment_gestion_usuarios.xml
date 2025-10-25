@@ -210,6 +210,62 @@
         app:tint="@android:color/white"
         android:contentDescription="Registrar Usuario"/>
 
+    <!-- Controles de paginación -->
+    <LinearLayout
+        android:id="@+id/panelPaginacion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical"
+        android:background="@color/card_surface"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        android:elevation="1dp">
+
+        <!-- Botón anterior -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPaginaAnterior"
+            style="@style/Button.Outlined.Alerce"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="Anterior"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:minWidth="80dp"
+            app:icon="@android:drawable/ic_media_previous"
+            app:iconSize="16dp"
+            app:iconGravity="textStart"/>
+
+        <!-- Información de página -->
+        <TextView
+            android:id="@+id/textInfoPagina"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="16dp"
+            android:text="Página 1 de 1"
+            android:textSize="14sp"
+            android:textColor="@color/textPrimary"
+            android:gravity="center"
+            android:textStyle="bold"/>
+
+        <!-- Botón siguiente -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPaginaSiguiente"
+            style="@style/Button.Outlined.Alerce"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="Siguiente"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:minWidth="80dp"
+            app:icon="@android:drawable/ic_media_next"
+            app:iconSize="16dp"
+            app:iconGravity="textEnd"/>
+
+    </LinearLayout>
+
     <!-- Botón de retroceso -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnVolverAbajo"

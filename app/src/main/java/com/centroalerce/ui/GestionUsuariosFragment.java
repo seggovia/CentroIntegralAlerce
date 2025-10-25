@@ -42,9 +42,21 @@ public class GestionUsuariosFragment extends Fragment {
     private MaterialButton btnLimpiarFiltros;
     private MaterialButton btnAplicarFiltros;
     
+    // Variables para paginación
+    private LinearLayout panelPaginacion;
+    private MaterialButton btnPaginaAnterior;
+    private MaterialButton btnPaginaSiguiente;
+    private android.widget.TextView textInfoPagina;
+    
     private List<RecyclerItem> recyclerItems = new ArrayList<>();
     private UsuarioAdapter adapter;
     private List<Usuario> todosLosUsuarios = new ArrayList<>();
+    
+    // Variables de paginación
+    private int paginaActual = 1;
+    private int tamanoPagina = 10;
+    private int totalPaginas = 0;
+    private List<Usuario> usuariosPaginaActual = new ArrayList<>();
 
     @Nullable
     @Override
@@ -71,6 +83,12 @@ public class GestionUsuariosFragment extends Fragment {
         actvOrdenar = view.findViewById(R.id.actvOrdenar);
         btnLimpiarFiltros = view.findViewById(R.id.btnLimpiarFiltros);
         btnAplicarFiltros = view.findViewById(R.id.btnAplicarFiltros);
+        
+        // Inicializar paginación
+        panelPaginacion = view.findViewById(R.id.panelPaginacion);
+        btnPaginaAnterior = view.findViewById(R.id.btnPaginaAnterior);
+        btnPaginaSiguiente = view.findViewById(R.id.btnPaginaSiguiente);
+        textInfoPagina = view.findViewById(R.id.textInfoPagina);
 
         // Configurar RecyclerView
         recyclerViewUsuarios.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -105,6 +123,21 @@ public class GestionUsuariosFragment extends Fragment {
         fabRegistrarUsuario.setOnClickListener(v -> {
             androidx.navigation.fragment.NavHostFragment.findNavController(this)
                     .navigate(R.id.action_gestionUsuariosFragment_to_registroUsuariosFragment);
+        });
+        
+        // Botones de paginación
+        btnPaginaAnterior.setOnClickListener(v -> {
+            if (paginaActual > 1) {
+                paginaActual--;
+                cargarPaginaActual();
+            }
+        });
+        
+        btnPaginaSiguiente.setOnClickListener(v -> {
+            if (paginaActual < totalPaginas) {
+                paginaActual++;
+                cargarPaginaActual();
+            }
         });
 
         // Configurar filtros
@@ -215,7 +248,49 @@ public class GestionUsuariosFragment extends Fragment {
                 break;
         }
         
-        adapter.actualizarUsuarios(usuariosFiltrados);
+        // Guardar usuarios filtrados y recalcular paginación
+        usuariosPaginaActual = usuariosFiltrados;
+        totalPaginas = (int) Math.ceil((double) usuariosPaginaActual.size() / tamanoPagina);
+        if (totalPaginas == 0) totalPaginas = 1;
+        
+        // Resetear a página 1 cuando se aplican filtros
+        paginaActual = 1;
+        
+        // Cargar página actual
+        cargarPaginaActual();
+    }
+    
+    private void cargarPaginaActual() {
+        if (usuariosPaginaActual.isEmpty()) {
+            adapter.actualizarUsuarios(new ArrayList<>());
+            actualizarControlesPaginacion();
+            return;
+        }
+        
+        // Calcular índices de la página actual
+        int inicio = (paginaActual - 1) * tamanoPagina;
+        int fin = Math.min(inicio + tamanoPagina, usuariosPaginaActual.size());
+        
+        // Obtener usuarios de la página actual
+        List<Usuario> usuariosPagina = usuariosPaginaActual.subList(inicio, fin);
+        
+        // Actualizar adapter
+        adapter.actualizarUsuarios(usuariosPagina);
+        
+        // Actualizar controles de paginación
+        actualizarControlesPaginacion();
+    }
+    
+    private void actualizarControlesPaginacion() {
+        // Actualizar texto de información
+        textInfoPagina.setText("Página " + paginaActual + " de " + totalPaginas);
+        
+        // Habilitar/deshabilitar botones
+        btnPaginaAnterior.setEnabled(paginaActual > 1);
+        btnPaginaSiguiente.setEnabled(paginaActual < totalPaginas);
+        
+        // Mostrar/ocultar panel de paginación si hay más de una página
+        panelPaginacion.setVisibility(totalPaginas > 1 ? View.VISIBLE : View.GONE);
     }
 
     private void cargarUsuarios() {
@@ -230,6 +305,7 @@ public class GestionUsuariosFragment extends Fragment {
                     if (queryDocumentSnapshots.isEmpty()) {
                         Toast.makeText(getContext(), "No hay usuarios registrados", Toast.LENGTH_SHORT).show();
                         adapter.actualizarUsuarios(new ArrayList<>());
+                        actualizarControlesPaginacion();
                         return;
                     }
                     
@@ -254,12 +330,12 @@ public class GestionUsuariosFragment extends Fragment {
                         todosLosUsuarios.add(usuario);
                     }
                     
-                    // Ordenar por nombre después de cargar
+                    // Ordenar por email después de cargar
                     todosLosUsuarios.sort((u1, u2) -> u1.email.compareToIgnoreCase(u2.email));
                     
                     Toast.makeText(getContext(), "Usuarios cargados: " + todosLosUsuarios.size(), Toast.LENGTH_SHORT).show();
                     
-                    // Aplicar filtros por defecto
+                    // Aplicar filtros por defecto y cargar página actual
                     aplicarFiltros();
                 })
                 .addOnFailureListener(e -> {
