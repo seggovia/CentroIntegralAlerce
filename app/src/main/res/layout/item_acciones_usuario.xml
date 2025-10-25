@@ -15,17 +15,8 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="8dp"
-        android:gravity="center_vertical"
+        android:gravity="center"
         android:minHeight="48dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Acciones disponibles:"
-            android:textSize="12sp"
-            android:textColor="@color/textSecondary"
-            android:textStyle="italic"/>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnDetalles"
