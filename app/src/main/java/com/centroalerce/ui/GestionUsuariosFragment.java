@@ -476,13 +476,33 @@ public class GestionUsuariosFragment extends Fragment {
                 
                 // Configurar click listener para mostrar acciones
                 usuarioHolder.btnMostrarAcciones.setOnClickListener(v -> {
-                    // Primero, cerrar cualquier panel de acciones abierto
-                    cerrarTodosLosPanelesDeAcciones();
+                    // Verificar si ya hay un panel de acciones abierto para este usuario
+                    boolean panelAbierto = false;
+                    int panelIndex = -1;
                     
-                    // Insertar item de acciones después del usuario actual
-                    int actionPosition = position + 1;
-                    items.add(actionPosition, new RecyclerItem(RecyclerItem.TYPE_ACCIONES, usuario));
-                    notifyItemInserted(actionPosition);
+                    for (int i = 0; i < items.size(); i++) {
+                        if (items.get(i).type == RecyclerItem.TYPE_ACCIONES && 
+                            items.get(i).usuario != null && 
+                            items.get(i).usuario.uid.equals(usuario.uid)) {
+                            panelAbierto = true;
+                            panelIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    if (panelAbierto) {
+                        // Si el panel ya está abierto, cerrarlo
+                        items.remove(panelIndex);
+                        notifyItemRemoved(panelIndex);
+                    } else {
+                        // Si no está abierto, cerrar todos los demás y abrir este
+                        cerrarTodosLosPanelesDeAcciones();
+                        
+                        // Insertar item de acciones después del usuario actual
+                        int actionPosition = position + 1;
+                        items.add(actionPosition, new RecyclerItem(RecyclerItem.TYPE_ACCIONES, usuario));
+                        notifyItemInserted(actionPosition);
+                    }
                 });
             } else if (holder instanceof AccionesViewHolder) {
                 AccionesViewHolder accionesHolder = (AccionesViewHolder) holder;
