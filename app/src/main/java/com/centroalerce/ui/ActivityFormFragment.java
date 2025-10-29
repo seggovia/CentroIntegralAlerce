@@ -15,6 +15,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.AutoCompleteTextView;
 
@@ -93,7 +94,13 @@ public class ActivityFormFragment extends Fragment {
     // 🔽 NUEVO: selección de beneficiarios
     private final List<Beneficiario> beneficiariosSeleccionados = new ArrayList<>();
     private final List<String> beneficiariosSeleccionadosIds = new ArrayList<>();
+    private enum TipoPeriodicidad {
+        DIAS_SEMANA,
+        DIA_DEL_MES
+    }
 
+    private TipoPeriodicidad tipoPeriodicidad = TipoPeriodicidad.DIAS_SEMANA;
+    private Integer diaDelMes = null;
     private boolean esPeriodica = false;
     private final List<Integer> diasSemanaSeleccionados = new ArrayList<>(); // 1=Domingo, 2=Lunes, ..., 7=Sábado
     private Date fechaInicioPeriodo = null;
@@ -221,13 +228,29 @@ public class ActivityFormFragment extends Fragment {
         etNombre.addTextChangedListener(watcher);
         etFecha.addTextChangedListener(watcher);
         etHora.addTextChangedListener(watcher);
-
+        etNombre.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                TextInputLayout til = (TextInputLayout) etNombre.getParent().getParent();
+                if (til != null) til.setError(null);
+                etNombre.setError(null);
+            }
+            @Override public void afterTextChanged(Editable s) { validarMinimos(); }
+        });
         btnCancelar.setOnClickListener(view -> Navigation.findNavController(view).popBackStack());
         btnGuardar.setOnClickListener(this::onGuardar);
 
         aplicarModo();
         renderChipsBeneficiarios(); // inicial
+        // Limpiar todos los errores iniciales
+        ((TextInputLayout) etNombre.getParent().getParent()).setError(null);
+        tilFecha.setError(null);
+        tilHora.setError(null);
+        etNombre.setError(null);
+        etFecha.setError(null);
+        etHora.setError(null);
         return v;
+
     }
 
     @Override
@@ -540,13 +563,24 @@ public class ActivityFormFragment extends Fragment {
 
     // ---------- UX/Modo ----------
     private void aplicarModo() {
+        // Limpiar TODOS los errores y estados
+        TextInputLayout tilNombre = (TextInputLayout) etNombre.getParent().getParent();
+        if (tilNombre != null) tilNombre.setError(null);
+        if (tilFecha != null) tilFecha.setError(null);
+        if (tilHora != null) tilHora.setError(null);
+
+        etNombre.setError(null);
+        etFecha.setError(null);
+        etHora.setError(null);
+
         if (esPeriodica) {
-            // Modo periódica: solicita rango de fechas y días de semana
-            etFecha.setText(null);
-            etHora.setText(null);
+            // Modo periódica: solicita rango de fechas y días de semana o día del mes
+            etFecha.setText("");
+            etHora.setText("");
             diasSemanaSeleccionados.clear();
             fechaInicioPeriodo = null;
             fechaFinPeriodo = null;
+            diaDelMes = null;
 
             tilFecha.setHint("Seleccionar rango de fechas");
             tilHora.setHint("Hora (aplicará a todas las fechas)");
@@ -557,12 +591,18 @@ public class ActivityFormFragment extends Fragment {
             tilHora.setEndIconDrawable(android.R.drawable.ic_menu_recent_history);
         } else {
             // Modo puntual: fecha y hora únicas
+            etFecha.setText("");
+            etHora.setText("");
+
             tilFecha.setHint("Fecha (AAAA-MM-DD)");
             tilHora.setHint("Hora (HH:mm)");
 
             etHora.setClickable(true);
             etHora.setFocusable(false);
         }
+
+        // Forzar actualización de validación sin mostrar errores
+        btnGuardar.setEnabled(false);
     }
 
     // ---------- Pickers ----------
@@ -576,13 +616,44 @@ public class ActivityFormFragment extends Fragment {
     private void mostrarDialogoSeleccionPeriodicidad() {
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_periodicidad, null);
 
-        // Referencias a vistas del diálogo personalizado
+        // Referencias a vistas del diálogo
+        MaterialButtonToggleGroup toggleTipoPeriodicidad = dialogView.findViewById(R.id.toggleTipoPeriodicidad);
+        MaterialButton btnDiasSemana = dialogView.findViewById(R.id.btnDiasSemana);
+        MaterialButton btnDiaDelMes = dialogView.findViewById(R.id.btnDiaDelMes);
+
+        LinearLayout layoutDiasSemana = dialogView.findViewById(R.id.layoutDiasSemana);
+        LinearLayout layoutDiaDelMes = dialogView.findViewById(R.id.layoutDiaDelMes);
+
         com.google.android.material.chip.ChipGroup chipGroupDias = dialogView.findViewById(R.id.chipGroupDias);
+        TextInputEditText etDiaDelMes = dialogView.findViewById(R.id.etDiaDelMes);
+        etDiaDelMes.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (s.length() > 0) {
+                    try {
+                        int dia = Integer.parseInt(s.toString());
+                        if (dia < 1 || dia > 31) {
+                            etDiaDelMes.setError("Entre 1 y 31");
+                        } else {
+                            etDiaDelMes.setError(null);
+                        }
+                    } catch (NumberFormatException e) {
+                        etDiaDelMes.setError("Número inválido");
+                    }
+                }
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
         TextInputEditText etFechaInicio = dialogView.findViewById(R.id.etFechaInicio);
         TextInputEditText etFechaFin = dialogView.findViewById(R.id.etFechaFin);
         TextInputEditText etHoraPeriodicidad = dialogView.findViewById(R.id.etHoraPeriodicidad);
 
-        // Chips de días (Lunes=2, Martes=3, ..., Domingo=1)
+        // Chips de días de la semana
         final Map<Integer, com.google.android.material.chip.Chip> chipsMap = new HashMap<>();
         chipsMap.put(2, dialogView.findViewById(R.id.chipLunes));
         chipsMap.put(3, dialogView.findViewById(R.id.chipMartes));
@@ -591,6 +662,21 @@ public class ActivityFormFragment extends Fragment {
         chipsMap.put(6, dialogView.findViewById(R.id.chipViernes));
         chipsMap.put(7, dialogView.findViewById(R.id.chipSabado));
         chipsMap.put(1, dialogView.findViewById(R.id.chipDomingo));
+
+        // Toggle entre días de semana y día del mes
+        toggleTipoPeriodicidad.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (!isChecked) return;
+
+            if (checkedId == R.id.btnDiasSemana) {
+                tipoPeriodicidad = TipoPeriodicidad.DIAS_SEMANA;
+                layoutDiasSemana.setVisibility(View.VISIBLE);
+                layoutDiaDelMes.setVisibility(View.GONE);
+            } else if (checkedId == R.id.btnDiaDelMes) {
+                tipoPeriodicidad = TipoPeriodicidad.DIA_DEL_MES;
+                layoutDiasSemana.setVisibility(View.GONE);
+                layoutDiaDelMes.setVisibility(View.VISIBLE);
+            }
+        });
 
         // Pickers de fecha
         etFechaInicio.setOnClickListener(v -> {
@@ -618,7 +704,6 @@ public class ActivityFormFragment extends Fragment {
             }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show();
         });
 
-        // Referencias a los botones del XML
         MaterialButton btnCancelar = dialogView.findViewById(R.id.btnCancelar);
         MaterialButton btnConfirmar = dialogView.findViewById(R.id.btnConfirmar);
 
@@ -628,22 +713,46 @@ public class ActivityFormFragment extends Fragment {
 
         dialog.show();
 
-        // Click del botón Cancelar
         btnCancelar.setOnClickListener(v -> dialog.dismiss());
 
-        // Click del botón Confirmar
         btnConfirmar.setOnClickListener(v -> {
-            diasSemanaSeleccionados.clear();
-            for (Map.Entry<Integer, com.google.android.material.chip.Chip> entry : chipsMap.entrySet()) {
-                if (entry.getValue().isChecked()) {
-                    diasSemanaSeleccionados.add(entry.getKey());
+            // Validar según el tipo de periodicidad seleccionado
+            if (tipoPeriodicidad == TipoPeriodicidad.DIAS_SEMANA) {
+                diasSemanaSeleccionados.clear();
+                for (Map.Entry<Integer, com.google.android.material.chip.Chip> entry : chipsMap.entrySet()) {
+                    if (entry.getValue().isChecked()) {
+                        diasSemanaSeleccionados.add(entry.getKey());
+                    }
+                }
+
+                if (diasSemanaSeleccionados.isEmpty()) {
+                    Snackbar.make(requireView(), "Selecciona al menos un día de la semana", Snackbar.LENGTH_LONG).show();
+                    return;
+                }
+            } else if (tipoPeriodicidad == TipoPeriodicidad.DIA_DEL_MES) {
+                String diaStr = getText(etDiaDelMes);
+                if (TextUtils.isEmpty(diaStr)) {
+                    etDiaDelMes.setError("Ingresa el día del mes");
+                    Snackbar.make(requireView(), "Ingresa el día del mes", Snackbar.LENGTH_LONG).show();
+                    return;
+                }
+
+                try {
+                    int dia = Integer.parseInt(diaStr);
+                    if (dia < 1 || dia > 31) {
+                        etDiaDelMes.setError("El día debe estar entre 1 y 31");
+                        Snackbar.make(requireView(), "El día debe estar entre 1 y 31", Snackbar.LENGTH_LONG).show();
+                        return;
+                    }
+                    diaDelMes = dia;
+                    etDiaDelMes.setError(null); // Limpiar error si es válido
+                } catch (NumberFormatException e) {
+                    etDiaDelMes.setError("Número inválido");
+                    Snackbar.make(requireView(), "Día inválido", Snackbar.LENGTH_LONG).show();
+                    return;
                 }
             }
 
-            if (diasSemanaSeleccionados.isEmpty()) {
-                Snackbar.make(requireView(), "Selecciona al menos un día de la semana", Snackbar.LENGTH_LONG).show();
-                return;
-            }
             if (fechaInicioPeriodo == null || fechaFinPeriodo == null) {
                 Snackbar.make(requireView(), "Selecciona rango de fechas", Snackbar.LENGTH_LONG).show();
                 return;
@@ -654,11 +763,16 @@ public class ActivityFormFragment extends Fragment {
             }
 
             int totalCitas = calcularCitasPeriodicas(fechaInicioPeriodo, fechaFinPeriodo, diasSemanaSeleccionados).size();
-            etFecha.setText("Fechas: " + totalCitas + " citas programadas");
+            String textoResumen = tipoPeriodicidad == TipoPeriodicidad.DIA_DEL_MES
+                    ? "Día " + diaDelMes + " de cada mes: " + totalCitas + " citas"
+                    : "Fechas: " + totalCitas + " citas programadas";
+
+            etFecha.setText(textoResumen);
             validarMinimos();
             dialog.dismiss();
         });
     }
+
     private List<Timestamp> calcularCitasPeriodicas(Date inicio, Date fin, List<Integer> diasSemana) {
         List<Timestamp> citas = new ArrayList<>();
         Calendar cal = Calendar.getInstance();
@@ -671,18 +785,42 @@ public class ActivityFormFragment extends Fragment {
         int hora = Integer.parseInt(parts[0]);
         int minuto = Integer.parseInt(parts[1]);
 
-        while (!cal.getTime().after(fin)) {
-            int diaActual = cal.get(Calendar.DAY_OF_WEEK);
+        if (tipoPeriodicidad == TipoPeriodicidad.DIA_DEL_MES) {
+            // Calcular citas para día específico del mes
+            while (!cal.getTime().after(fin)) {
+                int diaActualDelMes = cal.get(Calendar.DAY_OF_MONTH);
+                int ultimoDiaDelMes = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
 
-            if (diasSemana.contains(diaActual)) {
-                Calendar citaCal = (Calendar) cal.clone();
-                citaCal.set(Calendar.HOUR_OF_DAY, hora);
-                citaCal.set(Calendar.MINUTE, minuto);
-                citaCal.set(Calendar.SECOND, 0);
-                citas.add(new Timestamp(citaCal.getTime()));
+                // Si el día del mes coincide o si es el último día y el día solicitado no existe
+                if (diaActualDelMes == diaDelMes || (diaDelMes > ultimoDiaDelMes && diaActualDelMes == ultimoDiaDelMes)) {
+                    Calendar citaCal = (Calendar) cal.clone();
+                    citaCal.set(Calendar.HOUR_OF_DAY, hora);
+                    citaCal.set(Calendar.MINUTE, minuto);
+                    citaCal.set(Calendar.SECOND, 0);
+                    citas.add(new Timestamp(citaCal.getTime()));
+
+                    // Saltar al siguiente mes
+                    cal.add(Calendar.MONTH, 1);
+                    cal.set(Calendar.DAY_OF_MONTH, 1);
+                } else {
+                    cal.add(Calendar.DAY_OF_MONTH, 1);
+                }
             }
+        } else {
+            // Calcular citas para días de la semana
+            while (!cal.getTime().after(fin)) {
+                int diaActual = cal.get(Calendar.DAY_OF_WEEK);
 
-            cal.add(Calendar.DAY_OF_MONTH, 1);
+                if (diasSemana.contains(diaActual)) {
+                    Calendar citaCal = (Calendar) cal.clone();
+                    citaCal.set(Calendar.HOUR_OF_DAY, hora);
+                    citaCal.set(Calendar.MINUTE, minuto);
+                    citaCal.set(Calendar.SECOND, 0);
+                    citas.add(new Timestamp(citaCal.getTime()));
+                }
+
+                cal.add(Calendar.DAY_OF_MONTH, 1);
+            }
         }
 
         return citas;
@@ -720,35 +858,71 @@ public class ActivityFormFragment extends Fragment {
 
     // ---------- Validaciones ----------
     private void validarMinimos() {
-        ((TextInputLayout) etNombre.getParent().getParent()).setError(null);
-        tilFecha.setError(null);
-        tilHora.setError(null);
+        validarMinimos(false); // Llamar sin mostrar errores por defecto
+    }
+
+    private void validarMinimos(boolean mostrarErrores) {
+        TextInputLayout tilNombre = (TextInputLayout) etNombre.getParent().getParent();
+
+        // Limpiar errores primero
+        if (tilNombre != null) tilNombre.setError(null);
+        if (tilFecha != null) tilFecha.setError(null);
+        if (tilHora != null) tilHora.setError(null);
+        etNombre.setError(null);
+        etFecha.setError(null);
+        etHora.setError(null);
 
         boolean nombreOk = !TextUtils.isEmpty(getText(etNombre));
         boolean ok;
 
         if (esPeriodica) {
             boolean rangoOk = fechaInicioPeriodo != null && fechaFinPeriodo != null;
-            boolean diasOk = !diasSemanaSeleccionados.isEmpty();
+            boolean diasOk = !diasSemanaSeleccionados.isEmpty() || diaDelMes != null;
             boolean horaOk = !TextUtils.isEmpty(getText(etHora));
 
             ok = nombreOk && rangoOk && diasOk && horaOk;
 
-            if (!nombreOk) ((TextInputLayout) etNombre.getParent().getParent()).setError("Obligatorio");
-            if (!rangoOk) tilFecha.setError("Configura el rango de fechas");
-            if (!diasOk) tilFecha.setError("Selecciona días de la semana");
-            if (!horaOk) tilHora.setError("Selecciona hora");
+            // Mostrar errores SOLO si se solicita explícitamente (al presionar guardar)
+            if (mostrarErrores) {
+                if (!nombreOk && tilNombre != null) {
+                    tilNombre.setError("Obligatorio");
+                    etNombre.requestFocus();
+                }
+                if (!rangoOk && tilFecha != null) {
+                    tilFecha.setError("Configura el rango de fechas");
+                }
+                if (!diasOk && tilFecha != null) {
+                    tilFecha.setError("Selecciona días de la semana o día del mes");
+                }
+                if (!horaOk && tilHora != null) {
+                    tilHora.setError("Selecciona hora");
+                }
+            }
         } else {
             boolean fechaOk = !TextUtils.isEmpty(getText(etFecha));
             boolean horaOk = !TextUtils.isEmpty(getText(etHora));
             ok = nombreOk && fechaOk && horaOk;
 
-            if (!nombreOk) ((TextInputLayout) etNombre.getParent().getParent()).setError("Obligatorio");
-            if (!fechaOk) tilFecha.setError("Requerido");
-            if (!horaOk) tilHora.setError("Requerido");
+            // Mostrar errores SOLO si se solicita explícitamente
+            if (mostrarErrores) {
+                if (!nombreOk && tilNombre != null) {
+                    tilNombre.setError("Obligatorio");
+                    etNombre.requestFocus();
+                }
+                if (!fechaOk && tilFecha != null) {
+                    tilFecha.setError("Requerido");
+                    etFecha.requestFocus();
+                }
+                if (!horaOk && tilHora != null) {
+                    tilHora.setError("Requerido");
+                    etHora.requestFocus();
+                }
+            }
         }
+
         btnGuardar.setEnabled(ok);
     }
+
 
     private boolean validarCupoOpcional() {
         String c = getText(etCupo);
@@ -760,6 +934,15 @@ public class ActivityFormFragment extends Fragment {
     // ---------- Guardar ----------
     private void onGuardar(View root) {
         android.util.Log.d("FORM", "=== INICIO onGuardar ===");
+
+        // ✅ CRÍTICO: Validar Y mostrar errores
+        validarMinimos(true); // <-- CAMBIADO: Pasar true para mostrar errores
+
+        // Si el botón no está habilitado después de validar, no continuar
+        if (!btnGuardar.isEnabled()) {
+            Snackbar.make(root, "Por favor completa todos los campos obligatorios", Snackbar.LENGTH_LONG).show();
+            return;
+        }
 
         btnGuardar.setEnabled(false);
         btnGuardar.setText("Validando...");
@@ -789,12 +972,38 @@ public class ActivityFormFragment extends Fragment {
             btnGuardar.setText("Guardar actividad");
             return;
         }
+
         if (modoPeriodica) {
-            if (fechaInicioPeriodo == null || fechaFinPeriodo == null || diasSemanaSeleccionados.isEmpty()) {
-                Snackbar.make(root, "Configura la periodicidad correctamente", Snackbar.LENGTH_LONG).show();
+            // Validar que se haya configurado la periodicidad
+            if (fechaInicioPeriodo == null || fechaFinPeriodo == null) {
+                Snackbar.make(root, "Configura el rango de fechas en la periodicidad", Snackbar.LENGTH_LONG).show();
                 btnGuardar.setEnabled(true);
                 btnGuardar.setText("Guardar actividad");
                 return;
+            }
+
+            if (TextUtils.isEmpty(hora)) {
+                Snackbar.make(root, "Configura la hora en la periodicidad", Snackbar.LENGTH_LONG).show();
+                btnGuardar.setEnabled(true);
+                btnGuardar.setText("Guardar actividad");
+                return;
+            }
+
+            // Validar según el tipo de periodicidad
+            if (tipoPeriodicidad == TipoPeriodicidad.DIAS_SEMANA) {
+                if (diasSemanaSeleccionados.isEmpty()) {
+                    Snackbar.make(root, "Selecciona al menos un día de la semana", Snackbar.LENGTH_LONG).show();
+                    btnGuardar.setEnabled(true);
+                    btnGuardar.setText("Guardar actividad");
+                    return;
+                }
+            } else if (tipoPeriodicidad == TipoPeriodicidad.DIA_DEL_MES) {
+                if (diaDelMes == null) {
+                    Snackbar.make(root, "Configura el día del mes", Snackbar.LENGTH_LONG).show();
+                    btnGuardar.setEnabled(true);
+                    btnGuardar.setText("Guardar actividad");
+                    return;
+                }
             }
         }
 
@@ -900,7 +1109,6 @@ public class ActivityFormFragment extends Fragment {
 
         btnGuardar.setText("Validando lugar...");
 
-        // ✅ CAMBIO CRÍTICO: Usar getLugarPorNombre en lugar de getLugar
         lugarRepository.getLugarPorNombre(lugarFinal, new LugarRepository.LugarCallback() {
             @Override
             public void onSuccess(Lugar lugar) {
@@ -932,7 +1140,6 @@ public class ActivityFormFragment extends Fragment {
                 btnGuardar.setText("Verificando horarios...");
                 android.util.Log.d("FORM", "🔍 Iniciando verificación de conflictos para lugar: " + lugar.getNombre());
 
-                // ✅ Pasar el NOMBRE del lugar (no el ID) porque así se guarda en las citas
                 verificarConflictosConValidacion(lugar.getNombre(), aRevisar, new ConflictoCallback() {
                     @Override
                     public void onConflictoDetectado(String mensaje) {
@@ -977,7 +1184,7 @@ public class ActivityFormFragment extends Fragment {
 
     private void subirAdjuntosYGuardar(View root,
                                        String nombre, String tipoActividad, Integer cupo,
-                                       String oferente, String socio, String beneficiarios /*unused*/,
+                                       String oferente, String socio, String beneficiarios,
                                        String lugar, boolean modoPeriodica,
                                        @Nullable Timestamp startAtPuntual,
                                        List<Timestamp> timestamps,
@@ -986,50 +1193,58 @@ public class ActivityFormFragment extends Fragment {
         String activityId = db.collection("activities").document().getId();
 
         if (attachmentUris.isEmpty()) {
-            escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
-                    /* beneficiarios texto */ null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
-            return;
-        }
-
-        // ✅ VERIFICAR AUTENTICACIÓN ANTES DE SUBIR ARCHIVOS
-        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser == null) {
-            android.util.Log.e("FS-UPLOAD", "❌ Usuario no autenticado - no se pueden subir archivos");
-            Snackbar.make(root, "Debes estar autenticado para subir archivos. Guardando actividad sin adjuntos.", Snackbar.LENGTH_LONG).show();
+            android.util.Log.d("FS-UPLOAD", "✅ Sin archivos adjuntos - continuando");
             escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
                     null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
             return;
         }
 
+        // ✅ VERIFICAR AUTENTICACIÓN ANTES DE INTENTAR SUBIR
+        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            android.util.Log.e("FS-UPLOAD", "❌ Usuario no autenticado - no se pueden subir archivos");
+
+            new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Usuario no autenticado")
+                    .setMessage("Debes estar autenticado para subir archivos. ¿Deseas guardar la actividad sin archivos?")
+                    .setPositiveButton("Guardar sin archivos", (d, w) -> {
+                        escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
+                                null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
+                    })
+                    .setNegativeButton("Cancelar", (d, w) -> {
+                        btnGuardar.setEnabled(true);
+                        btnGuardar.setText("Guardar actividad");
+                    })
+                    .show();
+            return;
+        }
+
         android.util.Log.d("FS-UPLOAD", "✅ Usuario autenticado: " + currentUser.getEmail() + " (UID: " + currentUser.getUid() + ")");
+        android.util.Log.d("FS-UPLOAD", "🚀 Iniciando subida de " + attachmentUris.size() + " archivos");
 
         StorageReference baseRef = storage.getReference().child("activities").child(activityId).child("attachments");
-        android.util.Log.d("FS-UPLOAD", "🚀 Iniciando subida de " + attachmentUris.size() + " archivos");
-        android.util.Log.d("FS-UPLOAD", "🔧 Firebase Storage bucket: " + storage.getReference().getBucket());
         android.util.Log.d("FS-UPLOAD", "🔧 Ruta de subida: " + baseRef.getPath());
 
         List<Task<Uri>> urlTasks = new ArrayList<>();
         List<Uri> srcs = new ArrayList<>();
+
         for (int i = 0; i < attachmentUris.size(); i++) {
             Uri uri = attachmentUris.get(i);
             String fileName = getDisplayName(uri);
             String mime = getMime(uri);
-            
-            android.util.Log.d("FS-UPLOAD", "📎 Procesando archivo " + (i+1) + "/" + attachmentUris.size() + ": " + fileName + " (MIME: " + mime + ")");
-            
-            // Validar que el archivo tenga un nombre válido
+
+            android.util.Log.d("FS-UPLOAD", "📎 Archivo " + (i+1) + "/" + attachmentUris.size() + ": " + fileName + " (MIME: " + mime + ")");
+
             if (TextUtils.isEmpty(fileName) || fileName.equals("archivo")) {
                 fileName = "archivo_" + System.currentTimeMillis() + "_" + i;
                 android.util.Log.w("FS-UPLOAD", "⚠️ Nombre de archivo inválido, usando: " + fileName);
             }
-            
-            // Validar que la URI sea válida
+
             if (uri == null) {
                 android.util.Log.e("FS-UPLOAD", "❌ URI nula para archivo " + (i+1));
                 continue;
             }
 
-            // Crear variables finales para usar en lambdas
             final String finalFileName = fileName;
             final Uri finalUri = uri;
             final String finalMime = mime;
@@ -1042,76 +1257,118 @@ public class ActivityFormFragment extends Fragment {
                             .build();
 
             UploadTask up = fileRef.putFile(finalUri, md);
+
+            up.addOnProgressListener(taskSnapshot -> {
+                double progress = (100.0 * taskSnapshot.getBytesTransferred()) / taskSnapshot.getTotalByteCount();
+                android.util.Log.d("FS-UPLOAD", "📊 Progreso " + finalFileName + ": " + (int)progress + "%");
+            });
+
             up.addOnFailureListener(e -> {
                 android.util.Log.e("FS-UPLOAD", "❌ Falló subir " + finalFileName + ": " + e.getMessage(), e);
-                android.util.Log.e("FS-UPLOAD", "❌ URI del archivo: " + finalUri.toString());
+
+                // ✅ NUEVO: Mostrar error específico al usuario
+                if (e instanceof com.google.firebase.storage.StorageException) {
+                    com.google.firebase.storage.StorageException se = (com.google.firebase.storage.StorageException) e;
+                    if (se.getErrorCode() == com.google.firebase.storage.StorageException.ERROR_NOT_AUTHORIZED) {
+                        android.util.Log.e("FS-UPLOAD", "❌ Error de permisos en Storage - verificar storage.rules");
+                    }
+                }
             });
-            
+
             up.addOnSuccessListener(taskSnapshot -> {
                 android.util.Log.d("FS-UPLOAD", "✅ Archivo subido exitosamente: " + finalFileName);
             });
 
             Task<Uri> urlTask = up.continueWithTask(task -> {
                 if (!task.isSuccessful()) {
-                    android.util.Log.e("FS-UPLOAD", "❌ Error obteniendo URL para " + finalFileName + ": " + task.getException().getMessage());
+                    Exception ex = task.getException();
+                    android.util.Log.e("FS-UPLOAD", "❌ Error obteniendo URL para " + finalFileName + ": " +
+                            (ex != null ? ex.getMessage() : "unknown"), ex);
                     throw task.getException();
                 }
                 android.util.Log.d("FS-UPLOAD", "🔗 Obteniendo URL de descarga para: " + finalFileName);
                 return fileRef.getDownloadUrl();
             });
+
             urlTasks.add(urlTask);
             srcs.add(finalUri);
         }
 
         com.google.android.gms.tasks.Tasks.whenAllComplete(urlTasks)
                 .addOnSuccessListener(list -> {
-                    android.util.Log.d("FS-UPLOAD", "📊 Procesando resultados de " + list.size() + " tareas de subida");
+                    android.util.Log.d("FS-UPLOAD", "📊 Procesando resultados de " + list.size() + " tareas");
                     List<Map<String, Object>> adj = new ArrayList<>();
                     List<String> archivosFallidos = new ArrayList<>();
-                    
+
                     for (int j = 0; j < list.size(); j++) {
                         Task<?> t = (Task<?>) list.get(j);
                         Uri src = srcs.get(j);
                         String fileName = getDisplayName(src);
-                        
+
                         if (t.isSuccessful() && t.getResult() instanceof Uri) {
                             Uri download = (Uri) t.getResult();
                             Map<String, Object> item = new HashMap<>();
                             item.put("name", fileName);
-                            item.put("nombre", fileName); // Agregar también 'nombre' para compatibilidad
-                            String mime = getMime(src);
-                            if (mime != null) item.put("mime", mime);
+                            item.put("nombre", fileName);
+                            String mimeType = getMime(src);
+                            if (mimeType != null) item.put("mime", mimeType);
                             item.put("url", download.toString());
-                            item.put("id", "adj_" + System.currentTimeMillis() + "_" + j); // ID único para cada adjunto
+                            item.put("id", "adj_" + System.currentTimeMillis() + "_" + j);
                             adj.add(item);
-                            android.util.Log.d("FS-UPLOAD", "✅ Adjunto procesado exitosamente: " + fileName);
+                            android.util.Log.d("FS-UPLOAD", "✅ Adjunto procesado: " + fileName);
                         } else {
                             archivosFallidos.add(fileName);
-                            android.util.Log.e("FS-UPLOAD", "❌ Falló procesar adjunto: " + fileName + " - Error: " + 
-                                    (t.getException() != null ? t.getException().getMessage() : "Error desconocido"));
+                            Exception ex = t.getException();
+                            android.util.Log.e("FS-UPLOAD", "❌ Falló procesar: " + fileName +
+                                    " - Error: " + (ex != null ? ex.getMessage() : "unknown"), ex);
                         }
                     }
-                    
+
                     android.util.Log.d("FS-UPLOAD", "📈 Resumen: " + adj.size() + " exitosos, " + archivosFallidos.size() + " fallidos");
-                    
+
                     if (!archivosFallidos.isEmpty()) {
-                        String mensaje = "Los siguientes archivos no se pudieron subir: " + String.join(", ", archivosFallidos);
+                        String mensaje = "Archivos no subidos: " + String.join(", ", archivosFallidos);
                         Snackbar.make(root, mensaje, Snackbar.LENGTH_LONG).show();
-                        android.util.Log.w("FS-UPLOAD", "⚠️ " + mensaje);
                     }
-                    
+
                     if (adj.isEmpty()) {
-                        Snackbar.make(root, "No se pudieron subir ningún archivo. Guardando actividad sin adjuntos.", Snackbar.LENGTH_LONG).show();
-                        android.util.Log.w("FS-UPLOAD", "⚠️ No se subió ningún archivo - guardando sin adjuntos");
+                        new MaterialAlertDialogBuilder(requireContext())
+                                .setTitle("Error al subir archivos")
+                                .setMessage("No se pudo subir ningún archivo. Verifica:\n\n" +
+                                        "1. Tu conexión a internet\n" +
+                                        "2. Los permisos de Firebase Storage\n" +
+                                        "3. Que los archivos no excedan 5MB\n\n" +
+                                        "¿Deseas guardar la actividad sin archivos?")
+                                .setPositiveButton("Guardar sin archivos", (d, w) -> {
+                                    escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
+                                            null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
+                                })
+                                .setNegativeButton("Cancelar", (d, w) -> {
+                                    btnGuardar.setEnabled(true);
+                                    btnGuardar.setText("Guardar actividad");
+                                })
+                                .show();
+                        return;
                     }
-                    
+
                     escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
                             null, lugar, modoPeriodica, startAtPuntual, timestamps, adj, proyecto, diasAvisoPrevio);
                 })
                 .addOnFailureListener(e -> {
-                    Snackbar.make(root, "No se pudieron subir los adjuntos (" + e.getMessage() + "). Guardando sin archivos.", Snackbar.LENGTH_LONG).show();
-                    escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
-                            null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
+                    android.util.Log.e("FS-UPLOAD", "❌ Error general al subir archivos: " + e.getMessage(), e);
+
+                    new MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("Error al subir archivos")
+                            .setMessage("No se pudieron subir los archivos.\n\nError: " + e.getMessage() + "\n\n¿Deseas guardar sin archivos?")
+                            .setPositiveButton("Guardar sin archivos", (d, w) -> {
+                                escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
+                                        null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
+                            })
+                            .setNegativeButton("Cancelar", (d, w) -> {
+                                btnGuardar.setEnabled(true);
+                                btnGuardar.setText("Guardar actividad");
+                            })
+                            .show();
                 });
     }
 
@@ -1404,6 +1661,7 @@ public class ActivityFormFragment extends Fragment {
     private String getText(TextInputEditText et) {
         return (et == null || et.getText() == null) ? "" : et.getText().toString().trim();
     }
+
 
     private String getText(AutoCompleteTextView ac) {
         return (ac == null || ac.getText() == null) ? "" : ac.getText().toString().trim();

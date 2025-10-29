@@ -7,6 +7,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -15,6 +17,7 @@ import androidx.annotation.Nullable;
 import com.centroalerce.gestion.R;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -39,6 +42,8 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
     // ===== Utils Firestore multi-colección (ES/EN) =====
     private static final String COL_EN = "activities";
+    private LinearLayout llAdjuntos;
+    private final List<Map<String, Object>> adjuntosCargados = new ArrayList<>();
     private static final String COL_ES = "actividades";
     private DocumentReference act(String actividadId, boolean preferEN) {
         return FirebaseFirestore.getInstance().collection(preferEN ? COL_EN : COL_ES).document(actividadId);
@@ -72,10 +77,11 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         return i.inflate(R.layout.sheet_modificar_actividad, c, false);
     }
 
-    @Override public void onViewCreated(@NonNull View v, @Nullable Bundle b) {
-        super.onViewCreated(v,b);
+    @Override
+    public void onViewCreated(@NonNull View v, @Nullable Bundle b) {
+        super.onViewCreated(v, b);
         db = FirebaseFirestore.getInstance();
-        actividadId = getArguments()!=null ? getArguments().getString(ARG_ACTIVIDAD_ID) : null;
+        actividadId = getArguments() != null ? getArguments().getString(ARG_ACTIVIDAD_ID) : null;
 
         etNombre = v.findViewById(R.id.etNombre);
         etCupo = v.findViewById(R.id.etCupo);
@@ -89,8 +95,28 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         actSocio = v.findViewById(R.id.actSocio);
         actProyecto = v.findViewById(R.id.actProyecto);
 
+        llAdjuntos = v.findViewById(R.id.llAdjuntos);
+
         // Estáticos
         actPeriodicidad.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, periodicidades));
+
+        // --- NUEVO: Listener para detectar cambio de periodicidad ---
+        final String[] periodicidadOriginal = {null};
+
+        actPeriodicidad.setOnFocusChangeListener((view, hasFocus) -> {
+            if (hasFocus && periodicidadOriginal[0] == null) {
+                periodicidadOriginal[0] = actPeriodicidad.getText().toString();
+            }
+        });
+
+        actPeriodicidad.setOnItemClickListener((parent, view, position, id) -> {
+            String seleccionNueva = parent.getItemAtPosition(position).toString();
+
+            if (periodicidadOriginal[0] != null && !periodicidadOriginal[0].equals(seleccionNueva)) {
+                mostrarDialogoCambiarPeriodicidad();
+                actPeriodicidad.post(() -> actPeriodicidad.setText(periodicidadOriginal[0], false));
+            }
+        });
 
         // Dinámicos con {id, nombre}
         cargarTiposActividad();
@@ -108,10 +134,117 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     private void precargar(){
         if (TextUtils.isEmpty(actividadId)) { toast("Falta actividadId"); return; }
         act(actividadId,true).get().addOnSuccessListener(doc -> {
-            if (doc!=null && doc.exists()) bind(doc);
-            else act(actividadId,false).get().addOnSuccessListener(this::bind)
-                    .addOnFailureListener(e -> toast("No se pudo cargar"));
+            if (doc!=null && doc.exists()) {
+                bind(doc);
+                cargarAdjuntos(); // NUEVO
+            } else {
+                act(actividadId,false).get().addOnSuccessListener(d -> {
+                    bind(d);
+                    cargarAdjuntos(); // NUEVO
+                }).addOnFailureListener(e -> toast("No se pudo cargar"));
+            }
         }).addOnFailureListener(e -> toast("No se pudo cargar"));
+    }
+    private void cargarAdjuntos() {
+        if (TextUtils.isEmpty(actividadId) || llAdjuntos == null) return;
+
+        act(actividadId, true).get().addOnSuccessListener(doc -> {
+            if (doc != null && doc.exists()) {
+                mostrarAdjuntosDelDoc(doc);
+            } else {
+                act(actividadId, false).get()
+                        .addOnSuccessListener(this::mostrarAdjuntosDelDoc)
+                        .addOnFailureListener(e -> android.util.Log.e("ADJ", "Error cargando adjuntos", e));
+            }
+        });
+    }
+    private void mostrarAdjuntosDelDoc(DocumentSnapshot doc) {
+        if (doc == null || !doc.exists()) return;
+
+        llAdjuntos.removeAllViews();
+        adjuntosCargados.clear();
+
+        // Obtener adjuntos del documento
+        Object rawAdj = doc.get("adjuntos");
+        if (rawAdj instanceof List) {
+            List<?> lista = (List<?>) rawAdj;
+            for (Object item : lista) {
+                if (item instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> adj = (Map<String, Object>) item;
+                    adjuntosCargados.add(adj);
+                    agregarVistaAdjunto(adj);
+                }
+            }
+        }
+
+        if (adjuntosCargados.isEmpty()) {
+            TextView tvVacio = new TextView(requireContext());
+            tvVacio.setText("No hay archivos adjuntos");
+            tvVacio.setTextColor(0xFF6B7280);
+            tvVacio.setPadding(dp(16), dp(16), dp(16), dp(16));
+            llAdjuntos.addView(tvVacio);
+        }
+    }
+    private void agregarVistaAdjunto(Map<String, Object> adjunto) {
+        LinearLayout itemLayout = new LinearLayout(requireContext());
+        itemLayout.setOrientation(LinearLayout.HORIZONTAL);
+        itemLayout.setPadding(dp(12), dp(8), dp(12), dp(8));
+        itemLayout.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+        // Nombre del archivo
+        TextView tvNombre = new TextView(requireContext());
+        String nombre = adjunto.get("nombre") != null ? adjunto.get("nombre").toString() : "archivo";
+        tvNombre.setText(nombre);
+        tvNombre.setTextSize(14);
+        tvNombre.setTextColor(0xFF111827);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        tvNombre.setLayoutParams(params);
+        itemLayout.addView(tvNombre);
+
+        // Botón eliminar
+        MaterialButton btnEliminar = new MaterialButton(requireContext());
+        btnEliminar.setText("Eliminar");
+        btnEliminar.setTextSize(12);
+        btnEliminar.setBackgroundColor(0xFFDC2626);
+        btnEliminar.setTextColor(0xFFFFFFFF);
+        btnEliminar.setOnClickListener(v -> confirmarEliminarAdjunto(adjunto));
+        itemLayout.addView(btnEliminar);
+
+        llAdjuntos.addView(itemLayout);
+    }
+    private void confirmarEliminarAdjunto(Map<String, Object> adjunto) {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Eliminar adjunto")
+                .setMessage("¿Estás seguro de eliminar este archivo?")
+                .setPositiveButton("Eliminar", (d, w) -> eliminarAdjunto(adjunto))
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+    private void eliminarAdjunto(Map<String, Object> adjunto) {
+        adjuntosCargados.remove(adjunto);
+
+        // Actualizar en Firestore
+        db.runTransaction(trx -> {
+            DocumentReference en = act(actividadId, true);
+            DocumentReference es = act(actividadId, false);
+
+            DocumentSnapshot dEn = trx.get(en);
+            DocumentSnapshot dEs = trx.get(es);
+
+            if (dEn.exists()) trx.update(en, "adjuntos", adjuntosCargados);
+            if (dEs.exists()) trx.update(es, "adjuntos", adjuntosCargados);
+
+            return null;
+        }).addOnSuccessListener(u -> {
+            toast("Adjunto eliminado");
+            mostrarAdjuntosDelDoc(null); // Recargar vista
+            cargarAdjuntos(); // Recargar desde Firestore
+        }).addOnFailureListener(e -> toast("Error al eliminar: " + e.getMessage()));
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private void bind(DocumentSnapshot doc){
@@ -383,6 +516,31 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         try { getParentFragmentManager().setFragmentResult("calendar_refresh", b); } catch (Exception ignore) {}
         try { requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", b); } catch (Exception ignore) {}
         try { requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b); } catch (Exception ignore) {}
+    }
+    private void mostrarDialogoCambiarPeriodicidad() {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("⚠️ Cambiar periodicidad")
+                .setMessage("Para cambiar la periodicidad de una actividad (de puntual a periódica o viceversa), es necesario crear una nueva actividad.\n\n" +
+                        "Esto se debe a que cambiar la periodicidad afecta la forma en que se generan las citas.\n\n" +
+                        "¿Qué deseas hacer?")
+                .setPositiveButton("Crear nueva actividad", (d, w) -> {
+                    // Navegar al formulario de creación
+                    try {
+                        dismiss();
+                        // Usar el NavController del Activity
+                        androidx.navigation.NavController navController =
+                                androidx.navigation.Navigation.findNavController(requireActivity(), R.id.nav_host);
+                        navController.navigate(R.id.activityFormFragment);
+                    } catch (Exception e) {
+                        toast("No se pudo navegar al formulario de creación");
+                    }
+                })
+                .setNegativeButton("Continuar editando", (d, w) -> {
+                    // No hacer nada, mantener el valor original
+                    d.dismiss();
+                })
+                .setCancelable(true)
+                .show();
     }
 
     private void toast(String m){ Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }

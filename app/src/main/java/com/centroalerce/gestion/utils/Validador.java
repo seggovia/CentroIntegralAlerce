@@ -33,4 +33,9 @@ public class Validador {
     public static boolean esNumeroNoNegativo(int numero) {
         return numero >= 0;
     }
+
+    // ✅ NUEVO: Validar si un número Integer es válido
+    public static boolean esNumeroValido(Integer numero) {
+        return numero != null && numero >= 0;
+    }
 }

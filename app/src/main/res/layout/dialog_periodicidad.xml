@@ -50,7 +50,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:maxHeight="350dp"
+            android:maxHeight="400dp"
             android:fillViewport="true"
             android:overScrollMode="ifContentScrolls"
             android:scrollbars="none">
@@ -61,80 +61,163 @@
                 android:orientation="vertical"
                 android:padding="20dp">
 
-                <!-- Días de la semana -->
+                <!-- Tipo de periodicidad -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Días de la semana"
+                    android:text="Tipo de repetición"
                     android:textStyle="bold"
                     android:textSize="16sp"
                     android:textColor="@color/textPrimary"
                     android:layout_marginBottom="12dp"/>
 
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/chipGroupDias"
+                <com.google.android.material.button.MaterialButtonToggleGroup
+                    android:id="@+id/toggleTipoPeriodicidad"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:singleLine="false"
-                    app:singleSelection="false"
-                    android:layout_marginBottom="20dp">
+                    android:layout_marginBottom="20dp"
+                    app:singleSelection="true"
+                    app:selectionRequired="true"
+                    app:checkedButton="@id/btnDiasSemana">
 
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipLunes"
-                        style="@style/Widget.Material3.Chip.Filter"
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnDiasSemana"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Días de semana"
+                        android:textAllCaps="false"
+                        style="?attr/materialButtonOutlinedStyle"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnDiaDelMes"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Día del mes"
+                        android:textAllCaps="false"
+                        style="?attr/materialButtonOutlinedStyle"/>
+                </com.google.android.material.button.MaterialButtonToggleGroup>
+
+                <!-- Días de la semana (visible cuando se selecciona "Días de semana") -->
+                <LinearLayout
+                    android:id="@+id/layoutDiasSemana"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Lunes"
-                        app:chipBackgroundColor="@color/chip_bg_selector"/>
+                        android:text="Días de la semana"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:textColor="@color/textPrimary"
+                        android:layout_marginBottom="12dp"/>
 
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipMartes"
-                        style="@style/Widget.Material3.Chip.Filter"
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupDias"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:singleLine="false"
+                        app:singleSelection="false"
+                        android:layout_marginBottom="20dp">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipLunes"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Lunes"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipMartes"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Martes"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipMiercoles"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Miércoles"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipJueves"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Jueves"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipViernes"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Viernes"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipSabado"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Sábado"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipDomingo"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Domingo"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+                    </com.google.android.material.chip.ChipGroup>
+                </LinearLayout>
+
+                <!-- Día del mes (visible cuando se selecciona "Día del mes") -->
+                <LinearLayout
+                    android:id="@+id/layoutDiaDelMes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Martes"
-                        app:chipBackgroundColor="@color/chip_bg_selector"/>
+                        android:text="Día del mes"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:textColor="@color/textPrimary"
+                        android:layout_marginBottom="12dp"/>
 
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipMiercoles"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/TextInputLayout.Alerce"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Miércoles"
-                        app:chipBackgroundColor="@color/chip_bg_selector"/>
+                        android:hint="Día (1-31)"
+                        app:helperText="Ejemplo: 1 para el primer día de cada mes"
+                        app:helperTextTextColor="@color/textSecondary"
+                        app:startIconDrawable="@android:drawable/ic_menu_month"
+                        app:startIconTint="@color/primary"
+                        android:layout_marginBottom="20dp">
 
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipJueves"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Jueves"
-                        app:chipBackgroundColor="@color/chip_bg_selector"/>
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipViernes"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Viernes"
-                        app:chipBackgroundColor="@color/chip_bg_selector"/>
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipSabado"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Sábado"
-                        app:chipBackgroundColor="@color/chip_bg_selector"/>
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipDomingo"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Domingo"
-                        app:chipBackgroundColor="@color/chip_bg_selector"/>
-                </com.google.android.material.chip.ChipGroup>
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etDiaDelMes"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:textColor="@color/textPrimary"
+                            android:textSize="16sp"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
 
                 <!-- Rango de fechas -->
                 <TextView

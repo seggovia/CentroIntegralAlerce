@@ -262,13 +262,31 @@
                     android:inputType="none"/>
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Adjuntos -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Archivos adjuntos"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="@color/textPrimary"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="12dp"/>
+
+            <LinearLayout
+                android:id="@+id/llAdjuntos"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="20dp"/>
+
             <!-- Botón guardar -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnGuardarCambios"
                 style="@style/Button.Primary.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:layout_marginTop="28dp"
+                android:layout_marginTop="8dp"
                 android:text="Guardar cambios"
                 app:icon="@android:drawable/ic_menu_save"
                 app:iconGravity="textStart"/>
