@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@color/surface"
+    android:background="@drawable/bg_mantenedores_soft"
     android:paddingBottom="16dp"
     android:clipToPadding="false">
 
@@ -21,10 +21,10 @@
     <!-- Header con gradiente -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="130dp"
+        android:layout_height="100dp"
         android:padding="20dp"
         android:gravity="bottom"
-        android:background="@drawable/bg_header_gradient"
+        android:background="@drawable/bg_header_alerce"
         android:orientation="vertical">
 
         <TextView
@@ -49,11 +49,12 @@
             android:textColor="@android:color/white"/>
     </LinearLayout>
 
-    <!-- Contenido SCROLEABLE + spacer para barra de navegación -->
+    <!-- Contenido SCROLLABLE -->
     <androidx.core.widget.NestedScrollView
         android:id="@+id/nsContent"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:maxHeight="500dp"
         android:fillViewport="true"
         android:clipToPadding="false">
 
@@ -64,41 +65,70 @@
             android:orientation="vertical"
             android:padding="20dp">
 
-            <!-- Chips estado / fecha-hora / lugar -->
             <com.google.android.material.chip.ChipGroup
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp">
+                android:layout_marginBottom="16dp"
+                app:chipSpacingHorizontal="8dp">
 
+                <!-- Chip Estado (colores dinámicos según estado) -->
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chEstado"
-                    style="@style/Widget.Material3.Chip.Suggestion"
+                    style="@style/Widget.Material3.Chip.Assist"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Programada"
+                    android:textStyle="bold"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/white"
                     app:chipIcon="@android:drawable/presence_online"
-                    app:chipIconTint="@color/primary"
-                    app:chipIconVisible="true"/>
+                    app:chipIconTint="@android:color/white"
+                    app:chipIconVisible="true"
+                    app:chipIconSize="16dp"
+                    app:chipBackgroundColor="@color/state_programada_pill"
+                    app:chipCornerRadius="12dp"
+                    app:chipMinHeight="32dp"/>
 
+                <!-- Chip Fecha/Hora (azul suave) -->
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chFechaHora"
-                    style="@style/Widget.Material3.Chip.Suggestion"
+                    style="@style/Widget.Material3.Chip.Assist"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="dd/MM/yyyy • HH:mm"
+                    android:textStyle="bold"
+                    android:textSize="12sp"
+                    android:textColor="@color/textPrimary"
                     app:chipIcon="@android:drawable/ic_menu_recent_history"
-                    app:chipIconTint="@color/primary"
-                    app:chipIconVisible="true"/>
+                    app:chipIconTint="@color/info"
+                    app:chipIconVisible="true"
+                    app:chipIconSize="16dp"
+                    app:chipBackgroundColor="@color/primary_light"
+                    app:chipStrokeColor="@color/primary"
+                    app:chipStrokeWidth="1dp"
+                    app:chipCornerRadius="12dp"
+                    app:chipMinHeight="32dp"/>
 
+                <!-- Chip Lugar (verde suave) - CORREGIDO -->
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chLugar"
-                    style="@style/Widget.Material3.Chip.Suggestion"
+                    style="@style/Widget.Material3.Chip.Assist"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Lugar"
-                    app:chipIcon="@android:drawable/ic_menu_mylocation"
-                    app:chipIconTint="@color/primary"
-                    app:chipIconVisible="true"/>
+                    android:textStyle="bold"
+                    android:textSize="12sp"
+                    android:textColor="@color/textPrimary"
+                    app:chipIcon="@android:drawable/ic_dialog_map"
+                    app:chipIconTint="@color/success"
+                    app:chipIconVisible="true"
+                    app:chipIconSize="16dp"
+                    app:chipBackgroundColor="@color/chipBg"
+                    app:chipStrokeColor="@color/success"
+                    app:chipStrokeWidth="1dp"
+                    app:chipCornerRadius="12dp"
+                    app:chipMinHeight="32dp"
+                    app:ensureMinTouchTargetSize="false"/>
             </com.google.android.material.chip.ChipGroup>
 
             <!-- Detalles en card -->
@@ -107,10 +137,10 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                app:strokeColor="@color/divider"
+                app:cardElevation="2dp"
+                app:strokeColor="@color/cardStroke"
                 app:strokeWidth="1dp"
-                app:cardBackgroundColor="@color/surface">
+                app:cardBackgroundColor="@color/card_surface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -124,71 +154,71 @@
                         android:layout_height="wrap_content"
                         android:text="Tipo: —"
                         android:textSize="14sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
 
                     <TextView
                         android:id="@+id/tvPeriodicidad"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
                         android:text="Periodicidad: —"
                         android:textSize="14sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
 
                     <TextView
                         android:id="@+id/tvCupo"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
                         android:text="Cupo: —"
                         android:textSize="14sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
 
                     <TextView
                         android:id="@+id/tvOferente"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
                         android:text="Oferente: —"
                         android:textSize="14sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
 
                     <TextView
                         android:id="@+id/tvSocio"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
                         android:text="Socio comunitario: —"
                         android:textSize="14sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
 
                     <TextView
                         android:id="@+id/tvBeneficiarios"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
                         android:text="Beneficiarios: —"
                         android:textSize="14sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
 
                     <TextView
                         android:id="@+id/tvProyecto"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
                         android:text="Proyecto: —"
                         android:textSize="14sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
 
                     <TextView
                         android:id="@+id/tvDiasAviso"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
                         android:text="Días de aviso previo: —"
                         android:textSize="14sp"
-                        android:textColor="@color/textPrimary"/>
-
+                        android:textColor="@color/textPrimary"
+                        android:paddingVertical="4dp"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -218,19 +248,15 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnModificar"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    style="@style/Button.Outlined.Alerce"
                     android:text="MODIFICAR"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:minHeight="48dp"
-                    android:letterSpacing="0.08"
-                    android:textAllCaps="true"
-                    android:textColor="@color/primary"
-                    android:paddingHorizontal="18dp"
-                    app:cornerRadius="26dp"
-                    app:strokeColor="@color/primary"
-                    app:strokeWidth="2dp" />
+                    android:textSize="14sp"
+                    app:icon="@android:drawable/ic_menu_edit"
+                    app:iconSize="18dp"
+                    app:iconTint="@color/primary"/>
 
                 <Space
                     android:layout_width="12dp"
@@ -238,19 +264,15 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnReagendar"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    style="@style/Button.Outlined.Alerce"
                     android:text="REAGENDAR"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:minHeight="48dp"
-                    android:letterSpacing="0.08"
-                    android:textAllCaps="true"
-                    android:textColor="@color/primary"
-                    android:paddingHorizontal="18dp"
-                    app:cornerRadius="26dp"
-                    app:strokeColor="@color/primary"
-                    app:strokeWidth="2dp" />
+                    android:textSize="14sp"
+                    app:icon="@android:drawable/ic_menu_recent_history"
+                    app:iconSize="18dp"
+                    app:iconTint="@color/primary"/>
             </LinearLayout>
 
             <!-- Botones de acción (fila 2) -->
@@ -263,18 +285,15 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnAdjuntar"
-                    style="@style/Widget.Material3.Button"
+                    style="@style/Button.Primary.Alerce"
                     android:text="ADJUNTAR"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:minHeight="48dp"
-                    android:letterSpacing="0.08"
-                    android:textAllCaps="true"
-                    android:textColor="@android:color/white"
-                    android:paddingHorizontal="18dp"
-                    app:cornerRadius="26dp"
-                    app:backgroundTint="@color/primary" />
+                    android:textSize="14sp"
+                    app:icon="@drawable/ic_attach_24"
+                    app:iconSize="18dp"
+                    app:iconTint="@android:color/white"/>
 
                 <Space
                     android:layout_width="12dp"
@@ -282,37 +301,30 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnCancelar"
-                    style="@style/Widget.Material3.Button"
+                    style="@style/Button.Primary.Alerce"
                     android:text="CANCELAR"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:minHeight="48dp"
-                    android:letterSpacing="0.08"
-                    android:textAllCaps="true"
-                    android:textColor="@android:color/white"
-                    android:paddingHorizontal="18dp"
-                    app:cornerRadius="26dp"
-                    app:backgroundTint="@color/error" />
+                    android:textSize="14sp"
+                    app:backgroundTint="@color/error"
+                    app:icon="@android:drawable/ic_menu_close_clear_cancel"
+                    app:iconSize="18dp"
+                    app:iconTint="@android:color/white"/>
             </LinearLayout>
 
-            <!-- 👇 NUEVO: Botón Completar (fila 3) -->
+            <!-- Botón Completar (fila 3) -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCompletar"
-                style="@style/Widget.Material3.Button"
+                style="@style/Button.Primary.Alerce"
                 android:text="MARCAR COMO COMPLETADA"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:layout_marginTop="12dp"
-                android:minHeight="48dp"
-                android:letterSpacing="0.08"
-                android:textAllCaps="true"
-                android:textColor="@android:color/white"
-                android:paddingHorizontal="18dp"
-                app:cornerRadius="26dp"
-                app:backgroundTint="#10B981"
+                app:backgroundTint="@color/success"
                 app:icon="@android:drawable/checkbox_on_background"
-                app:iconTint="@android:color/white" />
+                app:iconSize="20dp"
+                app:iconTint="@android:color/white"/>
 
             <!-- Spacer para no quedar bajo la navbar -->
             <View

@@ -107,30 +107,33 @@ public class ActividadRepository {
 
                     documentReference.update("id", actividadId);
 
-                    createCitas(actividadId, actividad.getNombre(), fechasCitas,
-                            lugarId, lugarNombre, actividad.getCreadoPor(), callback);
+                    // --- MODIFICACIÓN 1: Se pasa el objeto 'actividad' completo ---
+                    createCitas(actividad, fechasCitas, lugarId, lugarNombre, callback);
                 })
                 .addOnFailureListener(e -> callback.onError(e.getMessage()));
     }
 
+    // --- MODIFICACIÓN 2: La firma del método ahora recibe el objeto 'Actividad' completo ---
     // Crear citas para una actividad
-    private void createCitas(String actividadId, String actividadNombre,
-                             List<Date> fechasCitas, String lugarId, String lugarNombre,
-                             String creadoPor, CreateCallback callback) {
+    private void createCitas(Actividad actividad, List<Date> fechasCitas, String lugarId, String lugarNombre, CreateCallback callback) {
         int totalCitas = fechasCitas.size();
         int[] citasCreadas = {0};
 
         for (Date fecha : fechasCitas) {
             Cita cita = new Cita();
-            cita.setActividadId(actividadId);
-            cita.setActividadNombre(actividadNombre);
+            cita.setActividadId(actividad.getId());
+            cita.setActividadNombre(actividad.getNombre());
             cita.setLugarId(lugarId);
             cita.setLugarNombre(lugarNombre);
+
+            // --- LÍNEA CLAVE AÑADIDA: Se asignan los beneficiarios a la cita ---
+            cita.setBeneficiariosIds(actividad.getBeneficiariosIds());
+
             cita.setFecha(new Timestamp(fecha));
             cita.setStartAt(new Timestamp(fecha)); // Para queries
             cita.setEstado("programada");
             cita.setFechaCreacion(Timestamp.now());
-            cita.setCreadoPor(creadoPor);
+            cita.setCreadoPor(actividad.getCreadoPor());
             cita.setNotificacionEnviada(false);
 
             db.collection("citas")
@@ -139,7 +142,7 @@ public class ActividadRepository {
                         docRef.update("id", docRef.getId());
                         citasCreadas[0]++;
                         if (citasCreadas[0] == totalCitas) {
-                            callback.onSuccess(actividadId);
+                            callback.onSuccess(actividad.getId());
                         }
                     })
                     .addOnFailureListener(e -> callback.onError(e.getMessage()));

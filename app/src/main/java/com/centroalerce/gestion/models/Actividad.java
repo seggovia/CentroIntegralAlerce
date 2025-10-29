@@ -119,6 +119,33 @@ public class Actividad {
         return "Periodica".equals(this.periodicidad);
     }
 
+
+
+
+    // Dentro de tu clase Actividad.java, junto a los otros campos
+
+// ... otros campos como nombre, cupo, activo, etc.
+
+    // CAMPO A AÑADIR:
+    private List<String> beneficiariosIds;
+
+// ... otros getters y setters que ya tienes
+
+    // MÉTODOS A AÑADIR:
+    public List<String> getBeneficiariosIds() {
+        return beneficiariosIds;
+    }
+
+    public void setBeneficiariosIds(List<String> beneficiariosIds) {
+        this.beneficiariosIds = beneficiariosIds;
+    }
+
+
+
+
+
+
+
     public boolean tieneProyecto() {
         return proyectoId != null && !proyectoId.isEmpty();
     }

@@ -4,24 +4,24 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background"
+    android:background="@drawable/bg_mantenedores_soft"
     android:fitsSystemWindows="true">
 
-    <!-- Header degradado -->
+    <!-- Toolbar/Header -->
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="180dp"
-        android:background="@drawable/bg_header_gradient"
+        android:layout_height="200dp"
+        android:background="@drawable/bg_header_alerce"
         app:title=""
         app:titleCentered="true"
         app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
-        app:navigationIconTint="@android:color/white" />
+        app:navigationIconTint="@android:color/white"/>
 
-    <!-- Título y subtítulo centrados -->
+    <!-- Título y subtítulo -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="180dp"
+        android:layout_height="200dp"
         android:orientation="vertical"
         android:gravity="center">
 
@@ -33,7 +33,7 @@
             android:textSize="32sp"
             android:textStyle="bold"
             android:textColor="@android:color/white"
-            android:letterSpacing="0.02" />
+            android:letterSpacing="0.02"/>
 
         <TextView
             android:id="@+id/tvSubtitle"
@@ -43,7 +43,7 @@
             android:textSize="15sp"
             android:alpha="0.9"
             android:paddingTop="4dp"
-            android:textColor="@android:color/white" />
+            android:textColor="@android:color/white"/>
     </LinearLayout>
 
     <!-- Contenido scrollable -->
@@ -51,7 +51,7 @@
         android:id="@+id/scroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="140dp"
+        android:layout_marginTop="160dp"
         android:clipToPadding="false"
         android:paddingLeft="16dp"
         android:paddingRight="16dp"
@@ -69,7 +69,7 @@
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="24dp"
                 app:cardBackgroundColor="@color/card_surface"
-                app:cardCornerRadius="16dp"
+                app:cardCornerRadius="20dp"
                 app:cardElevation="4dp"
                 app:strokeColor="@color/cardStroke"
                 app:strokeWidth="1dp">
@@ -82,44 +82,41 @@
 
                     <!-- Nombre -->
                     <com.google.android.material.textfield.TextInputLayout
+                        style="@style/TextInputLayout.Alerce"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:hint="Nombre de la actividad *"
-                        app:boxBackgroundMode="outline"
-                        app:boxStrokeColor="@color/primary"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusBottomEnd="12dp">
+                        app:startIconDrawable="@android:drawable/ic_menu_edit"
+                        app:startIconTint="@color/primary"
+                        app:endIconMode="clear_text">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etNombre"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:textColor="@color/textPrimary"
-                            android:inputType="textCapSentences" />
+                            android:inputType="textCapSentences"
+                            android:textSize="16sp"/>
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <!-- Tipo de actividad -->
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/tilTipo"
+                        style="@style/TextInputLayout.Alerce"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:hint="Tipo de actividad *"
                         android:layout_marginTop="16dp"
                         app:endIconMode="dropdown_menu"
-                        app:boxBackgroundMode="outline"
-                        app:boxStrokeColor="@color/primary"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusBottomEnd="12dp">
+                        app:startIconDrawable="@android:drawable/ic_menu_sort_by_size"
+                        app:startIconTint="@color/primary">
 
                         <com.google.android.material.textfield.MaterialAutoCompleteTextView
                             android:id="@+id/acTipoActividad"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/textPrimary" />
+                            android:textColor="@color/textPrimary"
+                            android:textSize="16sp"/>
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <!-- Toggle Puntual / Periódica -->
@@ -131,7 +128,7 @@
                         android:textSize="14sp"
                         android:textColor="@color/textPrimary"
                         android:layout_marginTop="20dp"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_marginBottom="8dp"/>
 
                     <com.google.android.material.button.MaterialButtonToggleGroup
                         android:id="@+id/tgPeriodicidad"
@@ -144,23 +141,22 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnPuntual"
                             android:layout_width="wrap_content"
-                            android:layout_height="40dp"
+                            android:layout_height="48dp"
                             android:text="Puntual"
                             android:textAllCaps="false"
                             style="?attr/materialButtonOutlinedStyle"
-                            app:cornerRadius="20dp" />
+                            app:cornerRadius="24dp"/>
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnPeriodica"
                             android:layout_width="wrap_content"
-                            android:layout_height="40dp"
+                            android:layout_height="48dp"
                             android:text="Periódica"
                             android:textAllCaps="false"
                             style="?attr/materialButtonOutlinedStyle"
-                            app:cornerRadius="20dp" />
+                            app:cornerRadius="24dp"/>
                     </com.google.android.material.button.MaterialButtonToggleGroup>
-
-                    <!-- Cupo & Lugar -->
+                    <!-- Cupo, Días de aviso, Lugar -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -168,73 +164,88 @@
                         android:layout_marginTop="16dp">
 
                         <com.google.android.material.textfield.TextInputLayout
+                            style="@style/TextInputLayout.Alerce"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:hint="Cupo"
-                            app:boxBackgroundMode="outline"
-                            app:boxStrokeColor="@color/primary"
-                            app:boxCornerRadiusTopStart="12dp"
-                            app:boxCornerRadiusTopEnd="12dp"
-                            app:boxCornerRadiusBottomStart="12dp"
-                            app:boxCornerRadiusBottomEnd="12dp">
+                            app:startIconDrawable="@android:drawable/ic_menu_myplaces"
+                            app:startIconTint="@color/primary">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/etCupo"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:textColor="@color/textPrimary"
-                                android:inputType="number" />
+                                android:inputType="number"
+                                android:textSize="16sp"/>
                         </com.google.android.material.textfield.TextInputLayout>
 
                         <Space
-                            android:layout_width="12dp"
-                            android:layout_height="wrap_content" />
+                            android:layout_width="8dp"
+                            android:layout_height="wrap_content"/>
 
-                        <!-- Lugar como Combo -->
                         <com.google.android.material.textfield.TextInputLayout
+                            style="@style/TextInputLayout.Alerce"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:hint="Lugar"
-                            app:endIconMode="dropdown_menu"
-                            app:boxBackgroundMode="outline"
-                            app:boxStrokeColor="@color/primary"
-                            app:boxCornerRadiusTopStart="12dp"
-                            app:boxCornerRadiusTopEnd="12dp"
-                            app:boxCornerRadiusBottomStart="12dp"
-                            app:boxCornerRadiusBottomEnd="12dp">
+                            android:hint="@string/dias_aviso_previo"
+                            app:helperText="Días antes"
+                            app:helperTextTextColor="@color/textSecondary"
+                            app:startIconDrawable="@android:drawable/ic_menu_recent_history"
+                            app:startIconTint="@color/primary">
 
-                            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                                android:id="@+id/acLugar"
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etDiasAvisoPrevio"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:textColor="@color/textPrimary" />
+                                android:textColor="@color/textPrimary"
+                                android:inputType="number"
+                                android:text="1"
+                                android:textSize="16sp"/>
                         </com.google.android.material.textfield.TextInputLayout>
                     </LinearLayout>
 
-                    <!-- Oferente (Combo) -->
+                    <!-- Lugar -->
                     <com.google.android.material.textfield.TextInputLayout
+                        style="@style/TextInputLayout.Alerce"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:hint="Lugar"
+                        app:endIconMode="dropdown_menu"
+                        app:startIconDrawable="@android:drawable/ic_dialog_map"
+                        app:startIconTint="@color/primary">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/acLugar"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/textPrimary"
+                            android:textSize="16sp"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Oferente -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/TextInputLayout.Alerce"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
                         android:hint="Oferente"
                         app:endIconMode="dropdown_menu"
-                        app:boxBackgroundMode="outline"
-                        app:boxStrokeColor="@color/primary"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusBottomEnd="12dp">
+                        app:startIconDrawable="@android:drawable/ic_menu_share"
+                        app:startIconTint="@color/primary">
 
                         <com.google.android.material.textfield.MaterialAutoCompleteTextView
                             android:id="@+id/acOferente"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/textPrimary" />
+                            android:textColor="@color/textPrimary"
+                            android:textSize="16sp"/>
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <!-- Sección Fechas -->
+                    <!-- Sección Fecha y hora -->
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -243,7 +254,7 @@
                         android:textSize="14sp"
                         android:textColor="@color/textPrimary"
                         android:layout_marginTop="20dp"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_marginBottom="8dp"/>
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -251,19 +262,14 @@
                         android:orientation="horizontal">
 
                         <com.google.android.material.textfield.TextInputLayout
+                            style="@style/TextInputLayout.Alerce"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:hint="Fecha"
                             app:endIconMode="custom"
                             app:endIconDrawable="@android:drawable/ic_menu_month"
-                            app:endIconTint="@color/primary"
-                            app:boxBackgroundMode="outline"
-                            app:boxStrokeColor="@color/primary"
-                            app:boxCornerRadiusTopStart="12dp"
-                            app:boxCornerRadiusTopEnd="12dp"
-                            app:boxCornerRadiusBottomStart="12dp"
-                            app:boxCornerRadiusBottomEnd="12dp">
+                            app:endIconTint="@color/primary">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/etFecha"
@@ -271,27 +277,23 @@
                                 android:layout_height="wrap_content"
                                 android:focusable="false"
                                 android:clickable="true"
-                                android:textColor="@color/textPrimary" />
+                                android:textColor="@color/textPrimary"
+                                android:textSize="16sp"/>
                         </com.google.android.material.textfield.TextInputLayout>
 
                         <Space
                             android:layout_width="12dp"
-                            android:layout_height="wrap_content" />
+                            android:layout_height="wrap_content"/>
 
                         <com.google.android.material.textfield.TextInputLayout
+                            style="@style/TextInputLayout.Alerce"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:hint="Hora"
                             app:endIconMode="custom"
                             app:endIconDrawable="@android:drawable/ic_menu_recent_history"
-                            app:endIconTint="@color/primary"
-                            app:boxBackgroundMode="outline"
-                            app:boxStrokeColor="@color/primary"
-                            app:boxCornerRadiusTopStart="12dp"
-                            app:boxCornerRadiusTopEnd="12dp"
-                            app:boxCornerRadiusBottomStart="12dp"
-                            app:boxCornerRadiusBottomEnd="12dp">
+                            app:endIconTint="@color/primary">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/etHora"
@@ -299,71 +301,116 @@
                                 android:layout_height="wrap_content"
                                 android:focusable="false"
                                 android:clickable="true"
-                                android:textColor="@color/textPrimary" />
+                                android:textColor="@color/textPrimary"
+                                android:textSize="16sp"/>
                         </com.google.android.material.textfield.TextInputLayout>
                     </LinearLayout>
 
-                    <!-- Socio comunitario (Combo) -->
+                    <!-- Socio comunitario -->
                     <com.google.android.material.textfield.TextInputLayout
+                        style="@style/TextInputLayout.Alerce"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
                         android:hint="Socio comunitario"
-                        app:endIconMode="dropdown_menu"
-                        app:boxBackgroundMode="outline"
-                        app:boxStrokeColor="@color/primary"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusBottomEnd="12dp">
+                        app:endIconMode="dropdown_menu">
 
                         <com.google.android.material.textfield.MaterialAutoCompleteTextView
                             android:id="@+id/acSocio"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/textPrimary" />
+                            android:textColor="@color/textPrimary"
+                            android:textSize="16sp"/>
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <!-- Proyecto (Combo) -->
+                    <!-- Proyecto -->
                     <com.google.android.material.textfield.TextInputLayout
+                        style="@style/TextInputLayout.Alerce"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
                         android:hint="Proyecto"
-                        app:endIconMode="dropdown_menu"
-                        app:boxBackgroundMode="outline"
-                        app:boxStrokeColor="@color/primary"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusBottomEnd="12dp">
+                        app:endIconMode="dropdown_menu">
 
                         <com.google.android.material.textfield.MaterialAutoCompleteTextView
                             android:id="@+id/acProyecto"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/textPrimary" />
+                            android:textColor="@color/textPrimary"
+                            android:textSize="16sp"/>
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <!-- Beneficiarios -->
-                    <com.google.android.material.textfield.TextInputLayout
+                    <!-- Beneficiarios (selector con chips) -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/btnBeneficiarios"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
-                        android:hint="Beneficiarios"
-                        app:boxBackgroundMode="outline"
-                        app:boxStrokeColor="@color/primary"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusBottomEnd="12dp">
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackgroundBorderless"
+                        app:cardBackgroundColor="@color/surface_overlay"
+                        app:cardCornerRadius="12dp"
+                        app:strokeColor="@color/cardStroke"
+                        app:strokeWidth="1dp">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etBeneficiarios"
+                        <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/textPrimary" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical">
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:src="@android:drawable/ic_menu_myplaces"
+                                    app:tint="@color/primary"/>
+
+                                <TextView
+                                    android:id="@+id/tvBeneficiariosLabel"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="12dp"
+                                    android:text="Beneficiarios"
+                                    android:textStyle="bold"
+                                    android:textSize="14sp"
+                                    android:textColor="@color/textPrimary"/>
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:src="@android:drawable/ic_menu_add"
+                                    app:tint="@color/primary"/>
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/tvBeneficiariosHint"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Seleccionar beneficiarios"
+                                android:textColor="@color/textSecondary"
+                                android:paddingTop="6dp"
+                                android:textSize="14sp"/>
+
+                            <!-- Chips con los seleccionados -->
+                            <com.google.android.material.chip.ChipGroup
+                                android:id="@+id/chipsBeneficiarios"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:paddingTop="8dp"
+                                app:singleLine="false"
+                                app:singleSelection="false"
+                                app:chipSpacingHorizontal="6dp"
+                                app:chipSpacingVertical="6dp"/>
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
 
                     <!-- Adjuntos -->
                     <com.google.android.material.card.MaterialCardView
@@ -390,8 +437,8 @@
                             <ImageView
                                 android:layout_width="24dp"
                                 android:layout_height="24dp"
-                                android:src="@android:drawable/ic_menu_add"
-                                app:tint="@color/primary" />
+                                android:src="@drawable/ic_attach_24"
+                                app:tint="@color/primary"/>
 
                             <TextView
                                 android:id="@+id/tvAdjuntos"
@@ -400,7 +447,7 @@
                                 android:layout_marginStart="12dp"
                                 android:text="Agregar archivos adjuntos"
                                 android:textSize="14sp"
-                                android:textColor="@color/textSecondary" />
+                                android:textColor="@color/textSecondary"/>
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
@@ -417,29 +464,28 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnCancelar"
-                    style="?attr/materialButtonOutlinedStyle"
+                    style="@style/Button.Outlined.Alerce"
                     android:layout_width="0dp"
-                    android:layout_height="52dp"
+                    android:layout_height="56dp"
                     android:layout_weight="1"
                     android:text="Cancelar"
-                    app:cornerRadius="26dp"
-                    app:strokeColor="@color/textSecondary"
-                    android:textColor="@color/textSecondary" />
+                    app:icon="@android:drawable/ic_menu_close_clear_cancel"
+                    app:iconGravity="textStart"/>
 
                 <Space
                     android:layout_width="12dp"
-                    android:layout_height="wrap_content" />
+                    android:layout_height="wrap_content"/>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnGuardar"
+                    style="@style/Button.Primary.Alerce"
                     android:layout_width="0dp"
-                    android:layout_height="52dp"
+                    android:layout_height="56dp"
                     android:layout_weight="1"
                     android:text="Guardar actividad"
                     android:enabled="false"
-                    app:cornerRadius="26dp"
-                    app:backgroundTint="@color/primary"
-                    android:textColor="@android:color/white" />
+                    app:icon="@android:drawable/ic_menu_save"
+                    app:iconGravity="textStart"/>
             </LinearLayout>
 
         </LinearLayout>

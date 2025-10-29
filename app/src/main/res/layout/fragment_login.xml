@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/surface"
+    android:background="@drawable/bg_login_alerce"
     android:fillViewport="true">
 
     <LinearLayout
@@ -13,134 +13,152 @@
         android:padding="24dp"
         android:gravity="center_horizontal">
 
+        <!-- Espaciador superior -->
         <View
             android:layout_width="1dp"
-            android:layout_height="40dp"/>
+            android:layout_height="60dp"/>
 
-        <FrameLayout
-            android:layout_width="96dp"
-            android:layout_height="96dp"
-            android:background="@drawable/bg_avatar_circle">
+        <!-- Logo del centro -->
+        <ImageView
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_marginTop="20dp"
+            android:src="@drawable/ic_centro_alerce"
+            android:scaleType="centerCrop"
+            android:background="@drawable/bg_logo_circle"
+            android:clipToOutline="true"
+            android:outlineProvider="background"/>
 
-            <TextView
-                android:id="@+id/tvAvatarInitials"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="CA"
-                android:textStyle="bold"
-                android:textSize="32sp"
-                android:textColor="@color/avatarText"/>
-        </FrameLayout>
-
+        <!-- Título principal -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="16dp"
             android:text="Centro Integral Alerce"
             android:textStyle="bold"
             android:textSize="28sp"
-            android:letterSpacing="0.02"
+            android:letterSpacing="0.01"
+            android:gravity="center"
             android:textColor="@color/textPrimary"/>
+
+        <!-- Subtítulo -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Puerto Montt"
+            android:textColor="@color/textSecondary"
+            android:textSize="16sp"
+            android:letterSpacing="0.05"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
             android:text="Inicia sesión para continuar"
             android:textColor="@color/textSecondary"
-            android:textSize="15sp"
-            android:layout_marginTop="6dp"/>
+            android:textSize="15sp"/>
 
+        <!-- Email -->
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            style="@style/TextInputLayout.Alerce"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
+            android:layout_marginTop="40dp"
             android:hint="Correo electrónico"
-            app:boxStrokeColor="@color/primary"
-            app:hintTextColor="@color/primary">
+            app:startIconDrawable="@android:drawable/ic_dialog_email"
+            app:startIconTint="@color/primary"
+            app:endIconMode="clear_text"
+            app:endIconTint="@color/textSecondary">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etEmail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textEmailAddress"
-                android:textColor="@color/textPrimary"/>
+                android:textColor="@color/textPrimary"
+                android:textSize="16sp"/>
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Contraseña -->
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            style="@style/TextInputLayout.Alerce"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="20dp"
             android:hint="Contraseña"
-            app:boxStrokeColor="@color/primary"
-            app:hintTextColor="@color/primary"
+            app:startIconDrawable="@android:drawable/ic_lock_lock"
+            app:startIconTint="@color/primary"
             app:endIconMode="password_toggle"
-            app:endIconTint="@color/primary">   <!-- 💜 morado -->
+            app:endIconTint="@color/primary">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etPass"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textPassword"
-                android:textColor="@color/textPrimary"/>
+                android:textColor="@color/textPrimary"
+                android:textSize="16sp"/>
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Link olvidé contraseña -->
         <TextView
             android:id="@+id/tvForgot"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="¿Olvidaste tu contraseña?"
             android:textColor="@color/primary"
+            android:textStyle="bold"
             android:layout_gravity="end"
-            android:layout_marginTop="12dp"
-            android:padding="8dp"/>
+            android:layout_marginTop="16dp"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground"/>
 
+        <!-- Botón iniciar sesión -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnLogin"
+            style="@style/Button.Primary.Alerce"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="32dp"
             android:text="Iniciar sesión"
-            android:textSize="16sp"
-            android:textStyle="bold"
             android:enabled="false"
-            app:cornerRadius="28dp"
-            app:backgroundTint="@color/primary"/>
+            app:icon="@android:drawable/ic_media_play"
+            app:iconGravity="textStart"
+            app:iconTint="@android:color/white"/>
 
-        <!-- NUEVO: Crear cuenta -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSignup"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="12dp"
-            android:text="Crear cuenta"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="@color/primary"
-            app:cornerRadius="28dp"
-            app:backgroundTint="@android:color/transparent"
-            app:strokeWidth="1dp"
-            app:strokeColor="@color/primary"/>
+        <!-- ProgressBar -->
+        <ProgressBar
+            android:id="@+id/progressBarLogin"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginTop="20dp"
+            android:visibility="gone"
+            android:indeterminateTint="@color/primary"/>
 
+
+        <!-- Espaciador flexible -->
         <View
             android:layout_width="1dp"
             android:layout_height="0dp"
             android:layout_weight="1"/>
 
+        <!-- Footer: Contacto soporte -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="24dp"
             android:layout_marginBottom="24dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="¿Problemas para ingresar? "
-                android:textColor="@color/textSecondary"/>
+                android:textColor="@color/textSecondary"
+                android:textSize="14sp"/>
 
             <TextView
                 android:id="@+id/tvContacto"
@@ -148,7 +166,12 @@
                 android:layout_height="wrap_content"
                 android:text="Contactar soporte"
                 android:textColor="@color/primary"
-                android:textStyle="bold"/>
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground"
+                android:padding="4dp"/>
         </LinearLayout>
 
     </LinearLayout>

@@ -2,20 +2,18 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
-    android:padding="0dp"
+    android:background="@android:color/transparent"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="@android:color/transparent">
+    android:layout_height="wrap_content">
 
-    <!-- Card con borde y fondo -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
         android:background="@color/card_surface"
-        android:paddingBottom="12dp">
+        android:orientation="vertical"
+        android:paddingBottom="0dp">
 
-        <!-- Header -->
+        <!-- Header con gradiente -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="120dp"
@@ -49,59 +47,72 @@
             </LinearLayout>
         </FrameLayout>
 
-        <!-- Contenido -->
+        <!-- Contenido del formulario -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="16dp"
             android:orientation="vertical">
 
+            <!-- Nombre del lugar -->
             <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Nombre">
+                android:hint="Nombre del lugar *"
+                app:startIconDrawable="@android:drawable/ic_dialog_map"
+                app:startIconTint="@color/primary"
+                app:endIconMode="clear_text">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etNombre"
-                    android:textColor="@android:color/black"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:inputType="textCapWords"/>
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Cupo (opcional) -->
             <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:hint="Cupo (opcional)">
+                android:hint="Cupo (opcional)"
+                app:startIconDrawable="@android:drawable/ic_menu_myplaces"
+                app:startIconTint="@color/primary"
+                app:endIconMode="clear_text"
+                app:helperText="Capacidad máxima del lugar"
+                app:helperTextTextColor="@color/textSecondary">
+
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etCupo"
-                    android:inputType="number"
-                    android:textColor="@android:color/black"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:inputType="number"/>
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
-        <!-- Divider opcional -->
+        <!-- Línea separadora -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="@color/cardStroke"
-            android:layout_marginTop="4dp"/>
+            android:background="@color/cardStroke"/>
 
-        <!-- Acciones (dentro del frame) -->
+        <!-- Botones -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="12dp"
             android:orientation="horizontal"
-            android:gravity="end">
+            android:gravity="end"
+            android:padding="16dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancelar"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+                style="@style/Button.Outlined.Alerce"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Cancelar"
@@ -109,13 +120,13 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnGuardar"
-                style="@style/Widget.MaterialComponents.Button"
-
+                style="@style/Button.Primary.Alerce"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Guardar"
                 android:textAllCaps="false"
-                android:layout_marginStart="8dp"/>
+                android:layout_marginStart="8dp"
+                app:backgroundTint="@color/primary"/>
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

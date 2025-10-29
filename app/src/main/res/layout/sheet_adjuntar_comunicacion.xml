@@ -6,7 +6,7 @@
     android:padding="20dp"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/surface">
+    android:background="@drawable/bg_mantenedores_soft">
 
     <!-- Handle del bottom sheet -->
     <View

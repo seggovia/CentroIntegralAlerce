@@ -18,12 +18,25 @@
     <string name="titulo_tipos_actividad">Tipos de actividad</string>
     <string name="agregar_tipo_actividad">Agregar tipo de actividad</string>
 
+    <string name="editar">Editar</string>
+    <string name="eliminar">Eliminar</string>
 
-
-
+    <string name="cancelar">Cancelar</string>
+    <string name="guardar">Guardar</string>
 
     <string name="adjuntos">Adjuntos</string>
     <string name="aviso_previo">Aviso previo</string>
+
+    <!-- Notificaciones -->
+    <string name="notificaciones">Notificaciones</string>
+    <string name="recordatorio_actividad">Recordatorio de Actividad</string>
+    <string name="actividad_cancelada">Actividad Cancelada</string>
+    <string name="actividad_reagendada">Actividad Reagendada</string>
+    <string name="no_hay_notificaciones">No hay notificaciones</string>
+    <string name="notificaciones_descripcion">Las notificaciones sobre actividades aparecerán aquí</string>
+    <string name="dias_aviso_previo">Días de aviso previo</string>
+    <string name="configurar_notificaciones">Configurar Notificaciones</string>
+    <string name="notificaciones_programadas">Notificaciones programadas exitosamente</string>
 
 
 

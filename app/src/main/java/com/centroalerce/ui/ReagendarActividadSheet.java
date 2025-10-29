@@ -7,10 +7,16 @@ import android.view.*;
 import android.widget.Toast;
 import androidx.annotation.*;
 import com.centroalerce.gestion.R;
+// ✅ IMPORTS COMBINADOS de ambas ramas
 import com.centroalerce.gestion.utils.PermissionChecker;
 import com.centroalerce.gestion.utils.RoleManager;
+import com.centroalerce.gestion.repositories.LugarRepository;
+import com.centroalerce.gestion.models.Lugar;
+import com.centroalerce.gestion.utils.ActividadValidator;
+import com.centroalerce.gestion.utils.ValidationResult;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.*;
@@ -37,17 +43,25 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
         return FirebaseFirestore.getInstance().collection(preferEN ? COL_EN : COL_ES).document(actividadId);
     }
 
-    // ✅ NUEVO: Sistema de roles
+    // ✅ Sistema de roles y permisos
     private PermissionChecker permissionChecker;
     private RoleManager roleManager;
 
     private FirebaseFirestore db;
+    private LugarRepository lugarRepository;
     private String actividadId, citaId;
     private TextInputEditText etMotivo, etFecha, etHora;
 
     private final Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("America/Santiago"));
     private final SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy", new Locale("es","CL"));
     private final SimpleDateFormat tf = new SimpleDateFormat("HH:mm", new Locale("es","CL"));
+
+    // Datos de la cita actual
+    private String lugarIdActual;
+    private String lugarNombreActual;
+    private String oferenteIdActual;
+    private String oferenteNombreActual;
+    private Integer cupoActividad;
 
     @Nullable @Override
     public View onCreateView(@NonNull LayoutInflater i, @Nullable ViewGroup c, @Nullable Bundle b) {
@@ -57,11 +71,11 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
     @Override public void onViewCreated(@NonNull View v, @Nullable Bundle b) {
         super.onViewCreated(v, b);
 
-        // ✅ NUEVO: Inicializar sistema de roles
+        // ✅ Inicializar sistema de roles
         permissionChecker = new PermissionChecker();
         roleManager = RoleManager.getInstance();
 
-        // ✅ NUEVO: Verificar permisos ANTES de hacer cualquier cosa
+        // ✅ Verificar permisos ANTES de hacer cualquier cosa
         if (!permissionChecker.checkAndNotify(getContext(),
                 PermissionChecker.Permission.RESCHEDULE_ACTIVITY)) {
             android.util.Log.d("ReagendarSheet", "🚫 Usuario sin permisos para reagendar");
@@ -72,6 +86,7 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
         android.util.Log.d("ReagendarSheet", "✅ Usuario autorizado para reagendar");
 
         db = FirebaseFirestore.getInstance();
+        lugarRepository = new LugarRepository();
         Bundle args = getArguments();
         actividadId = args != null ? args.getString(ARG_ACTIVIDAD_ID) : null;
         citaId = args != null ? args.getString(ARG_CITA_ID) : null;
@@ -82,16 +97,61 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
 
         etFecha.setOnClickListener(x -> abrirDatePicker());
         etHora.setOnClickListener(x -> abrirTimePicker());
+
+        // ✅ COMBINADO: botón con validación de permisos
         MaterialButton btnGuardar = v.findViewById(R.id.btnGuardarNuevaFecha);
         if (btnGuardar != null) {
             btnGuardar.setOnClickListener(x -> {
-                // ✅ NUEVO: Doble verificación antes de guardar
+                // Doble verificación antes de guardar
                 if (permissionChecker.checkAndNotify(getContext(),
                         PermissionChecker.Permission.RESCHEDULE_ACTIVITY)) {
                     reagendar();
                 }
             });
         }
+
+        // ✅ Cargar datos de la actividad y cita actual
+        cargarDatosActuales();
+    }
+
+    private void cargarDatosActuales() {
+        if (TextUtils.isEmpty(actividadId)) return;
+
+        act(actividadId, true).get().addOnSuccessListener(doc -> {
+            if (doc != null && doc.exists()) {
+                procesarDatosActividad(doc);
+            } else {
+                act(actividadId, false).get().addOnSuccessListener(this::procesarDatosActividad);
+            }
+        });
+    }
+
+    private void procesarDatosActividad(DocumentSnapshot doc) {
+        if (doc == null || !doc.exists()) return;
+
+        // Obtener cupo de la actividad
+        Long cupo = doc.getLong("cupo");
+        cupoActividad = cupo != null ? cupo.intValue() : null;
+
+        // Obtener lugar
+        lugarIdActual = firstNonEmpty(
+                doc.getString("lugarId"),
+                doc.getString("lugar_id")
+        );
+        lugarNombreActual = firstNonEmpty(
+                doc.getString("lugarNombre"),
+                doc.getString("lugar")
+        );
+
+        // Obtener oferente
+        oferenteIdActual = firstNonEmpty(
+                doc.getString("oferenteId"),
+                doc.getString("oferente_id")
+        );
+        oferenteNombreActual = firstNonEmpty(
+                doc.getString("oferenteNombre"),
+                doc.getString("oferente")
+        );
     }
 
     private void abrirDatePicker(){
@@ -114,225 +174,223 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
 
     private void reagendar(){
         String motivo = txt(etMotivo);
-        if (motivo.length() < 6){ etMotivo.setError("Describe el motivo (≥ 6)"); return; }
-        if (TextUtils.isEmpty(txt(etFecha))){ etFecha.setError("Selecciona fecha"); return; }
-        if (TextUtils.isEmpty(txt(etHora))){ etHora.setError("Selecciona hora"); return; }
-        if (TextUtils.isEmpty(actividadId)){ toast("Falta actividadId"); return; }
+        if (motivo.length() < 6){
+            etMotivo.setError("Describe el motivo (≥ 6)");
+            return;
+        }
+        if (TextUtils.isEmpty(txt(etFecha))){
+            etFecha.setError("Selecciona fecha");
+            return;
+        }
+        if (TextUtils.isEmpty(txt(etHora))){
+            etHora.setError("Selecciona hora");
+            return;
+        }
+        if (TextUtils.isEmpty(actividadId)){
+            toast("Falta actividadId");
+            return;
+        }
 
-        if (!TextUtils.isEmpty(citaId)) reagendarCita(citaId, motivo);
-        else proximaCitaYReagendar(motivo);
+        // ✅ Validar fecha futura
+        Date nuevaFecha = cal.getTime();
+        ValidationResult validacionFecha = ActividadValidator.validarFechaFutura(nuevaFecha);
+        if (!validacionFecha.isValid()) {
+            mostrarDialogoError("Fecha inválida", validacionFecha.getErrorMessage());
+            return;
+        }
+
+        // ✅ Validar cupo del lugar si está definido
+        if (!TextUtils.isEmpty(lugarNombreActual)) {
+            validarCupoYConflicto(motivo, nuevaFecha);
+        } else {
+            // Sin lugar definido, proceder directo
+            if (!TextUtils.isEmpty(citaId)) {
+                reagendarCita(citaId, motivo, nuevaFecha);
+            } else {
+                proximaCitaYReagendar(motivo, nuevaFecha);
+            }
+        }
     }
 
-    private void proximaCitaYReagendar(String motivo){
-        act(actividadId,true).collection("citas")
-                .whereGreaterThan("startAt", Timestamp.now())
-                .orderBy("startAt", Query.Direction.ASCENDING)
-                .limit(1).get().addOnSuccessListener(q -> {
-                    if (!q.isEmpty()){ reagendarCita(q.getDocuments().get(0).getId(), motivo); return; }
-                    act(actividadId,false).collection("citas")
-                            .whereGreaterThan("startAt", Timestamp.now())
-                            .orderBy("startAt", Query.Direction.ASCENDING)
-                            .limit(1).get().addOnSuccessListener(q2 -> {
-                                if (!q2.isEmpty()){ reagendarCita(q2.getDocuments().get(0).getId(), motivo); return; }
-                                act(actividadId,true).collection("citas")
-                                        .whereGreaterThan("fechaInicio", Timestamp.now())
-                                        .orderBy("fechaInicio", Query.Direction.ASCENDING)
-                                        .limit(1).get().addOnSuccessListener(q3 -> {
-                                            if (!q3.isEmpty()){ reagendarCita(q3.getDocuments().get(0).getId(), motivo); }
-                                            else toast("No hay citas futuras para reagendar");
-                                        });
-                            });
-                }).addOnFailureListener(e -> toast("Error: "+e.getMessage()));
+    // ===== Validación de cupo del lugar =====
+    private void validarCupoYConflicto(String motivo, Date nuevaFecha) {
+        if (TextUtils.isEmpty(lugarNombreActual)) {
+            validarConflictoGlobal(motivo, nuevaFecha);
+            return;
+        }
+
+        // Buscar ID del lugar por nombre
+        db.collection("lugares")
+                .whereEqualTo("nombre", lugarNombreActual)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(qs -> {
+                    if (qs.isEmpty()) {
+                        validarConflictoGlobal(motivo, nuevaFecha);
+                        return;
+                    }
+
+                    String lugarId = qs.getDocuments().get(0).getId();
+                    lugarRepository.getLugar(lugarId, new LugarRepository.LugarCallback() {
+                        @Override
+                        public void onSuccess(Lugar lugar) {
+                            if (lugar.tieneCupo() && cupoActividad != null) {
+                                ValidationResult validacionCupo = ActividadValidator.validarCupoLugar(lugar, cupoActividad);
+                                if (!validacionCupo.isValid()) {
+                                    mostrarDialogoErrorConAlternativa(
+                                            "Cupo insuficiente",
+                                            validacionCupo.getErrorMessage(),
+                                            "Entendido"
+                                    );
+                                    return;
+                                }
+                            }
+                            validarConflictoGlobal(motivo, nuevaFecha);
+                        }
+
+                        @Override
+                        public void onError(String error) {
+                            validarConflictoGlobal(motivo, nuevaFecha);
+                        }
+                    });
+                })
+                .addOnFailureListener(e -> validarConflictoGlobal(motivo, nuevaFecha));
     }
 
-
-
-
-
-
-
-
-
-
-    /**
-     * Busca conflictos el MISMO día y MISMA HH:mm (minuto exacto) por LUGAR u OFERENTE,
-     * mirando tanto collectionGroup("citas") como la colección raíz "citas".
-     * Ignora canceladas y excludeCitaId.
-     */
-    private void validarConflictoMismaHoraGlobal(@NonNull Date nuevaInicio,
-                                                 @Nullable String lugarId, @Nullable String lugarNombre,
-                                                 @Nullable String oferenteId, @Nullable String oferenteNombre,
-                                                 @Nullable String excludeCitaId,
-                                                 @NonNull BoolCB cb) {
-
+    // ===== Validación de conflicto global =====
+    private void validarConflictoGlobal(String motivo, Date nuevaFecha) {
         TimeZone tz = TimeZone.getTimeZone("America/Santiago");
         Calendar day = Calendar.getInstance(tz);
-        day.setTime(nuevaInicio);
+        day.setTime(nuevaFecha);
         day.set(Calendar.HOUR_OF_DAY, 0);
         day.set(Calendar.MINUTE, 0);
         day.set(Calendar.SECOND, 0);
-        day.set(Calendar.MILLISECOND, 0);
         Date dayStart = day.getTime();
         day.add(Calendar.DAY_OF_MONTH, 1);
         Date nextDayStart = day.getTime();
 
         Calendar tgt = Calendar.getInstance(tz);
-        tgt.setTime(nuevaInicio);
+        tgt.setTime(nuevaFecha);
         final int targetHour = tgt.get(Calendar.HOUR_OF_DAY);
         final int targetMin  = tgt.get(Calendar.MINUTE);
 
-        final String lugarIdCmp   = emptyToNull(lugarId);
-        final String lugarNomCmp  = norm(emptyToNull(lugarNombre));
-        final String oferIdCmp    = emptyToNull(oferenteId);
-        final String oferNomCmp   = norm(emptyToNull(oferenteNombre));
+        final String lugarNorm = norm(lugarNombreActual);
+        final String oferNorm  = norm(oferenteNombreActual);
 
-        // Procesa un snapshot y devuelve si hay conflicto
-        java.util.function.Function<QuerySnapshot, Boolean> snapHasConflict = snap -> {
-            if (snap == null) return false;
-            for (DocumentSnapshot d : snap.getDocuments()) {
-                if (excludeCitaId != null && excludeCitaId.equals(d.getId())) continue;
-
-                String estado = d.getString("estado");
-                if (estado != null && estado.equalsIgnoreCase("cancelada")) continue;
-
-                Timestamp ts = firstNonNullTimestamp(
-                        d.getTimestamp("startAt"),
-                        d.getTimestamp("fechaInicio"),
-                        d.getTimestamp("fecha")
-                );
-                if (ts == null) continue;
-
-                Calendar c = Calendar.getInstance(tz);
-                c.setTime(ts.toDate());
-                if (c.get(Calendar.HOUR_OF_DAY) != targetHour || c.get(Calendar.MINUTE) != targetMin) continue;
-
-                String docLugarId  = emptyToNull(first(d.getString("lugarId"), d.getString("lugar_id")));
-                String docLugarNom = norm(emptyToNull(first(d.getString("lugarNombre"), d.getString("lugar"))));
-                String docOferId   = emptyToNull(first(d.getString("oferenteId"), d.getString("oferente_id")));
-                String docOferNom  = norm(emptyToNull(first(d.getString("oferenteNombre"), d.getString("oferente"))));
-
-                boolean matchLugar = (lugarIdCmp != null && lugarIdCmp.equals(docLugarId))
-                        || (lugarNomCmp != null && lugarNomCmp.equals(docLugarNom));
-
-                boolean matchOfer  = (oferIdCmp != null && oferIdCmp.equals(docOferId))
-                        || (oferNomCmp != null && oferNomCmp.equals(docOferNom));
-
-                if (matchLugar || matchOfer) return true;
-            }
-            return false;
-        };
-
-        FirebaseFirestore ff = FirebaseFirestore.getInstance();
-
-        // 1) citas en subcolecciones (collectionGroup)
-        ff.collectionGroup("citas")
+        db.collectionGroup("citas")
                 .whereGreaterThanOrEqualTo("startAt", new Timestamp(dayStart))
                 .whereLessThan("startAt", new Timestamp(nextDayStart))
                 .get()
-                .addOnSuccessListener(q1 -> {
-                    if (snapHasConflict.apply(q1)) { cb.call(true); return; }
+                .addOnSuccessListener(snap -> {
+                    boolean hayConflicto = false;
 
-                    // 2) citas en colección raíz (si las usas también)
-                    ff.collection("citas")
-                            .whereGreaterThanOrEqualTo("fecha", new Timestamp(dayStart))
-                            .whereLessThan("fecha", new Timestamp(nextDayStart))
-                            .get()
-                            .addOnSuccessListener(q2 -> cb.call(snapHasConflict.apply(q2)))
-                            .addOnFailureListener(e -> cb.call(false));
+                    for (DocumentSnapshot d : snap.getDocuments()) {
+                        if (citaId != null && citaId.equals(d.getId())) continue;
+
+                        String estado = d.getString("estado");
+                        if ("cancelada".equalsIgnoreCase(estado)) continue;
+
+                        Timestamp ts = firstNonNullTimestamp(
+                                d.getTimestamp("startAt"),
+                                d.getTimestamp("fechaInicio"),
+                                d.getTimestamp("fecha")
+                        );
+                        if (ts == null) continue;
+
+                        Calendar c = Calendar.getInstance(tz);
+                        c.setTime(ts.toDate());
+                        if (c.get(Calendar.HOUR_OF_DAY) != targetHour ||
+                                c.get(Calendar.MINUTE) != targetMin) continue;
+
+                        String docLugar = norm(firstNonEmpty(
+                                d.getString("lugarNombre"),
+                                d.getString("lugar")
+                        ));
+                        if (!TextUtils.isEmpty(lugarNorm) && lugarNorm.equals(docLugar)) {
+                            hayConflicto = true;
+                            break;
+                        }
+
+                        String docOfer = norm(firstNonEmpty(
+                                d.getString("oferenteNombre"),
+                                d.getString("oferente")
+                        ));
+                        if (!TextUtils.isEmpty(oferNorm) && oferNorm.equals(docOfer)) {
+                            hayConflicto = true;
+                            break;
+                        }
+                    }
+
+                    if (hayConflicto) {
+                        mostrarDialogoConflicto(
+                                "Ya existe una cita a esa hora (" + tf.format(nuevaFecha) +
+                                        ") para el mismo lugar u oferente.\n\n¿Qué deseas hacer?"
+                        );
+                    } else {
+                        if (!TextUtils.isEmpty(citaId)) {
+                            reagendarCita(citaId, motivo, nuevaFecha);
+                        } else {
+                            proximaCitaYReagendar(motivo, nuevaFecha);
+                        }
+                    }
                 })
-                .addOnFailureListener(e -> cb.call(false));
+                .addOnFailureListener(e -> toast("Error al validar: " + e.getMessage()));
     }
 
+    private void proximaCitaYReagendar(String motivo, Date nuevaFecha){
+        act(actividadId,true).collection("citas")
+                .whereGreaterThan("startAt", Timestamp.now())
+                .orderBy("startAt", Query.Direction.ASCENDING)
+                .limit(1).get().addOnSuccessListener(q -> {
+                    if (!q.isEmpty()){
+                        reagendarCita(q.getDocuments().get(0).getId(), motivo, nuevaFecha);
+                        return;
+                    }
+                    act(actividadId,false).collection("citas")
+                            .whereGreaterThan("startAt", Timestamp.now())
+                            .orderBy("startAt", Query.Direction.ASCENDING)
+                            .limit(1).get().addOnSuccessListener(q2 -> {
+                                if (!q2.isEmpty()){
+                                    reagendarCita(q2.getDocuments().get(0).getId(), motivo, nuevaFecha);
+                                    return;
+                                }
+                                toast("No hay citas futuras para reagendar");
+                            });
+                }).addOnFailureListener(e -> toast("Error: "+e.getMessage()));
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-    // ======= MODIFICADO: se agrega validación de "misma hora mismo día" previa a verificarConflicto =======
-    private void reagendarCita(String citaId, String motivo){
+    private void reagendarCita(String citaId, String motivo, Date nuevaFecha){
         DocumentReference citaES = act(actividadId,false).collection("citas").document(citaId);
         DocumentReference citaEN = act(actividadId,true ).collection("citas").document(citaId);
 
         citaES.get().addOnSuccessListener(d -> {
             DocumentReference ref = (d!=null && d.exists()) ? citaES : citaEN;
-            ref.get().addOnSuccessListener(doc -> {
-                if (doc==null || !doc.exists()){ toast("La cita no existe"); return; }
 
-                Timestamp oldStart = doc.getTimestamp(firstKey(doc,"startAt","fechaInicio","fecha"));
-                Timestamp oldEnd   = doc.getTimestamp(firstKey(doc,"endAt","fechaFin"));
-                long dur = (oldStart!=null && oldEnd!=null)
-                        ? (oldEnd.toDate().getTime()-oldStart.toDate().getTime())
-                        : (60*60*1000);
+            Map<String,Object> up = new HashMap<>();
+            up.put("startAt", new Timestamp(nuevaFecha));
+            up.put("fecha", new Timestamp(nuevaFecha));
+            up.put("fechaInicio", new Timestamp(nuevaFecha));
+            up.put("motivo_reagendo", motivo);
+            up.put("fecha_reagendo", Timestamp.now());
+            up.put("estado", "reagendada");
 
-                Date nuevaInicio = cal.getTime();
-                Date nuevaFin    = new Date(nuevaInicio.getTime()+dur);
+            // ✅ Log de auditoría con usuario
+            String userId = roleManager.getCurrentUserId();
+            if (userId != null) {
+                up.put("lastModifiedBy", userId);
+            }
 
-                // Normalizar identificadores de lugar / oferente (usa id si existe, si no nombre)
-                String lugarKey = first(doc.getString("lugarId"), doc.getString("lugar_id"),
-                        doc.getString("lugarNombre"), doc.getString("lugar"));
-                String oferKey  = first(doc.getString("oferenteId"), doc.getString("oferente_id"),
-                        doc.getString("oferenteNombre"), doc.getString("oferente"));
-
-                // 🔒 BLOQUEO DURO: no permitir MISMA HH:mm mismo día para mismo LUGAR u OFERENTE
-                checkSlotConflict(nuevaInicio, lugarKey, oferKey, doc.getId(), hasConflict -> {
-                    if (hasConflict){
-                        toast("No se puede reagendar: ya existe una cita a la MISMA HORA ese día para ese lugar u oferente.");
-                        return;
-                    }
-
-                    // (opcional) tu validación por solapamiento de rango en la misma colección
-                    String lugarNombre = first(doc.getString("lugarNombre"), doc.getString("lugar"));
-                    verificarConflicto(ref.getParent(), lugarNombre, nuevaInicio, nuevaFin, conflicto -> {
-                        if (conflicto){ toast("Conflicto: ya existe una cita en ese lugar y horario"); return; }
-
-                        Map<String,Object> up = new HashMap<>();
-                        up.put("startAt", new Timestamp(nuevaInicio));
-                        up.put("endAt",   new Timestamp(nuevaFin));
-                        up.put("fechaInicio", new Timestamp(nuevaInicio));
-                        up.put("fechaFin",    new Timestamp(nuevaFin));
-                        up.put("motivo_reagendo", motivo);
-                        up.put("fecha_reagendo", Timestamp.now());
-                        up.put("estado", "reagendada");
-
-                        // Si quieres empezar a persistir claves de slot (recomendado):
-                        String dayKey   = dayKey(nuevaInicio);      // yyyyMMdd
-                        String timeKey  = timeKey(nuevaInicio);     // HHmm
-                        String slotKey  = dayKey + "_" + timeKey;
-                        if (!TextUtils.isEmpty(lugarKey)) up.put("slotLugar",  slotKey + "_L_" + norm(lugarKey));
-                        if (!TextUtils.isEmpty(oferKey))  up.put("slotOfer",   slotKey + "_O_" + norm(oferKey));
-                        up.put("slotDay", dayKey);  // útil para índices
-                        up.put("slotHHmm", timeKey);
-
-                        // ✅ NUEVO: Log de auditoría con usuario
-                        String userId = roleManager.getCurrentUserId();
-                        if (userId != null) {
-                            up.put("lastModifiedBy", userId);
-                        }
-
-                        ref.update(up)
-                                .addOnSuccessListener(u -> {
-                                    android.util.Log.d("ReagendarSheet", "✅ Cita reagendada por usuario: " + userId);
-                                    toast("Cita reagendada con éxito");
-                                    registrarAuditoria("reagendar_cita", motivo);
-                                    notifyChanged();
-                                    dismiss();
-                                })
-                                .addOnFailureListener(e -> toast("Error: "+e.getMessage()));
-                    });
-                });
-            });
+            ref.update(up)
+                    .addOnSuccessListener(u -> {
+                        android.util.Log.d("ReagendarSheet", "✅ Cita reagendada por usuario: " + userId);
+                        toast("Cita reagendada con éxito ✅");
+                        registrarAuditoria("reagendar_cita", motivo);
+                        notifyChanged();
+                        dismiss();
+                    })
+                    .addOnFailureListener(e -> toast("Error: "+e.getMessage()));
         }).addOnFailureListener(e -> toast("Error: "+e.getMessage()));
     }
-
-
 
     private void registrarAuditoria(String accion, String motivo){
         try {
@@ -343,7 +401,7 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
             audit.put("actividadId", actividadId);
             if (!TextUtils.isEmpty(citaId)) audit.put("citaId", citaId);
 
-            // ✅ NUEVO: Registrar quién hizo la acción
+            // ✅ Registrar quién hizo la acción
             String userId = roleManager.getCurrentUserId();
             if (userId != null) audit.put("userId", userId);
 
@@ -351,267 +409,72 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
         } catch (Exception ignored) {}
     }
 
-    private interface BoolCB { void call(boolean v); }
-
-    private void verificarConflicto(CollectionReference citasCol, String lugar, Date ini, Date fin, BoolCB cb){
-        if (TextUtils.isEmpty(lugar)){ cb.call(false); return; }
-        citasCol.whereEqualTo("lugar", lugar)
-                .whereGreaterThan("fechaFin", new Timestamp(new Date(ini.getTime()-1)))
-                .whereLessThan("fechaInicio", new Timestamp(new Date(fin.getTime()+1)))
-                .get().addOnSuccessListener(q -> cb.call(!q.isEmpty()))
-                .addOnFailureListener(e -> cb.call(false));
+    // ===== Diálogos informativos =====
+    private void mostrarDialogoError(String titulo, String mensaje) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(titulo)
+                .setMessage(mensaje)
+                .setPositiveButton("Entendido", (dialog, which) -> dialog.dismiss())
+                .show();
     }
 
-    /**
-     * Valida que no exista OTRA cita (en cualquier actividad) en el MISMO día y MISMA hora (HH:mm)
-     * que choque por LUGAR u OFERENTE. (Ignora canceladas y la misma cita que estás moviendo).
-     * Considera campos: startAt, fechaInicio (y fallback: fecha).
-     */
-    /**
-     * Valida que no exista OTRA cita (en cualquier actividad) en el MISMO día y MISMA HORA (HH:mm)
-     * para el MISMO LUGAR (comparando por id o nombre). Ignora canceladas y la misma cita.
-     * Revisa collectionGroup("citas") y soporta campos de fecha: startAt / fechaInicio / fecha.
-     */
-    private void validarMismaHoraMismoDiaGlobal(@NonNull Date nuevaInicio,
-                                                @Nullable String lugarIdParam,
-                                                @Nullable String lugarNombreParam,
-                                                @Nullable String oferenteIdParam,
-                                                @Nullable String oferenteNombreParam,
-                                                @Nullable String excludeCitaId,
-                                                @NonNull BoolCB cb) {
+    private void mostrarDialogoErrorConAlternativa(String titulo, String mensaje, String textoBoton) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(titulo)
+                .setMessage(mensaje)
+                .setPositiveButton(textoBoton, (dialog, which) -> dialog.dismiss())
+                .show();
+    }
 
-        TimeZone tz = TimeZone.getTimeZone("America/Santiago");
-        Calendar calDay = Calendar.getInstance(tz);
-        calDay.setTime(nuevaInicio);
-        // rango del día
-        calDay.set(Calendar.HOUR_OF_DAY, 0);
-        calDay.set(Calendar.MINUTE, 0);
-        calDay.set(Calendar.SECOND, 0);
-        calDay.set(Calendar.MILLISECOND, 0);
-        Date dayStart = calDay.getTime();
-        calDay.add(Calendar.DAY_OF_MONTH, 1);
-        Date nextDayStart = calDay.getTime();
-
-        Calendar tgt = Calendar.getInstance(tz);
-        tgt.setTime(nuevaInicio);
-        final int targetHour = tgt.get(Calendar.HOUR_OF_DAY);
-        final int targetMin  = tgt.get(Calendar.MINUTE);
-
-        // normalizar comparadores
-        final String lugarIdCmp   = emptyToNull(lugarIdParam);
-        final String lugarNomCmp  = norm(emptyToNull(lugarNombreParam));
-        final String oferIdCmp    = emptyToNull(oferenteIdParam);
-        final String oferNomCmp   = norm(emptyToNull(oferenteNombreParam));
-
-        // función que analiza un snapshot y determina conflicto
-        java.util.function.Function<QuerySnapshot, Boolean> hasConflict = snap -> {
-            if (snap == null) return false;
-            for (DocumentSnapshot d : snap.getDocuments()) {
-                if (excludeCitaId != null && excludeCitaId.equals(d.getId())) continue;
-
-                String estado = d.getString("estado");
-                if (estado != null && estado.equalsIgnoreCase("cancelada")) continue;
-
-                Timestamp ts = firstNonNullTimestamp(
-                        d.getTimestamp("startAt"),
-                        d.getTimestamp("fechaInicio"),
-                        d.getTimestamp("fecha")
-                );
-                if (ts == null) continue;
-
-                Calendar c = Calendar.getInstance(tz);
-                c.setTime(ts.toDate());
-                if (c.get(Calendar.HOUR_OF_DAY) != targetHour || c.get(Calendar.MINUTE) != targetMin) continue;
-
-                // obtener ambos del doc candidato
-                String docLugarId   = emptyToNull(first(d.getString("lugarId"), d.getString("lugar_id")));
-                String docLugarNom  = norm(emptyToNull(first(d.getString("lugarNombre"), d.getString("lugar"))));
-                String docOferId    = emptyToNull(first(d.getString("oferenteId"), d.getString("oferente_id")));
-                String docOferNom   = norm(emptyToNull(first(d.getString("oferenteNombre"), d.getString("oferente"))));
-
-                boolean matchLugar = (lugarIdCmp != null && lugarIdCmp.equals(docLugarId))
-                        || (lugarNomCmp != null && lugarNomCmp.equals(docLugarNom));
-
-                boolean matchOfer  = (oferIdCmp != null && oferIdCmp.equals(docOferId))
-                        || (oferNomCmp != null && oferNomCmp.equals(docOferNom));
-
-                return true; // bloquear cualquier cita a esa HH:mm
-
-
-                // Si quieres bloquear por cualquier cita a esa HH:mm (sin considerar lugar/ofer):
-                // return true;
-            }
-            return false;
-        };
-
-        // encadenamos 3 consultas por cada posible campo de fecha
-        FirebaseFirestore.getInstance().collectionGroup("citas")
-                .whereGreaterThanOrEqualTo("startAt", new Timestamp(dayStart))
-                .whereLessThan("startAt", new Timestamp(nextDayStart))
-                .get()
-                .addOnSuccessListener(q1 -> {
-                    if (hasConflict.apply(q1)) { cb.call(true); return; }
-                    FirebaseFirestore.getInstance().collectionGroup("citas")
-                            .whereGreaterThanOrEqualTo("fechaInicio", new Timestamp(dayStart))
-                            .whereLessThan("fechaInicio", new Timestamp(nextDayStart))
-                            .get()
-                            .addOnSuccessListener(q2 -> {
-                                if (hasConflict.apply(q2)) { cb.call(true); return; }
-                                FirebaseFirestore.getInstance().collectionGroup("citas")
-                                        .whereGreaterThanOrEqualTo("fecha", new Timestamp(dayStart))
-                                        .whereLessThan("fecha", new Timestamp(nextDayStart))
-                                        .get()
-                                        .addOnSuccessListener(q3 -> cb.call(hasConflict.apply(q3)))
-                                        .addOnFailureListener(e -> cb.call(false));
-                            })
-                            .addOnFailureListener(e -> cb.call(false));
+    private void mostrarDialogoConflicto(String mensaje) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("⚠️ Conflicto de horario")
+                .setMessage(mensaje)
+                .setPositiveButton("Cambiar fecha/hora", (dialog, which) -> {
+                    etFecha.setText(null);
+                    etHora.setText(null);
+                    toast("Selecciona otra fecha y hora");
                 })
-                .addOnFailureListener(e -> cb.call(false));
+                .setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss())
+                .show();
     }
 
+    // ===== Helpers =====
+    private String txt(TextInputEditText et){
+        return et.getText()!=null ? et.getText().toString().trim() : "";
+    }
 
-
-    private @Nullable String firstNonNullStr(String... xs){
-        if (xs == null) return null;
-        for (String s: xs) if (s != null && !s.trim().isEmpty()) return s.trim();
+    private String firstNonEmpty(String... xs){
+        if (xs==null) return null;
+        for (String s: xs){ if (!TextUtils.isEmpty(s)) return s; }
         return null;
     }
 
-    private String first(String... xs){ for (String s: xs) if (!TextUtils.isEmpty(s)) return s; return null; }
-    private String firstKey(DocumentSnapshot d, String... ks){ for (String k: ks) if (d.contains(k)) return k; return ks[0]; }
-    private String txt(TextInputEditText et){ return et.getText()!=null ? et.getText().toString().trim() : ""; }
-
-    // ======= MODIFICADO: emitir resultados también a nivel de Activity para refrescar calendario/detalle =======
-    private void notifyChanged(){
-        getParentFragmentManager().setFragmentResult("actividad_change", new Bundle());
-        getParentFragmentManager().setFragmentResult("calendar_refresh", new Bundle());
-        try {
-            requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", new Bundle());
-            requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", new Bundle());
-        } catch (Exception ignore) {}
-    }
     private @Nullable Timestamp firstNonNullTimestamp(Timestamp... xs){
         if (xs == null) return null;
         for (Timestamp t: xs) if (t != null) return t;
         return null;
     }
-    private @Nullable String emptyToNull(@Nullable String s){
-        return (s == null || s.trim().isEmpty()) ? null : s.trim();
-    }
+
     private @Nullable String norm(@Nullable String s){
         return s == null ? null : s.trim().toLowerCase(Locale.ROOT);
     }
-    private String dayKey(Date d){
-        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyyMMdd", new java.util.Locale("es","CL"));
-        f.setTimeZone(java.util.TimeZone.getTimeZone("America/Santiago"));
-        return f.format(d);
-    }
-    private String timeKey(Date d){
-        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("HHmm", new java.util.Locale("es","CL"));
-        f.setTimeZone(java.util.TimeZone.getTimeZone("America/Santiago"));
-        return f.format(d);
-    }
 
+    private void notifyChanged(){
+        Bundle b = new Bundle();
+        b.putString("actividadId", actividadId);
+        if (!TextUtils.isEmpty(citaId)) b.putString("citaId", citaId);
 
-    /**
-     * Revisa conflictos MISMO día + MISMA HH:mm para mismo LUGAR u OFERENTE
-     * en ambas fuentes: collectionGroup("citas") y colección raíz "citas".
-     * Usa:
-     *  - claves de slot si existen (slotLugar / slotOfer)
-     *  - si no existen, trae citas del día y compara en cliente (HH:mm + lugar/ofer normalizados)
-     */
-    private void checkSlotConflict(@NonNull Date nuevaInicio,
-                                   @Nullable String lugarKey,
-                                   @Nullable String oferKey,
-                                   @Nullable String excludeCitaId,
-                                   @NonNull BoolCB cb) {
+        getParentFragmentManager().setFragmentResult("actividad_change", b);
+        getParentFragmentManager().setFragmentResult("calendar_refresh", b);
 
-        TimeZone tz = TimeZone.getTimeZone("America/Santiago");
-        Calendar day = Calendar.getInstance(tz);
-        day.setTime(nuevaInicio);
-        day.set(Calendar.HOUR_OF_DAY, 0);
-        day.set(Calendar.MINUTE, 0);
-        day.set(Calendar.SECOND, 0);
-        day.set(Calendar.MILLISECOND, 0);
-        Date dayStart = day.getTime();
-        day.add(Calendar.DAY_OF_MONTH, 1);
-        Date nextDayStart = day.getTime();
-
-        String dayK  = dayKey(nuevaInicio);     // yyyyMMdd
-        String timeK = timeKey(nuevaInicio);    // HHmm
-        String slot  = dayK + "_" + timeK;
-
-        final String lugarNorm = norm(lugarKey);
-        final String oferNorm  = norm(oferKey);
-
-        FirebaseFirestore ff = FirebaseFirestore.getInstance();
-
-        // Preferencia: usar campos índice si existen (rápido y simple)
-        List<com.google.android.gms.tasks.Task<QuerySnapshot>> tasks = new ArrayList<>();
-
-        if (!TextUtils.isEmpty(lugarNorm)) {
-            tasks.add(ff.collectionGroup("citas").whereEqualTo("slotLugar", slot + "_L_" + lugarNorm).get());
-            tasks.add(ff.collection("citas").whereEqualTo("slotLugar", slot + "_L_" + lugarNorm).get());
-        }
-        if (!TextUtils.isEmpty(oferNorm)) {
-            tasks.add(ff.collectionGroup("citas").whereEqualTo("slotOfer", slot + "_O_" + oferNorm).get());
-            tasks.add(ff.collection("citas").whereEqualTo("slotOfer", slot + "_O_" + oferNorm).get());
-        }
-
-        // Si no hay claves índice, caemos a rango por día
-        boolean willFallback = tasks.isEmpty();
-        if (willFallback) {
-            tasks.add(ff.collectionGroup("citas")
-                    .whereGreaterThanOrEqualTo("startAt", new Timestamp(dayStart))
-                    .whereLessThan("startAt", new Timestamp(nextDayStart)).get());
-            tasks.add(ff.collection("citas")
-                    .whereGreaterThanOrEqualTo("fecha", new Timestamp(dayStart))
-                    .whereLessThan("fecha", new Timestamp(nextDayStart)).get());
-        }
-
-        com.google.android.gms.tasks.Tasks.whenAllSuccess(tasks)
-                .addOnSuccessListener(list -> {
-                    boolean conflict = false;
-                    for (Object o : list) {
-                        QuerySnapshot snap = (QuerySnapshot) o;
-                        for (DocumentSnapshot d : snap.getDocuments()) {
-                            if (excludeCitaId != null && excludeCitaId.equals(d.getId())) continue;
-                            String estado = d.getString("estado");
-                            if (estado != null && estado.equalsIgnoreCase("cancelada")) continue;
-
-                            if (!willFallback) { // con slotKey es directo
-                                conflict = true;
-                                break;
-                            } else {
-                                // fallback: validar HH:mm + lugar/u oferente normalizados
-                                Timestamp ts = firstNonNullTimestamp(
-                                        d.getTimestamp("startAt"),
-                                        d.getTimestamp("fechaInicio"),
-                                        d.getTimestamp("fecha")
-                                );
-                                if (ts == null) continue;
-
-                                String hhmmDoc = timeKey(ts.toDate());
-                                if (!timeK.equals(hhmmDoc)) continue;
-
-                                String docLugar = norm(first(d.getString("lugarId"), d.getString("lugar_id"),
-                                        d.getString("lugarNombre"), d.getString("lugar")));
-                                String docOfer  = norm(first(d.getString("oferenteId"), d.getString("oferente_id"),
-                                        d.getString("oferenteNombre"), d.getString("oferente")));
-
-                                boolean matchLugar = !TextUtils.isEmpty(lugarNorm) && lugarNorm.equals(docLugar);
-                                boolean matchOfer  = !TextUtils.isEmpty(oferNorm)  && oferNorm.equals(docOfer);
-
-                                if (matchLugar || matchOfer) { conflict = true; break; }
-                            }
-                        }
-                        if (conflict) break;
-                    }
-                    cb.call(conflict);
-                })
-                .addOnFailureListener(e -> cb.call(false));
+        try {
+            requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", b);
+            requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b);
+        } catch (Exception ignore) {}
     }
 
-
-    private void toast(String m){ Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }
+    private void toast(String m){
+        Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show();
+    }
 }

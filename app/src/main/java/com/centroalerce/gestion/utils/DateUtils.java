@@ -66,4 +66,10 @@ public class  DateUtils {
         calendar.set(Calendar.MILLISECOND, 0);
         return calendar.getTime();
     }
+    
+    // Formatear fecha y hora para mostrar en notificaciones
+    public static String formatFechaHora(Date date) {
+        if (date == null) return "";
+        return DATETIME_FORMAT.format(date);
+    }
 }

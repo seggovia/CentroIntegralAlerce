@@ -23,17 +23,19 @@ import com.google.firebase.auth.FirebaseUser;
 
 public class SettingsFragment extends Fragment {
 
+    private MaterialCardView cardRegistroActividades;
+    private MaterialCardView cardGestionUsuarios;
     private MaterialCardView cardMantenedores;
     private MaterialCardView cardPerfil;
     private MaterialCardView cardCerrarSesion;
 
-    // ✅ NUEVO: Sistema de roles
+    // Sistema de roles
     private PermissionChecker permissionChecker;
     private RoleManager roleManager;
     private FirebaseAuth auth;
     private UserRole currentUserRole;
 
-    // ✅ NUEVO: TextView para mostrar información del usuario (opcional)
+    // TextViews para mostrar información del usuario (opcional)
     private TextView tvUserInfo;
     private TextView tvUserRole;
 
@@ -48,13 +50,13 @@ public class SettingsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // ✅ NUEVO: Inicializar componentes
+        // Inicializar componentes
         initializeComponents();
 
         // Inicializar vistas
         initializeViews(view);
 
-        // ✅ NUEVO: Cargar rol y configurar UI
+        // Cargar rol y configurar UI
         loadUserRoleAndConfigureUI();
 
         // Configurar listeners
@@ -62,7 +64,7 @@ public class SettingsFragment extends Fragment {
     }
 
     /**
-     * ✅ NUEVO: Inicializa componentes del sistema de roles
+     * Inicializa componentes del sistema de roles
      */
     private void initializeComponents() {
         permissionChecker = new PermissionChecker();
@@ -74,18 +76,19 @@ public class SettingsFragment extends Fragment {
      * Inicializa las vistas del fragment
      */
     private void initializeViews(View view) {
+        cardRegistroActividades = view.findViewById(R.id.cardRegistroActividades);
+        cardGestionUsuarios = view.findViewById(R.id.cardGestionUsuarios);
         cardMantenedores = view.findViewById(R.id.cardMantenedores);
         cardPerfil = view.findViewById(R.id.cardPerfil);
         cardCerrarSesion = view.findViewById(R.id.cardCerrarSesion);
 
-        // ✅ NUEVO: Opcional - TextViews para mostrar info del usuario
-        // (Si tienes estos en tu layout, descomentar)
+        // Opcional - TextViews para mostrar info del usuario
         // tvUserInfo = view.findViewById(R.id.tvUserInfo);
         // tvUserRole = view.findViewById(R.id.tvUserRole);
     }
 
     /**
-     * ✅ NUEVO: Carga el rol del usuario y configura la UI según permisos
+     * Carga el rol del usuario y configura la UI según permisos
      */
     private void loadUserRoleAndConfigureUI() {
         roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
@@ -95,45 +98,49 @@ public class SettingsFragment extends Fragment {
             // Configurar UI según el rol
             configureUIByRole(role);
 
-            // ✅ NUEVO: Mostrar información del usuario (opcional)
+            // Mostrar información del usuario (opcional)
             displayUserInfo(role);
         });
     }
 
     /**
-     * ✅ NUEVO: Configura la visibilidad de las opciones según el rol
+     * Configura la visibilidad de las opciones según el rol
      */
     private void configureUIByRole(UserRole role) {
-        // REGLA: Solo ADMINISTRADORES pueden ver Mantenedores
-        if (cardMantenedores != null) {
-            if (role == UserRole.ADMINISTRADOR) {
-                cardMantenedores.setVisibility(View.VISIBLE);
-                android.util.Log.d("SettingsFragment", "✅ Mostrando Mantenedores (Admin)");
-            } else {
-                cardMantenedores.setVisibility(View.GONE);
-                android.util.Log.d("SettingsFragment", "🚫 Ocultando Mantenedores (No admin)");
-            }
+        // REGLA: Solo ADMINISTRADORES pueden ver estas opciones
+        boolean isAdmin = (role == UserRole.ADMINISTRADOR);
+
+        if (cardRegistroActividades != null) {
+            cardRegistroActividades.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
         }
 
-        // Perfil: Todos pueden verlo
+        if (cardGestionUsuarios != null) {
+            cardGestionUsuarios.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
+        }
+
+        if (cardMantenedores != null) {
+            cardMantenedores.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
+            android.util.Log.d("SettingsFragment", isAdmin ? "✅ Mostrando opciones admin" : "🚫 Ocultando opciones admin");
+        }
+
+        // Perfil y Cerrar sesión: Todos pueden verlo
         if (cardPerfil != null) {
             cardPerfil.setVisibility(View.VISIBLE);
         }
 
-        // Cerrar sesión: Todos pueden verlo
         if (cardCerrarSesion != null) {
             cardCerrarSesion.setVisibility(View.VISIBLE);
         }
     }
 
     /**
-     * ✅ NUEVO: Muestra información del usuario en la UI (opcional)
+     * Muestra información del usuario en la UI (opcional)
      */
     private void displayUserInfo(UserRole role) {
         FirebaseUser user = auth.getCurrentUser();
         if (user == null) return;
 
-        // Si tienes TextViews para mostrar info del usuario
+        // Si tienes TextViews para mostrar info del usuario, descomenta:
         // if (tvUserInfo != null) {
         //     tvUserInfo.setText(user.getEmail());
         // }
@@ -145,7 +152,7 @@ public class SettingsFragment extends Fragment {
     }
 
     /**
-     * ✅ NUEVO: Obtiene el nombre del rol para mostrar
+     * Obtiene el nombre del rol para mostrar
      */
     private String getRoleDisplayName(UserRole role) {
         switch (role) {
@@ -164,18 +171,31 @@ public class SettingsFragment extends Fragment {
      * Configura los listeners de los botones
      */
     private void setupListeners() {
-        // Perfil - Todos pueden acceder
-        if (cardPerfil != null) {
-            cardPerfil.setOnClickListener(v ->
+        // Registro de Actividades - Solo administradores
+        if (cardRegistroActividades != null) {
+            cardRegistroActividades.setOnClickListener(v -> {
+                if (permissionChecker.checkAndNotify(getContext(),
+                        PermissionChecker.Permission.VIEW_MAINTAINERS)) {
                     NavHostFragment.findNavController(this)
-                            .navigate(R.id.action_settingsFragment_to_perfilFragment)
-            );
+                            .navigate(R.id.action_settingsFragment_to_registroActividadesFragment);
+                }
+            });
         }
 
-        // ✅ MODIFICADO: Mantenedores - Solo administradores
+        // Gestión de Usuarios - Solo administradores
+        if (cardGestionUsuarios != null) {
+            cardGestionUsuarios.setOnClickListener(v -> {
+                if (permissionChecker.checkAndNotify(getContext(),
+                        PermissionChecker.Permission.VIEW_MAINTAINERS)) {
+                    NavHostFragment.findNavController(this)
+                            .navigate(R.id.action_settingsFragment_to_gestionUsuariosFragment);
+                }
+            });
+        }
+
+        // Mantenedores - Solo administradores
         if (cardMantenedores != null) {
             cardMantenedores.setOnClickListener(v -> {
-                // Doble verificación de permisos
                 if (permissionChecker.checkAndNotify(getContext(),
                         PermissionChecker.Permission.VIEW_MAINTAINERS)) {
                     NavHostFragment.findNavController(this)
@@ -184,14 +204,22 @@ public class SettingsFragment extends Fragment {
             });
         }
 
-        // ✅ MODIFICADO: Cerrar sesión con diálogo de confirmación
+        // Perfil - Todos pueden acceder
+        if (cardPerfil != null) {
+            cardPerfil.setOnClickListener(v ->
+                    NavHostFragment.findNavController(this)
+                            .navigate(R.id.action_settingsFragment_to_perfilFragment)
+            );
+        }
+
+        // Cerrar sesión con diálogo de confirmación
         if (cardCerrarSesion != null) {
             cardCerrarSesion.setOnClickListener(v -> mostrarDialogoCerrarSesion());
         }
     }
 
     /**
-     * ✅ NUEVO: Muestra diálogo de confirmación para cerrar sesión
+     * Muestra diálogo de confirmación para cerrar sesión
      */
     private void mostrarDialogoCerrarSesion() {
         new AlertDialog.Builder(requireContext())
@@ -205,7 +233,7 @@ public class SettingsFragment extends Fragment {
     }
 
     /**
-     * ✅ NUEVO: Cierra la sesión y limpia los datos
+     * Cierra la sesión y limpia los datos
      */
     private void cerrarSesion() {
         // Limpiar rol almacenado en memoria
@@ -220,7 +248,7 @@ public class SettingsFragment extends Fragment {
         NavHostFragment.findNavController(this)
                 .navigate(R.id.action_settingsFragment_to_loginFragment);
 
-        // Opcional: Mostrar mensaje
+        // Mostrar mensaje
         Toast.makeText(getContext(), "Sesión cerrada exitosamente", Toast.LENGTH_SHORT).show();
 
         // Limpiar back stack para que no pueda volver atrás
@@ -232,7 +260,7 @@ public class SettingsFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        // ✅ NUEVO: Recargar el rol por si cambió
+        // Recargar el rol por si cambió
         loadUserRoleAndConfigureUI();
     }
 }

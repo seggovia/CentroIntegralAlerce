@@ -2,12 +2,14 @@ package com.centroalerce.auth;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.android.gms.tasks.Task;
 
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.*;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -22,7 +24,9 @@ public class LoginFragment extends Fragment {
 
     private TextInputEditText etEmail, etPass;
     private MaterialButton btnLogin;
+    private ProgressBar progressBar;
     private FirebaseAuth auth;
+    private FirebaseFirestore db;
 
     public LoginFragment(){}
 
@@ -33,11 +37,12 @@ public class LoginFragment extends Fragment {
         etEmail = v.findViewById(R.id.etEmail);
         etPass  = v.findViewById(R.id.etPass);
         btnLogin= v.findViewById(R.id.btnLogin);
+        progressBar = v.findViewById(R.id.progressBarLogin);
         TextView tvForgot = v.findViewById(R.id.tvForgot);
         TextView tvContacto = v.findViewById(R.id.tvContacto);
 
         // Botón "Crear cuenta"
-        com.google.android.material.button.MaterialButton btnSignup = v.findViewById(R.id.btnSignup);
+        MaterialButton btnSignup = v.findViewById(R.id.btnSignup);
         if (btnSignup != null) {
             btnSignup.setOnClickListener(x ->
                     Navigation.findNavController(v).navigate(R.id.action_loginFragment_to_signupFragment)
@@ -55,8 +60,9 @@ public class LoginFragment extends Fragment {
         etEmail.addTextChangedListener(watcher);
         etPass.addTextChangedListener(watcher);
 
-        // Inicializa Auth
+        // Inicializa Auth y Firestore
         if (auth == null) auth = FirebaseAuth.getInstance();
+        if (db == null) db = FirebaseFirestore.getInstance();
         auth.setLanguageCode("es");
 
         btnLogin.setOnClickListener(x -> doLogin(v));
@@ -90,13 +96,20 @@ public class LoginFragment extends Fragment {
 
         if (auth == null) auth = FirebaseAuth.getInstance();
         auth.setLanguageCode("es");
+
+        // Mostrar loading
+        showLoading(true);
         btnLogin.setEnabled(false);
+        btnLogin.setText("Iniciando sesión...");
 
         auth.signInWithEmailAndPassword(email, pass)
                 .addOnCompleteListener(task -> {
-                    btnLogin.setEnabled(true);
-
                     if (!task.isSuccessful()){
+                        // Ocultar loading y restaurar botón
+                        showLoading(false);
+                        btnLogin.setEnabled(true);
+                        btnLogin.setText("Iniciar sesión");
+
                         String error = task.getException() != null ? task.getException().getMessage() : "";
                         String msg;
                         if (error.contains("password is invalid") || error.contains("INVALID_PASSWORD")) {
@@ -118,19 +131,32 @@ public class LoginFragment extends Fragment {
 
                     FirebaseUser user = auth.getCurrentUser();
                     if (user == null) {
+                        showLoading(false);
+                        btnLogin.setEnabled(true);
+                        btnLogin.setText("Iniciar sesión");
                         Toast.makeText(getContext(), "Error: usuario no encontrado", Toast.LENGTH_LONG).show();
                         return;
                     }
 
+                    // Actualizar texto del loading
+                    btnLogin.setText("Verificando cuenta...");
+
                     // Refresca info antes de verificar
                     user.reload().addOnCompleteListener((Task<Void> r) -> {
                         if (!r.isSuccessful()) {
+                            showLoading(false);
+                            btnLogin.setEnabled(true);
+                            btnLogin.setText("Iniciar sesión");
                             Toast.makeText(getContext(), "Error al verificar estado de correo", Toast.LENGTH_LONG).show();
                             auth.signOut();
                             return;
                         }
 
                         if (!user.isEmailVerified()) {
+                            showLoading(false);
+                            btnLogin.setEnabled(true);
+                            btnLogin.setText("Iniciar sesión");
+
                             Toast.makeText(getContext(),
                                     "Tu cuenta aún no está verificada. Revisa tu correo (incluye carpeta de spam).",
                                     Toast.LENGTH_LONG).show();
@@ -149,10 +175,38 @@ public class LoginFragment extends Fragment {
                             return;
                         }
 
-                        // ✅ CAMBIO: Ahora navega directo al calendario
-                        Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+                        // Actualizar texto del loading
+                        btnLogin.setText("Finalizando...");
+
+                        // Actualizar emailVerificado en Firestore
+                        if (db == null) db = FirebaseFirestore.getInstance();
+
+                        db.collection("usuarios")
+                                .document(user.getUid())
+                                .update("emailVerificado", true)
+                                .addOnSuccessListener(aVoid -> {
+                                    showLoading(false);
+                                    btnLogin.setText("Iniciar sesión");
+                                    Toast.makeText(getContext(), "Bienvenido ✅", Toast.LENGTH_SHORT).show();
+                                    Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+                                })
+                                .addOnFailureListener(e -> {
+                                    // Si falla la actualización, igual permitir continuar
+                                    showLoading(false);
+                                    btnLogin.setText("Iniciar sesión");
+                                    Toast.makeText(getContext(),
+                                            "Sesión iniciada (error al actualizar perfil)",
+                                            Toast.LENGTH_SHORT).show();
+                                    Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+                                });
                     });
                 });
+    }
+
+    private void showLoading(boolean show) {
+        if (progressBar != null) {
+            progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
+        }
     }
 
     private void openContactSupport(View root){

@@ -1,5 +1,7 @@
 package com.centroalerce.gestion.viewmodels;
 
+import android.content.Context;
+
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -7,6 +9,7 @@ import com.centroalerce.gestion.utils.ValidationResult; // 👈 ⭐ AGREGAR ESTA
 
 import com.centroalerce.gestion.models.Actividad;
 import com.centroalerce.gestion.repositories.ActividadRepository;
+import com.centroalerce.gestion.services.NotificationService;
 
 import java.util.Date;
 import java.util.List;
@@ -24,7 +27,6 @@ public class ActividadViewModel extends ViewModel {
     }
 
     // Crear actividad
-    // Crear actividad
     public void createActividad(Actividad actividad, List<Date> fechasCitas,
                                 String lugarId, String lugarNombre) {
         isLoading.setValue(true);
@@ -40,6 +42,45 @@ public class ActividadViewModel extends ViewModel {
                     public void onSuccess(String actividadId) {
                         isLoading.setValue(false);
                         successMessage.setValue("Actividad creada exitosamente");
+                        loadActividades(); // Recargar lista
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        isLoading.setValue(false);
+                        errorMessage.setValue(error);
+                    }
+
+                    @Override
+                    public void onValidationError(ValidationResult validationResult) {
+                        isLoading.setValue(false);
+                        errorMessage.setValue(validationResult.getErrorMessage());
+                    }
+                }
+        );
+    }
+
+    // Crear actividad con notificaciones automáticas
+    public void createActividadConNotificaciones(Context context, Actividad actividad, 
+                                               List<Date> fechasCitas, String lugarId, 
+                                               String lugarNombre, List<String> usuariosNotificar) {
+        isLoading.setValue(true);
+
+        // Crear la actividad primero
+        actividadRepository.createActividadConValidacion(
+                actividad,
+                fechasCitas,
+                lugarId,
+                lugarNombre,
+                new ActividadRepository.CreateCallback() {
+                    @Override
+                    public void onSuccess(String actividadId) {
+                        // Programar notificaciones después de crear la actividad
+                        NotificationService notificationService = new NotificationService(context);
+                        notificationService.programarNotificacionesActividad(actividad, usuariosNotificar);
+                        
+                        isLoading.setValue(false);
+                        successMessage.setValue("Actividad creada exitosamente con notificaciones programadas");
                         loadActividades(); // Recargar lista
                     }
 

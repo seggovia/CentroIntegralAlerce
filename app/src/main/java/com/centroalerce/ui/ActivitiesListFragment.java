@@ -465,9 +465,24 @@ public class ActivitiesListFragment extends Fragment {
         @Override
         public void onBindViewHolder(@NonNull ActivityVH h, int i) {
             ActivityItem it = data.get(i);
+
+            // Título
             h.title.setText(it.title);
+
+            // Subtítulo (Tipo • Periodicidad)
             h.subtitle.setText(it.subtitle);
-            h.fecha.setText(it.fecha);
+
+            // ✅ CORRECCIÓN: Extraer la fecha del string completo
+            String fechaCompleta = it.fecha; // "dd/MM/yyyy HH:mm · Lugar"
+            String[] partes = fechaCompleta.split(" · ");
+
+            if (partes.length >= 2) {
+                h.fecha.setText(partes[0]); // Solo "dd/MM/yyyy HH:mm"
+                h.lugar.setText(partes[1]); // Solo "Lugar"
+            } else {
+                h.fecha.setText(fechaCompleta);
+                h.lugar.setText("Sin lugar");
+            }
 
             String estadoNorm = it.estado == null ? "" : it.estado.toLowerCase();
 
@@ -508,7 +523,7 @@ public class ActivitiesListFragment extends Fragment {
     }
 
     static class ActivityVH extends RecyclerView.ViewHolder {
-        TextView title, subtitle, fecha, estado;
+        TextView title, subtitle, fecha, estado, lugar; // ✅ AÑADIR lugar
 
         ActivityVH(@NonNull View v) {
             super(v);
@@ -516,6 +531,7 @@ public class ActivitiesListFragment extends Fragment {
             subtitle = v.findViewById(R.id.tvSubtitle);
             fecha = v.findViewById(R.id.tvFecha);
             estado = v.findViewById(R.id.tvEstado);
+            lugar = v.findViewById(R.id.tvLugar); // ✅ AÑADIR
         }
     }
 

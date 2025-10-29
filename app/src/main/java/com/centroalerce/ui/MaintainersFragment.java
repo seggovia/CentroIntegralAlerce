@@ -33,12 +33,16 @@ public class MaintainersFragment extends Fragment {
         MaterialCardView btnOferentes = v.findViewById(R.id.btnOferentes);
         MaterialCardView btnSocios    = v.findViewById(R.id.btnSocios);
         MaterialCardView btnProyectos = v.findViewById(R.id.btnProyectos);
-
+        MaterialCardView btnBeneficiarios = v.findViewById(R.id.btnBeneficiarios);
         // Navegar por ID de destino (más robusto que por action si hay dudas de acciones)
         if (btnTipos != null)     btnTipos.setOnClickListener(_v -> NavHostFragment.findNavController(this).navigate(R.id.tiposActividadFragment));
         if (btnLugares != null)   btnLugares.setOnClickListener(_v -> NavHostFragment.findNavController(this).navigate(R.id.lugaresFragment));
         if (btnOferentes != null) btnOferentes.setOnClickListener(_v -> NavHostFragment.findNavController(this).navigate(R.id.oferentesFragment));
         if (btnSocios != null)    btnSocios.setOnClickListener(_v -> NavHostFragment.findNavController(this).navigate(R.id.sociosFragment));
         if (btnProyectos != null) btnProyectos.setOnClickListener(_v -> NavHostFragment.findNavController(this).navigate(R.id.proyectosFragment));
+        // ← NUEVO: ir a la lista/CRUD de Beneficiarios
+        if (btnBeneficiarios != null)
+            btnBeneficiarios.setOnClickListener(_v ->
+                    NavHostFragment.findNavController(this).navigate(R.id.beneficiariosFragment));
     }
 }

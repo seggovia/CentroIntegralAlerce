@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="10dp"
-    app:cardElevation="0dp"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginVertical="6dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?android:attr/selectableItemBackground"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="3dp"
     app:strokeWidth="1dp"
     app:strokeColor="@color/cardStroke"
     app:cardBackgroundColor="@color/card_surface">
@@ -13,44 +19,60 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="14dp"
+        android:padding="16dp"
         android:gravity="center_vertical">
 
-        <ImageView
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:src="@android:drawable/ic_menu_mylocation" />
+        <!-- Ícono Circular -->
+        <FrameLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_icon_circle">
 
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:src="@android:drawable/ic_dialog_map"
+                app:tint="@color/primary"/>
+        </FrameLayout>
+
+        <!-- Info del Lugar -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:layout_marginStart="12dp">
+            android:layout_marginStart="14dp">
 
             <TextView
                 android:id="@+id/tvNombre"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="Oficina del centro"
                 android:textStyle="bold"
                 android:textSize="16sp"
-                android:text="Oficina del centro"/>
+                android:textColor="@color/textPrimary"
+                android:maxLines="1"
+                android:ellipsize="end"/>
 
             <TextView
                 android:id="@+id/tvCupo"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Cupo: —"
+                android:layout_marginTop="2dp"
+                android:text="Cupo: 25 personas"
                 android:textSize="13sp"
-                android:alpha="0.7"/>
+                android:textColor="@color/textSecondary"/>
         </LinearLayout>
 
+        <!-- Botón More -->
         <ImageButton
             android:id="@+id/btnMore"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/app_name"
-            android:src="@android:drawable/ic_menu_more" />
+            android:contentDescription="Opciones"
+            android:src="@android:drawable/ic_menu_more"
+            app:tint="@color/textSecondary"/>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

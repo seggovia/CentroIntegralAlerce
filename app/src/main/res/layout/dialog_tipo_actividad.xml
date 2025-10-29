@@ -1,19 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
-    android:background="@android:color/transparent"
+    android:padding="0dp"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:background="@android:color/transparent">
 
-    <!-- Contenedor principal -->
+    <!-- Card con borde y fondo -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/card_surface"
         android:orientation="vertical"
-        android:paddingBottom="0dp">
+        android:background="@color/card_surface"
+        android:paddingBottom="12dp">
 
-        <!-- Header -->
+        <!-- Header con gradiente -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="120dp"
@@ -27,93 +30,142 @@
                 android:padding="20dp">
 
                 <TextView
-                    android:id="@+id/tvTitulo"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Tipo de Actividad"
+                    android:text="Tipo de actividad"
                     android:textStyle="bold"
                     android:textSize="22sp"
                     android:textColor="@android:color/white"/>
 
                 <TextView
-                    android:id="@+id/tvSubtitulo"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Ingresa la información del tipo de actividad"
+                    android:text="Ingresa los datos del tipo"
                     android:textSize="13sp"
                     android:alpha="0.9"
                     android:textColor="@android:color/white"/>
             </LinearLayout>
         </FrameLayout>
 
-        <!-- Campos del formulario -->
+        <!-- Contenido -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="16dp"
             android:orientation="vertical">
 
+            <!-- Campo: Nombre -->
             <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:id="@+id/tilNombreTipo"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Nombre">
+                android:hint="Nombre *"
+                app:startIconDrawable="@android:drawable/ic_menu_edit"
+                app:endIconMode="clear_text">
 
                 <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etNombre"
+                    android:id="@+id/etNombreTipo"
                     android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:textColor="@android:color/black"
-                    android:layout_height="wrap_content"/>
+                    android:inputType="textCapSentences"
+                    android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Campo: Descripción -->
             <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:id="@+id/tilDescripcionTipo"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:hint="Descripción (opcional)">
+                android:hint="Descripción"
+                app:startIconDrawable="@android:drawable/ic_menu_info_details"
+                app:endIconMode="clear_text">
 
                 <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etDescripcion"
+                    android:id="@+id/etDescripcionTipo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textMultiLine"
                     android:textColor="@android:color/black"
-                    android:minLines="2"/>
+                    android:inputType="textCapSentences|textMultiLine"
+                    android:maxLines="3"
+                    android:minLines="2" />
             </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Switch: Activo -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="8dp"
+                android:background="@drawable/bg_chip_light">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Tipo de actividad activo"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/textPrimary"/>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/swActivoTipo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    app:thumbTint="@android:color/white"
+                    app:trackTint="@color/primary"/>
+            </LinearLayout>
+
+            <!-- Nota informativa -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Los tipos inactivos no aparecerán en los formularios de creación de actividades."
+                android:textSize="12sp"
+                android:textColor="@color/textSecondary"
+                android:lineSpacingExtra="2dp" />
         </LinearLayout>
 
-        <!-- Línea separadora -->
+        <!-- Divider -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="@color/cardStroke"/>
+            android:background="@color/cardStroke"
+            android:layout_marginTop="4dp"/>
 
-        <!-- Barra de botones dentro del mismo contenedor -->
+        <!-- Botones -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:padding="12dp"
             android:orientation="horizontal"
-            android:gravity="end"
-            android:padding="16dp">
+            android:gravity="end">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancelar"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Button.Outlined.Alerce"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAllCaps="false"
-                android:text="Cancelar"/>
+                android:text="Cancelar"
+                android:textAllCaps="false"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnGuardar"
-                style="@style/Widget.MaterialComponents.Button"
+                style="@style/Button.Primary.Alerce"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:text="Guardar"
                 android:textAllCaps="false"
-                android:text="Guardar"/>
+                android:layout_marginStart="8dp"
+                app:backgroundTint="@color/primary"/>
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

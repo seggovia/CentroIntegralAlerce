@@ -162,15 +162,30 @@ public class CitaRepository {
     }
 
     // Completar cita (puede ser llamado manualmente o automáticamente)
+    // Completar cita (puede ser llamado manualmente o automáticamente)
     public void completarCita(String citaId, SimpleCallback callback) {
-        db.collection("citas")
-                .document(citaId)
-                .update(
-                        "estado", "completada",
-                        "fechaModificacion", Timestamp.now()
-                )
-                .addOnSuccessListener(aVoid -> {
-                    if (callback != null) callback.onSuccess();
+        // ✅ CORRECCIÓN: Actualizar en collectionGroup para alcanzar todas las citas
+        db.collectionGroup("citas")
+                .whereEqualTo("id", citaId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (querySnapshot.isEmpty()) {
+                        if (callback != null) callback.onError("Cita no encontrada");
+                        return;
+                    }
+
+                    // Actualizar el primer documento encontrado
+                    querySnapshot.getDocuments().get(0).getReference()
+                            .update(
+                                    "estado", "completada",
+                                    "fechaModificacion", Timestamp.now()
+                            )
+                            .addOnSuccessListener(aVoid -> {
+                                if (callback != null) callback.onSuccess();
+                            })
+                            .addOnFailureListener(e -> {
+                                if (callback != null) callback.onError(e.getMessage());
+                            });
                 })
                 .addOnFailureListener(e -> {
                     if (callback != null) callback.onError(e.getMessage());
