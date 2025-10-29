@@ -82,6 +82,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // ✅ Inicializar sistema de roles PRIMERO
+        initializeRoleSystem();
+
         // 5) Mostrar/ocultar BottomNav y FAB según destino
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
             int id = destination.getId();
@@ -118,8 +121,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // ✅ Inicializar sistema de roles DESPUÉS de que todo esté listo
-        initializeRoleSystem();
 
     }
 
@@ -138,16 +139,76 @@ public class MainActivity extends AppCompatActivity {
             // Configurar el menú según el rol
             configureMenuByRole(role);
 
-            // ✅ CORREGIDO: Verificar que navController esté listo antes de usarlo
-            if (navControllerReady && navController.getCurrentDestination() != null &&
-                    navController.getCurrentDestination().getId() == R.id.calendarFragment) {
-                if (role.canInteractWithActivities()) {
-                    fabGlobal.show();
-                } else {
-                    fabGlobal.hide();
+            // ✅ Actualizar visibilidad del FAB si ya estamos en CalendarFragment
+            runOnUiThread(() -> {
+                if (navControllerReady && navController.getCurrentDestination() != null) {
+                    updateFabVisibility(navController.getCurrentDestination().getId());
                 }
-            }
+            });
         });
+    }
+
+    /**
+     * ✅ NUEVO: Configura los listeners de navegación
+     */
+    private void setupNavigationListeners() {
+        navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+            int id = destination.getId();
+
+            // Pantallas donde se oculta el BottomNav
+            boolean hideBottomNav =
+                    id == R.id.loginFragment ||
+                            id == R.id.signupFragment ||
+                            id == R.id.contactSupportFragment ||
+                            id == R.id.forgotPasswordFragment ||
+                            id == R.id.activityFormFragment ||
+                            id == R.id.activityRescheduleFragment ||
+                            id == R.id.detalleActividadFragment ||
+                            id == R.id.perfilFragment ||
+                            id == R.id.maintainersFragment ||
+                            id == R.id.tiposActividadFragment ||
+                            id == R.id.lugaresFragment ||
+                            id == R.id.oferentesFragment ||
+                            id == R.id.sociosFragment ||
+                            id == R.id.proyectosFragment;
+
+            bottomNav.setVisibility(hideBottomNav ? View.GONE : View.VISIBLE);
+
+            // ✅ Actualizar visibilidad del FAB
+            updateFabVisibility(id);
+        });
+    }
+
+    /**
+     * ✅ NUEVO: Actualiza la visibilidad del FAB según el destino y el rol
+     */
+    private void updateFabVisibility(int destinationId) {
+        if (fabGlobal == null) return;
+
+        // Solo mostrar FAB en CalendarFragment
+        if (destinationId == R.id.calendarFragment) {
+            // ✅ LÓGICA CORREGIDA:
+            // - Si el rol aún no está cargado (null), ocultar por seguridad
+            // - Si el rol NO es VISUALIZADOR, mostrar (USUARIO y ADMIN pueden crear)
+            // - Si el rol ES VISUALIZADOR, ocultar
+
+            if (currentUserRole == null) {
+                // Rol aún no cargado, ocultar temporalmente
+                fabGlobal.hide();
+                Log.d(TAG, "⏳ FAB oculto - Rol aún no cargado");
+            } else if (currentUserRole == UserRole.VISUALIZADOR) {
+                // ❌ Visualizador NO puede crear actividades
+                fabGlobal.hide();
+                Log.d(TAG, "🚫 FAB oculto - Usuario es VISUALIZADOR");
+            } else {
+                // ✅ USUARIO y ADMINISTRADOR pueden crear actividades
+                fabGlobal.show();
+                Log.d(TAG, "✅ FAB visible - Rol: " + currentUserRole.getValue());
+            }
+        } else {
+            // Ocultar FAB en otros fragments
+            fabGlobal.hide();
+        }
     }
 
     /**
