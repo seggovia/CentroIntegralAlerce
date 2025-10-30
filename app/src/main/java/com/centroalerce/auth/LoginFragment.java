@@ -37,6 +37,7 @@ public class LoginFragment extends Fragment {
         etEmail = v.findViewById(R.id.etEmail);
         etPass  = v.findViewById(R.id.etPass);
         btnLogin= v.findViewById(R.id.btnLogin);
+        btnLogin.setEnabled(true); // Siempre habilitado, las validaciones se hacen al hacer clic
         progressBar = v.findViewById(R.id.progressBarLogin);
         TextView tvForgot = v.findViewById(R.id.tvForgot);
         TextView tvContacto = v.findViewById(R.id.tvContacto);
@@ -49,11 +50,14 @@ public class LoginFragment extends Fragment {
             );
         }
 
+        // TextWatcher para dar feedback visual pero NO deshabilitar botón
+        // Las validaciones se harán al hacer clic
         TextWatcher watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                boolean enable = !isEmpty(etEmail) && !isEmpty(etPass);
-                btnLogin.setEnabled(enable);
+                // Limpiar errores mientras escribe
+                if (etEmail != null) etEmail.setError(null);
+                if (etPass != null) etPass.setError(null);
             }
             @Override public void afterTextChanged(Editable s) {}
         };
@@ -83,14 +87,44 @@ public class LoginFragment extends Fragment {
     }
 
     private void doLogin(View root){
+        if (etEmail == null || etPass == null) {
+            Toast.makeText(getContext(), "Error: campos no inicializados", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
         String email = etEmail.getText()==null ? "" : etEmail.getText().toString().trim();
         String pass  = etPass.getText()==null ? "" : etPass.getText().toString();
 
+        // Validar campos vacíos
         boolean ok = true;
-        if (email.isEmpty()){ etEmail.setError("Ingresa tu correo"); ok = false; }
-        if (pass.isEmpty()){ etPass.setError("Ingresa tu contraseña"); ok = false; }
+        if (email.isEmpty()){
+            etEmail.setError("El correo es requerido");
+            etEmail.requestFocus();
+            ok = false;
+        }
+        if (pass.isEmpty()){
+            etPass.setError("La contraseña es requerida");
+            if (ok) etPass.requestFocus();
+            ok = false;
+        }
         if (!ok){
-            Toast.makeText(getContext(), "Revisa los campos ❌", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), "Por favor completa todos los campos", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Validar formato de email
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){
+            etEmail.setError("El formato del correo no es válido");
+            etEmail.requestFocus();
+            Toast.makeText(getContext(), "Corrige el formato del correo", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Validar longitud mínima de contraseña
+        if (pass.length() < 6){
+            etPass.setError("La contraseña debe tener al menos 6 caracteres");
+            etPass.requestFocus();
+            Toast.makeText(getContext(), "La contraseña es muy corta", Toast.LENGTH_SHORT).show();
             return;
         }
 

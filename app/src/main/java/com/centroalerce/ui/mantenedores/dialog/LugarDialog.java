@@ -4,6 +4,7 @@ import android.app.Dialog;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 
@@ -65,9 +66,33 @@ public class LugarDialog extends DialogFragment {
                     nombre = etNombre.getText().toString().trim();
                 }
 
+                // Validar nombre obligatorio
+                if (TextUtils.isEmpty(nombre)) {
+                    if (etNombre != null) {
+                        etNombre.setError("El nombre es obligatorio");
+                        etNombre.requestFocus();
+                    }
+                    return;
+                }
+
                 Integer cupo = null;
                 if (etCupo != null && etCupo.getText() != null && etCupo.getText().length() > 0) {
-                    try { cupo = Integer.valueOf(etCupo.getText().toString()); } catch (NumberFormatException ignored) {}
+                    try { 
+                        cupo = Integer.valueOf(etCupo.getText().toString());
+                        if (cupo < 0) {
+                            if (etCupo != null) {
+                                etCupo.setError("El cupo no puede ser negativo");
+                                etCupo.requestFocus();
+                            }
+                            return;
+                        }
+                    } catch (NumberFormatException e) {
+                        if (etCupo != null) {
+                            etCupo.setError("Ingresa un número válido");
+                            etCupo.requestFocus();
+                        }
+                        return;
+                    }
                 }
 
                 Lugar l = (original == null)

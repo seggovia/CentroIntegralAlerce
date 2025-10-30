@@ -65,10 +65,20 @@ public class OferenteDialog extends DialogFragment {
             String docente = safeText(etDocente);
             String carrera = safeText(etCarrera);
 
+            // Validar nombre obligatorio
             if (tilNombre != null) tilNombre.setError(null);
             if (TextUtils.isEmpty(nombre)) {
-                if (tilNombre != null) tilNombre.setError("Obligatorio");
-                etNombre.requestFocus();
+                if (tilNombre != null) tilNombre.setError("El nombre es obligatorio");
+                else if (etNombre != null) etNombre.setError("El nombre es obligatorio");
+                if (etNombre != null) etNombre.requestFocus();
+                return;
+            }
+
+            // Validar que el nombre tenga al menos 3 caracteres
+            if (nombre.length() < 3) {
+                if (tilNombre != null) tilNombre.setError("El nombre debe tener al menos 3 caracteres");
+                else if (etNombre != null) etNombre.setError("El nombre debe tener al menos 3 caracteres");
+                if (etNombre != null) etNombre.requestFocus();
                 return;
             }
 

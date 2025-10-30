@@ -173,12 +173,35 @@ public class BeneficiariosFragment extends Fragment {
         btnGuardar.setOnClickListener(v -> {
             String nombre = getText(etNombre);
             if (TextUtils.isEmpty(nombre)) {
-                etNombre.setError("Obligatorio");
+                etNombre.setError("El nombre es obligatorio");
+                etNombre.requestFocus();
                 return;
             }
+            
             String rut = getText(etRut);
+            // Validar formato de RUT chileno si está lleno
+            if (!TextUtils.isEmpty(rut) && rut.length() < 7) {
+                etRut.setError("RUT inválido (muy corto)");
+                etRut.requestFocus();
+                return;
+            }
+            
             String tel = getText(etTel);
+            // Validar teléfono si está lleno
+            if (!TextUtils.isEmpty(tel) && tel.length() < 8) {
+                etTel.setError("Teléfono inválido");
+                etTel.requestFocus();
+                return;
+            }
+            
             String email = getText(etEmail);
+            // Validar formato de email si está lleno
+            if (!TextUtils.isEmpty(email) && !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                etEmail.setError("Formato de email inválido");
+                etEmail.requestFocus();
+                return;
+            }
+            
             String socioNombre = getText(acSocio);
             String socioId = socioNombreToId.get(socioNombre);
             boolean activo = swActivo.isChecked();

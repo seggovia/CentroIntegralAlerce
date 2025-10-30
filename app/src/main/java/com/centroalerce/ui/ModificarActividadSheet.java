@@ -15,8 +15,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.models.Beneficiario;
+import com.centroalerce.ui.mantenedores.dialog.BeneficiariosPickerSheet;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.firestore.DocumentReference;
@@ -65,6 +70,15 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
     private TextInputEditText etNombre, etCupo, etBeneficiarios, etDiasAviso;
     private AutoCompleteTextView actTipo, actPeriodicidad, actLugar, actOferente, actSocio, actProyecto;
+    
+    // UI para beneficiarios (como en ActivityFormFragment)
+    private MaterialCardView btnBeneficiarios;
+    private TextView tvBeneficiariosHint;
+    private ChipGroup chipsBeneficiarios;
+    
+    // Datos de beneficiarios seleccionados
+    private final List<Beneficiario> beneficiariosSeleccionados = new ArrayList<>();
+    private final List<String> beneficiariosSeleccionadosIds = new ArrayList<>();
 
     // Fallbacks
     private final String[] tiposFijos = new String[]{
@@ -96,6 +110,16 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         actProyecto = v.findViewById(R.id.actProyecto);
 
         llAdjuntos = v.findViewById(R.id.llAdjuntos);
+        
+        // Referencias de beneficiarios
+        btnBeneficiarios = v.findViewById(R.id.btnBeneficiarios);
+        tvBeneficiariosHint = v.findViewById(R.id.tvBeneficiariosHint);
+        chipsBeneficiarios = v.findViewById(R.id.chipsBeneficiarios);
+        
+        // Listener para abrir selector de beneficiarios
+        if (btnBeneficiarios != null) {
+            btnBeneficiarios.setOnClickListener(view -> abrirSelectorBeneficiarios());
+        }
 
         // Estáticos
         actPeriodicidad.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, periodicidades));
@@ -126,6 +150,11 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         cargarColeccionAOptions("proyectos", actProyecto);
 
         precargar();
+        
+        // Render inicial de beneficiarios
+        if (chipsBeneficiarios != null) {
+            renderChipsBeneficiarios();
+        }
 
         ((MaterialButton) v.findViewById(R.id.btnGuardarCambios)).setOnClickListener(x -> guardar());
     }
@@ -258,16 +287,33 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         setDropText(actTipo, firstNonEmpty(doc.getString("tipoActividad"), doc.getString("tipo")));
         setDropText(actPeriodicidad, firstNonEmpty(doc.getString("periodicidad"), doc.getString("frecuencia")));
 
-        // Beneficiarios texto
-        String beneficiariosTxt = firstNonEmpty(doc.getString("beneficiariosTexto"));
-        if (TextUtils.isEmpty(beneficiariosTxt)) {
-            try {
-                @SuppressWarnings("unchecked")
-                List<String> lista = (List<String>) doc.get("beneficiarios");
-                if (lista != null && !lista.isEmpty()) beneficiariosTxt = TextUtils.join(", ", lista);
-            } catch (Exception ignored) {}
-        }
-        if (!TextUtils.isEmpty(beneficiariosTxt)) etBeneficiarios.setText(beneficiariosTxt);
+        // Beneficiarios - Cargar desde beneficiariosIds (array de IDs)
+        beneficiariosSeleccionados.clear();
+        beneficiariosSeleccionadosIds.clear();
+        
+        try {
+            @SuppressWarnings("unchecked")
+            List<String> beneficiariosIds = (List<String>) doc.get("beneficiariosIds");
+            if (beneficiariosIds != null && !beneficiariosIds.isEmpty()) {
+                beneficiariosSeleccionadosIds.addAll(beneficiariosIds);
+                cargarBeneficiariosDesdeIds(beneficiariosIds);
+            } else {
+                // Fallback: cargar desde beneficiariosTexto o beneficiarios (array de nombres)
+                String beneficiariosTxt = firstNonEmpty(doc.getString("beneficiariosTexto"));
+                if (TextUtils.isEmpty(beneficiariosTxt)) {
+                    @SuppressWarnings("unchecked")
+                    List<String> lista = (List<String>) doc.get("beneficiarios");
+                    if (lista != null && !lista.isEmpty()) {
+                        beneficiariosTxt = TextUtils.join(", ", lista);
+                    }
+                }
+                // Si hay texto pero no IDs, dejamos el campo de texto como fallback
+                if (!TextUtils.isEmpty(beneficiariosTxt) && etBeneficiarios != null) {
+                    etBeneficiarios.setText(beneficiariosTxt);
+                }
+            }
+            renderChipsBeneficiarios();
+        } catch (Exception ignored) {}
 
         Long diasAviso = firstNonNull(doc.getLong("diasAviso"), doc.getLong("dias_aviso"),
                 doc.getLong("diasAvisoPrevio"), doc.getLong("diasAvisoCancelacion"));
@@ -283,6 +329,76 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         selectByIdOrName(actProyecto, firstNonEmpty(doc.getString("proyecto_id"), doc.getString("project_id"), doc.getString("proyecto")),
                 firstNonEmpty(doc.getString("proyectoNombre"), doc.getString("proyecto")));
     }
+    
+    private void cargarBeneficiariosDesdeIds(List<String> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        
+        db.collection("beneficiarios")
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    beneficiariosSeleccionados.clear();
+                    for (DocumentSnapshot doc : snapshot.getDocuments()) {
+                        if (ids.contains(doc.getId())) {
+                            Beneficiario b = doc.toObject(Beneficiario.class);
+                            if (b != null) {
+                                b.setId(doc.getId());
+                                beneficiariosSeleccionados.add(b);
+                            }
+                        }
+                    }
+                    renderChipsBeneficiarios();
+                })
+                .addOnFailureListener(e -> {
+                    toast("Error cargando beneficiarios");
+                });
+    }
+    
+    private void abrirSelectorBeneficiarios() {
+        BeneficiariosPickerSheet sheet = BeneficiariosPickerSheet.newInstance(beneficiariosSeleccionadosIds);
+        sheet.setListener(seleccionados -> {
+            beneficiariosSeleccionados.clear();
+            beneficiariosSeleccionados.addAll(seleccionados);
+            
+            beneficiariosSeleccionadosIds.clear();
+            for (Beneficiario b : seleccionados) {
+                beneficiariosSeleccionadosIds.add(b.getId());
+            }
+            
+            renderChipsBeneficiarios();
+        });
+        sheet.show(getChildFragmentManager(), "beneficiariosPicker");
+    }
+    
+    private void renderChipsBeneficiarios() {
+        if (chipsBeneficiarios == null) return;
+        
+        chipsBeneficiarios.removeAllViews();
+        
+        if (beneficiariosSeleccionados.isEmpty()) {
+            if (tvBeneficiariosHint != null) {
+                tvBeneficiariosHint.setText("Seleccionar beneficiarios");
+                tvBeneficiariosHint.setVisibility(View.VISIBLE);
+            }
+            return;
+        }
+        
+        if (tvBeneficiariosHint != null) {
+            tvBeneficiariosHint.setVisibility(View.GONE);
+        }
+        
+        for (Beneficiario b : beneficiariosSeleccionados) {
+            Chip chip = new Chip(requireContext());
+            chip.setText(b.getNombre());
+            chip.setCloseIconVisible(true);
+            chip.setCheckable(false);
+            chip.setOnCloseIconClickListener(v -> {
+                beneficiariosSeleccionadosIds.remove(b.getId());
+                beneficiariosSeleccionados.remove(b);
+                renderChipsBeneficiarios();
+            });
+            chipsBeneficiarios.addView(chip);
+        }
+    }
 
     // ================== Guardar ==================
     private void guardar(){
@@ -296,7 +412,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
         // NUEVO
         String socio = val(actSocio);
-        String beneficiariosTxt = val(etBeneficiarios);
+        String beneficiariosTxt = "";
+        if (etBeneficiarios != null && etBeneficiarios.getText() != null) {
+            beneficiariosTxt = etBeneficiarios.getText().toString().trim();
+        }
         String proyecto = val(actProyecto);
         String diasAvisoStr = val(etDiasAviso);
 
@@ -320,9 +439,23 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
         if (!TextUtils.isEmpty(socio)) up.put("socioComunitario", socio);
 
-        if (!TextUtils.isEmpty(beneficiariosTxt)) {
+        // Guardar beneficiarios - Priorizar IDs sobre texto
+        if (!beneficiariosSeleccionadosIds.isEmpty()) {
+            up.put("beneficiariosIds", beneficiariosSeleccionadosIds);
+            // También guardar nombres como texto para compatibilidad
+            java.util.List<String> nombres = new java.util.ArrayList<>();
+            for (Beneficiario b : beneficiariosSeleccionados) {
+                if (b != null && !TextUtils.isEmpty(b.getNombre())) {
+                    nombres.add(b.getNombre());
+                }
+            }
+            if (!nombres.isEmpty()) {
+                up.put("beneficiarios", nombres);
+                up.put("beneficiariosTexto", TextUtils.join(", ", nombres));
+            }
+        } else if (!TextUtils.isEmpty(beneficiariosTxt)) {
+            // Fallback: si hay texto manual pero no IDs
             up.put("beneficiariosTexto", beneficiariosTxt);
-            // si quieres mantener también array:
             java.util.List<String> lista = new java.util.ArrayList<>();
             for (String s : beneficiariosTxt.split(",")) {
                 String t = s.trim(); if (!t.isEmpty()) lista.add(t);

@@ -121,12 +121,44 @@ public class RegistroUsuariosFragment extends Fragment {
             return;
         }
 
-        if (password.length() < 6) {
-            etPassword.setError("La contraseña debe tener al menos 6 caracteres");
+        // Validar longitud mínima de contraseña
+        if (password.length() < 8) {
+            etPassword.setError("La contraseña debe tener al menos 8 caracteres");
+            etPassword.requestFocus();
+            return;
+        }
+        
+        // Validar que la contraseña tenga mayúsculas, minúsculas y números
+        boolean hasUpper = false, hasLower = false, hasDigit = false;
+        for (char c : password.toCharArray()) {
+            if (Character.isUpperCase(c)) hasUpper = true;
+            if (Character.isLowerCase(c)) hasLower = true;
+            if (Character.isDigit(c)) hasDigit = true;
+        }
+        
+        if (!hasUpper) {
+            etPassword.setError("La contraseña debe tener al menos una mayúscula");
+            etPassword.requestFocus();
+            return;
+        }
+        if (!hasLower) {
+            etPassword.setError("La contraseña debe tener al menos una minúscula");
+            etPassword.requestFocus();
+            return;
+        }
+        if (!hasDigit) {
+            etPassword.setError("La contraseña debe tener al menos un número");
             etPassword.requestFocus();
             return;
         }
 
+        // Validar confirmación de contraseña
+        if (TextUtils.isEmpty(confirmPassword)) {
+            etConfirmPassword.setError("Confirma tu contraseña");
+            etConfirmPassword.requestFocus();
+            return;
+        }
+        
         if (!password.equals(confirmPassword)) {
             etConfirmPassword.setError("Las contraseñas no coinciden");
             etConfirmPassword.requestFocus();

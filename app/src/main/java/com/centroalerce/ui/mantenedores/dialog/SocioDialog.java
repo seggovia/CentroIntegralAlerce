@@ -4,6 +4,7 @@ import android.app.Dialog;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 
@@ -16,6 +17,7 @@ import com.centroalerce.gestion.models.SocioComunitario;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 public class SocioDialog extends DialogFragment {
 
@@ -63,6 +65,15 @@ public class SocioDialog extends DialogFragment {
                 String nombre = "";
                 if (etNombre != null && etNombre.getText() != null) {
                     nombre = etNombre.getText().toString().trim();
+                }
+
+                // Validar nombre obligatorio
+                if (TextUtils.isEmpty(nombre)) {
+                    if (etNombre != null) {
+                        etNombre.setError("El nombre es obligatorio");
+                        etNombre.requestFocus();
+                    }
+                    return;
                 }
 
                 String descripcion = "";
