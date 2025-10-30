@@ -19,10 +19,12 @@ import androidx.navigation.Navigation;
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.viewmodels.AuthViewModel;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 public class ForgotPasswordFragment extends Fragment {
 
     private AuthViewModel authViewModel;
+    private TextInputLayout tilEmail;
     private TextInputEditText etEmail;
     private Button btnEnviar;
 
@@ -35,6 +37,7 @@ public class ForgotPasswordFragment extends Fragment {
         authViewModel = new ViewModelProvider(this).get(AuthViewModel.class);
 
         // Referencias
+        tilEmail = v.findViewById(R.id.tilEmail);
         etEmail = v.findViewById(R.id.etEmail);
         btnEnviar = v.findViewById(R.id.btnEnviar);
         btnEnviar.setEnabled(true); // Siempre habilitado, las validaciones se hacen al hacer clic
@@ -48,7 +51,7 @@ public class ForgotPasswordFragment extends Fragment {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 // Limpiar errores mientras escribe
-                if (etEmail != null) etEmail.setError(null);
+                if (tilEmail != null) tilEmail.setError(null);
             }
 
             @Override
@@ -66,18 +69,28 @@ public class ForgotPasswordFragment extends Fragment {
             
             // Validar campo vacío
             if (TextUtils.isEmpty(email)) {
-                etEmail.setError("El correo es requerido");
-                etEmail.requestFocus();
-                Toast.makeText(getContext(), "Por favor ingresa tu correo electrónico", Toast.LENGTH_SHORT).show();
+                if (tilEmail != null) {
+                    tilEmail.setError("El correo es requerido");
+                    tilEmail.setErrorEnabled(true);
+                }
+                if (etEmail != null) etEmail.requestFocus();
                 return;
             }
             
             // Validar formato de email
             if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                etEmail.setError("El formato del correo no es válido");
-                etEmail.requestFocus();
-                Toast.makeText(getContext(), "Corrige el formato del correo", Toast.LENGTH_SHORT).show();
+                if (tilEmail != null) {
+                    tilEmail.setError("El formato del correo no es válido");
+                    tilEmail.setErrorEnabled(true);
+                }
+                if (etEmail != null) etEmail.requestFocus();
                 return;
+            }
+            
+            // Limpiar errores antes de enviar
+            if (tilEmail != null) {
+                tilEmail.setError(null);
+                tilEmail.setErrorEnabled(false);
             }
             
             enviarRecuperacion(email);
