@@ -68,7 +68,7 @@ public class OferenteDialog extends DialogFragment {
             // Validar nombre obligatorio
             if (tilNombre != null) tilNombre.setError(null);
             if (TextUtils.isEmpty(nombre)) {
-                if (tilNombre != null) tilNombre.setError("El nombre es obligatorio");
+                if (tilNombre != null) { tilNombre.setError("El nombre es obligatorio"); tilNombre.setErrorEnabled(true); }
                 else if (etNombre != null) etNombre.setError("El nombre es obligatorio");
                 if (etNombre != null) etNombre.requestFocus();
                 return;
@@ -76,7 +76,7 @@ public class OferenteDialog extends DialogFragment {
 
             // Validar que el nombre tenga al menos 3 caracteres
             if (nombre.length() < 3) {
-                if (tilNombre != null) tilNombre.setError("El nombre debe tener al menos 3 caracteres");
+                if (tilNombre != null) { tilNombre.setError("El nombre debe tener al menos 3 caracteres"); tilNombre.setErrorEnabled(true); }
                 else if (etNombre != null) etNombre.setError("El nombre debe tener al menos 3 caracteres");
                 if (etNombre != null) etNombre.requestFocus();
                 return;

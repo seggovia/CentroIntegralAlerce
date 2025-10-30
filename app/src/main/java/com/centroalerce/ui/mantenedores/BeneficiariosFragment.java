@@ -173,7 +173,11 @@ public class BeneficiariosFragment extends Fragment {
         btnGuardar.setOnClickListener(v -> {
             String nombre = getText(etNombre);
             if (TextUtils.isEmpty(nombre)) {
-                etNombre.setError("El nombre es obligatorio");
+                try {
+                    com.google.android.material.textfield.TextInputLayout til = (com.google.android.material.textfield.TextInputLayout) ((View) etNombre.getParent()).getParent();
+                    if (til != null) { til.setError("El nombre es obligatorio"); til.setErrorEnabled(true); }
+                    else etNombre.setError("El nombre es obligatorio");
+                } catch (Exception ignore) { etNombre.setError("El nombre es obligatorio"); }
                 etNombre.requestFocus();
                 return;
             }
@@ -181,7 +185,11 @@ public class BeneficiariosFragment extends Fragment {
             String rut = getText(etRut);
             // Validar formato de RUT chileno si está lleno
             if (!TextUtils.isEmpty(rut) && rut.length() < 7) {
-                etRut.setError("RUT inválido (muy corto)");
+                try {
+                    com.google.android.material.textfield.TextInputLayout til = (com.google.android.material.textfield.TextInputLayout) ((View) etRut.getParent()).getParent();
+                    if (til != null) { til.setError("RUT inválido (muy corto)"); til.setErrorEnabled(true); }
+                    else etRut.setError("RUT inválido (muy corto)");
+                } catch (Exception ignore) { etRut.setError("RUT inválido (muy corto)"); }
                 etRut.requestFocus();
                 return;
             }
@@ -189,7 +197,11 @@ public class BeneficiariosFragment extends Fragment {
             String tel = getText(etTel);
             // Validar teléfono si está lleno
             if (!TextUtils.isEmpty(tel) && tel.length() < 8) {
-                etTel.setError("Teléfono inválido");
+                try {
+                    com.google.android.material.textfield.TextInputLayout til = (com.google.android.material.textfield.TextInputLayout) ((View) etTel.getParent()).getParent();
+                    if (til != null) { til.setError("Teléfono inválido"); til.setErrorEnabled(true); }
+                    else etTel.setError("Teléfono inválido");
+                } catch (Exception ignore) { etTel.setError("Teléfono inválido"); }
                 etTel.requestFocus();
                 return;
             }
@@ -197,7 +209,11 @@ public class BeneficiariosFragment extends Fragment {
             String email = getText(etEmail);
             // Validar formato de email si está lleno
             if (!TextUtils.isEmpty(email) && !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                etEmail.setError("Formato de email inválido");
+                try {
+                    com.google.android.material.textfield.TextInputLayout til = (com.google.android.material.textfield.TextInputLayout) ((View) etEmail.getParent()).getParent();
+                    if (til != null) { til.setError("Formato de email inválido"); til.setErrorEnabled(true); }
+                    else etEmail.setError("Formato de email inválido");
+                } catch (Exception ignore) { etEmail.setError("Formato de email inválido"); }
                 etEmail.requestFocus();
                 return;
             }

@@ -41,6 +41,9 @@ public class SocioDialog extends DialogFragment {
         final TextInputEditText etCaracterizacion = v.findViewById(R.id.etCaracterizacion);
         final MaterialButton btnCancelar = v.findViewById(R.id.btnCancelar);
         final MaterialButton btnGuardar = v.findViewById(R.id.btnGuardar);
+        com.google.android.material.textfield.TextInputLayout tilNombre = null;
+        try { tilNombre = (com.google.android.material.textfield.TextInputLayout) ((View) etNombre.getParent()).getParent(); } catch (Exception ignore) {}
+        final com.google.android.material.textfield.TextInputLayout tilNombreRef = tilNombre;
 
         if (original != null) {
             if (etNombre != null) etNombre.setText(original.getNombre());
@@ -69,10 +72,9 @@ public class SocioDialog extends DialogFragment {
 
                 // Validar nombre obligatorio
                 if (TextUtils.isEmpty(nombre)) {
-                    if (etNombre != null) {
-                        etNombre.setError("El nombre es obligatorio");
-                        etNombre.requestFocus();
-                    }
+                    if (tilNombreRef != null) { tilNombreRef.setError("El nombre es obligatorio"); tilNombreRef.setErrorEnabled(true); }
+                    else if (etNombre != null) etNombre.setError("El nombre es obligatorio");
+                    if (etNombre != null) etNombre.requestFocus();
                     return;
                 }
 
