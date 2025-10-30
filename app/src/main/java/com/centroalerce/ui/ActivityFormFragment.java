@@ -172,7 +172,7 @@ public class ActivityFormFragment extends Fragment {
         // Botones
         btnCancelar      = v.findViewById(R.id.btnCancelar);
         btnGuardar       = v.findViewById(R.id.btnGuardar);
-        btnGuardar.setEnabled(false);
+        btnGuardar.setEnabled(true); // Siempre habilitado, las validaciones se hacen al hacer clic
 
         // Adjuntos UI
         boxAdjuntos      = v.findViewById(R.id.boxAdjuntos);
@@ -601,8 +601,8 @@ public class ActivityFormFragment extends Fragment {
             etHora.setFocusable(false);
         }
 
-        // Forzar actualización de validación sin mostrar errores
-        btnGuardar.setEnabled(false);
+        // No deshabilitar el botón aquí; las validaciones se hacen al hacer clic
+        // btnGuardar.setEnabled(false);
     }
 
     // ---------- Pickers ----------
@@ -920,7 +920,8 @@ public class ActivityFormFragment extends Fragment {
             }
         }
 
-        btnGuardar.setEnabled(ok);
+        // No deshabilitar el botón aquí - las validaciones se hacen al hacer clic
+        // btnGuardar.setEnabled(ok);
     }
 
 
@@ -935,39 +936,66 @@ public class ActivityFormFragment extends Fragment {
     private void onGuardar(View root) {
         android.util.Log.d("FORM", "=== INICIO onGuardar ===");
 
-        // ✅ CRÍTICO: Validar Y mostrar errores
-        validarMinimos(true); // <-- CAMBIADO: Pasar true para mostrar errores
+        // Limpiar errores visibles
+        TextInputLayout tilNombreLocal = (TextInputLayout) etNombre.getParent().getParent();
+        if (tilNombreLocal != null) tilNombreLocal.setError(null);
+        if (tilFecha != null) tilFecha.setError(null);
+        if (tilHora != null) tilHora.setError(null);
+        TextInputLayout tilTipoLocal = null;
+        if (acTipoActividad != null) {
+            View p = (View) acTipoActividad.getParent();
+            if (p != null) p = (View) p.getParent();
+            if (p instanceof TextInputLayout) tilTipoLocal = (TextInputLayout) p;
+            if (tilTipoLocal != null) tilTipoLocal.setError(null);
+        }
 
-        // Si el botón no está habilitado después de validar, no continuar
-        if (!btnGuardar.isEnabled()) {
-            Snackbar.make(root, "Por favor completa todos los campos obligatorios", Snackbar.LENGTH_LONG).show();
+        // Validar nombre - requerido
+        String nombre = getText(etNombre);
+        if (TextUtils.isEmpty(nombre)) {
+            if (tilNombreLocal != null) tilNombreLocal.setError("Obligatorio");
+            else etNombre.setError("El nombre es obligatorio");
+            etNombre.requestFocus();
+            Snackbar.make(root, "Ingresa el nombre de la actividad", Snackbar.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Validar tipo de actividad - requerido
+        String tipoActividad = getText(acTipoActividad);
+        if (TextUtils.isEmpty(tipoActividad)) {
+            if (tilTipoLocal != null) tilTipoLocal.setError("Selecciona un tipo de actividad");
+            else acTipoActividad.setError("Selecciona un tipo de actividad");
+            acTipoActividad.requestFocus();
+            Snackbar.make(root, "Selecciona el tipo de actividad", Snackbar.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Validar cupo - número válido si se ingresa
+        if (!validarCupoOpcional()) {
+            etCupo.setError("Cupo inválido");
+            etCupo.requestFocus();
+            Snackbar.make(root, "Revisa el campo de cupo", Snackbar.LENGTH_SHORT).show();
             return;
         }
 
         btnGuardar.setEnabled(false);
         btnGuardar.setText("Validando...");
 
-        if (!validarCupoOpcional()) {
-            Snackbar.make(root, "Cupo inválido", Snackbar.LENGTH_LONG).show();
-            btnGuardar.setEnabled(true);
-            btnGuardar.setText("Guardar actividad");
-            return;
-        }
-
-        String nombre = getText(etNombre);
-        if (TextUtils.isEmpty(nombre)) {
-            Snackbar.make(root, "Ingresa el nombre", Snackbar.LENGTH_LONG).show();
-            btnGuardar.setEnabled(true);
-            btnGuardar.setText("Guardar actividad");
-            return;
-        }
-
         boolean modoPeriodica = (tgPeriodicidad.getCheckedButtonId() == R.id.btnPeriodica);
         String fecha = getText(etFecha);
         String hora  = getText(etHora);
 
         if (!modoPeriodica && (TextUtils.isEmpty(fecha) || TextUtils.isEmpty(hora))) {
-            Snackbar.make(root, "Completa Fecha y Hora", Snackbar.LENGTH_LONG).show();
+            if (TextUtils.isEmpty(fecha)) {
+                if (tilFecha != null) tilFecha.setError("Requerido");
+                else etFecha.setError("La fecha es obligatoria");
+                etFecha.requestFocus();
+            }
+            if (TextUtils.isEmpty(hora)) {
+                if (tilHora != null) tilHora.setError("Requerido");
+                else etHora.setError("La hora es obligatoria");
+                if (TextUtils.isEmpty(fecha)) etHora.requestFocus();
+            }
+            Snackbar.make(root, "Completa Fecha y Hora", Snackbar.LENGTH_SHORT).show();
             btnGuardar.setEnabled(true);
             btnGuardar.setText("Guardar actividad");
             return;
@@ -1038,7 +1066,6 @@ public class ActivityFormFragment extends Fragment {
             }
         }
 
-        String tipoActividad = getText(acTipoActividad);
         Integer cupo = null;
         try {
             String s = getText(etCupo);
