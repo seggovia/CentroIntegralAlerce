@@ -1,6 +1,7 @@
 // com.centroalerce.gestion.repositories.BeneficiarioRepository.java
 package com.centroalerce.gestion.repositories;
 
+import android.text.TextUtils;
 import androidx.annotation.NonNull;
 
 import com.centroalerce.gestion.models.Beneficiario;
@@ -10,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BeneficiarioRepository {
+    private static final String TAG = "BeneficiarioRepo";
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
 
     public interface ListCallback {
@@ -25,13 +27,25 @@ public class BeneficiarioRepository {
                     List<Beneficiario> list = new ArrayList<>();
                     for (DocumentSnapshot d : snap.getDocuments()) {
                         Beneficiario b = d.toObject(Beneficiario.class);
-                        if (b != null) {
+
+                        // ✅ VALIDACIÓN CRÍTICA: Filtrar beneficiarios sin nombre
+                        if (b != null && !TextUtils.isEmpty(b.getNombre())) {
                             b.setId(d.getId());
                             list.add(b);
+                        } else {
+                            // ⚠️ LOG de advertencia para detectar datos inválidos
+                            android.util.Log.w(TAG,
+                                    "⚠️ Beneficiario inválido encontrado - ID: " + d.getId() +
+                                            ", Nombre: " + (b != null ? b.getNombre() : "null"));
                         }
                     }
+
+                    android.util.Log.d(TAG, "✅ Cargados " + list.size() + " beneficiarios válidos");
                     callback.onSuccess(list);
                 })
-                .addOnFailureListener(callback::onError);
+                .addOnFailureListener(e -> {
+                    android.util.Log.e(TAG, "❌ Error cargando beneficiarios: " + e.getMessage(), e);
+                    callback.onError(e);
+                });
     }
 }
