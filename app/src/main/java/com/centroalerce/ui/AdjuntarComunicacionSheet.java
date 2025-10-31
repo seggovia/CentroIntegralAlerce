@@ -201,42 +201,70 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
         });
     }
 
-    // ✅ Método separado para guardar en Firestore
+
     private void guardarEnFirestore(String actividadId, String fileName, String url) {
+        if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(url)) {
+            android.util.Log.e("ADJUNTAR", "❌ Faltan datos: actividadId=" + actividadId + ", url=" + url);
+            Toast.makeText(requireContext(), "Error: Faltan datos para guardar", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
+        // ✅ CRÍTICO: NO usar FieldValue.serverTimestamp() dentro de arrayUnion
         Map<String, Object> adjunto = new HashMap<>();
         adjunto.put("nombre", fileName);
         adjunto.put("name", fileName);
         adjunto.put("url", url);
-        adjunto.put("creadoEn", com.google.firebase.firestore.FieldValue.serverTimestamp());
+        adjunto.put("creadoEn", System.currentTimeMillis()); // ✅ Usar timestamp manual
         adjunto.put("id", "adj_" + System.currentTimeMillis());
 
-        android.util.Log.d("ADJUNTAR", "💾 Guardando en Firestore...");
+        android.util.Log.d("ADJUNTAR", "💾 Guardando en Firestore: " + fileName);
 
         // ✅ Intentar EN primero
         db.collection("activities").document(actividadId)
                 .get()
                 .addOnSuccessListener(doc -> {
-                    if (doc.exists()) {
-                        // Documento EN existe, actualizar
+                    if (doc != null && doc.exists()) {
+                        android.util.Log.d("ADJUNTAR", "📄 Documento EN encontrado");
+
+                        // ✅ Actualizar array de adjuntos
                         doc.getReference()
                                 .update("adjuntos", com.google.firebase.firestore.FieldValue.arrayUnion(adjunto))
                                 .addOnSuccessListener(u -> {
-                                    android.util.Log.d("ADJUNTAR", "✅ Actualizado en EN");
+                                    android.util.Log.d("ADJUNTAR", "✅ Actualizado array en EN");
+
+                                    // ✅ También agregar a subcolección (aquí SÍ podemos usar serverTimestamp)
+                                    Map<String, Object> subDoc = new HashMap<>();
+                                    subDoc.put("nombre", fileName);
+                                    subDoc.put("name", fileName);
+                                    subDoc.put("url", url);
+                                    subDoc.put("creadoEn", com.google.firebase.firestore.FieldValue.serverTimestamp()); // ✅ Aquí sí es válido
+                                    subDoc.put("id", adjunto.get("id"));
+
+                                    doc.getReference()
+                                            .collection("adjuntos")
+                                            .add(subDoc)
+                                            .addOnSuccessListener(docRef -> {
+                                                android.util.Log.d("ADJUNTAR", "✅ Agregado a subcolección adjuntos");
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                android.util.Log.w("ADJUNTAR", "⚠️ No se pudo agregar a subcolección: " + e.getMessage());
+                                            });
+
                                     notificarYCerrar();
                                 })
                                 .addOnFailureListener(e -> {
-                                    android.util.Log.e("ADJUNTAR", "❌ Error en EN: " + e.getMessage());
+                                    android.util.Log.e("ADJUNTAR", "❌ Error en EN: " + e.getMessage(), e);
                                     intentarEnES(actividadId, adjunto);
                                 });
                     } else {
-                        // Documento EN no existe, probar ES
+                        android.util.Log.d("ADJUNTAR", "⚠️ Documento EN no existe, probando ES...");
                         intentarEnES(actividadId, adjunto);
                     }
                 })
                 .addOnFailureListener(e -> {
-                    android.util.Log.e("ADJUNTAR", "❌ Error verificando EN: " + e.getMessage());
+                    android.util.Log.e("ADJUNTAR", "❌ Error verificando EN: " + e.getMessage(), e);
                     intentarEnES(actividadId, adjunto);
                 });
     }
@@ -246,27 +274,49 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
         db.collection("actividades").document(actividadId)
                 .get()
                 .addOnSuccessListener(doc -> {
-                    if (doc.exists()) {
+                    if (doc != null && doc.exists()) {
+                        android.util.Log.d("ADJUNTAR", "📄 Documento ES encontrado");
+
                         doc.getReference()
                                 .update("adjuntos", com.google.firebase.firestore.FieldValue.arrayUnion(adjunto))
                                 .addOnSuccessListener(u -> {
-                                    android.util.Log.d("ADJUNTAR", "✅ Actualizado en ES");
+                                    android.util.Log.d("ADJUNTAR", "✅ Actualizado array en ES");
+
+                                    // ✅ También agregar a subcolección
+                                    Map<String, Object> subDoc = new HashMap<>();
+                                    subDoc.put("nombre", adjunto.get("nombre"));
+                                    subDoc.put("name", adjunto.get("name"));
+                                    subDoc.put("url", adjunto.get("url"));
+                                    subDoc.put("creadoEn", com.google.firebase.firestore.FieldValue.serverTimestamp());
+                                    subDoc.put("id", adjunto.get("id"));
+
+                                    doc.getReference()
+                                            .collection("adjuntos")
+                                            .add(subDoc)
+                                            .addOnSuccessListener(docRef -> {
+                                                android.util.Log.d("ADJUNTAR", "✅ Agregado a subcolección adjuntos ES");
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                android.util.Log.w("ADJUNTAR", "⚠️ No se pudo agregar a subcolección ES: " + e.getMessage());
+                                            });
+
                                     notificarYCerrar();
                                 })
                                 .addOnFailureListener(e -> {
-                                    android.util.Log.e("ADJUNTAR", "❌ Error en ES: " + e.getMessage());
+                                    android.util.Log.e("ADJUNTAR", "❌ Error en ES: " + e.getMessage(), e);
                                     Toast.makeText(requireContext(),
                                             "Error al guardar: " + e.getMessage(),
                                             Toast.LENGTH_LONG).show();
                                 });
                     } else {
+                        android.util.Log.e("ADJUNTAR", "❌ Actividad no encontrada en ninguna colección");
                         Toast.makeText(requireContext(),
                                 "Actividad no encontrada en ninguna colección",
                                 Toast.LENGTH_LONG).show();
                     }
                 })
                 .addOnFailureListener(e -> {
-                    android.util.Log.e("ADJUNTAR", "❌ Error verificando ES: " + e.getMessage());
+                    android.util.Log.e("ADJUNTAR", "❌ Error verificando ES: " + e.getMessage(), e);
                     Toast.makeText(requireContext(),
                             "Error al buscar actividad: " + e.getMessage(),
                             Toast.LENGTH_LONG).show();
@@ -282,16 +332,20 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
             getParentFragmentManager().setFragmentResult("adjuntos_change", res);
             requireActivity().getSupportFragmentManager().setFragmentResult("adjuntos_change", res);
 
-            Toast.makeText(requireContext(), "✅ Archivo adjuntado", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "✅ Archivo adjuntado exitosamente", Toast.LENGTH_SHORT).show();
+
+            android.util.Log.d("ADJUNTAR", "📢 Notificaciones enviadas, cerrando modal...");
 
             new android.os.Handler(android.os.Looper.getMainLooper())
                     .postDelayed(() -> {
                         try {
-                            dismiss();
+                            if (isAdded()) {
+                                dismiss();
+                            }
                         } catch (Exception ignored) {}
-                    }, 1000);
+                    }, 1500); // Esperar 1.5s para que se vea el Toast
         } catch (Exception e) {
-            android.util.Log.e("ADJUNTAR", "Error notificando: " + e.getMessage());
+            android.util.Log.e("ADJUNTAR", "Error notificando: " + e.getMessage(), e);
         }
     }
 

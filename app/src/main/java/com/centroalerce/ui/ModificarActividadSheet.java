@@ -396,7 +396,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     private void mostrarBotonVerArchivosConEliminar(int cantidad) {
         llAdjuntos.removeAllViews();
 
-        // Card clickeable
         com.google.android.material.card.MaterialCardView card =
                 new com.google.android.material.card.MaterialCardView(requireContext());
 
@@ -411,8 +410,16 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         card.setRadius(dp(12));
         card.setClickable(true);
         card.setFocusable(true);
-        card.setForeground(requireContext().getDrawable(
-                android.R.drawable.list_selector_background));
+
+        // ✅ NUEVO: Ripple color verde Alerce en vez de amarillo
+        card.setRippleColor(android.content.res.ColorStateList.valueOf(0x1A2D5F4F)); // 10% opacidad verde
+
+        try {
+            card.setForeground(requireContext().getDrawable(
+                    android.R.drawable.list_selector_background));
+        } catch (Exception e) {
+            android.util.Log.w("MODIFICAR", "No se pudo setear foreground");
+        }
 
         android.widget.LinearLayout container =
                 new android.widget.LinearLayout(requireContext());
@@ -420,14 +427,12 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         container.setGravity(android.view.Gravity.CENTER_VERTICAL);
         container.setPadding(dp(16), dp(16), dp(16), dp(16));
 
-        // Icono
         android.widget.ImageView icon = new android.widget.ImageView(requireContext());
         icon.setImageResource(android.R.drawable.ic_menu_gallery);
         icon.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(40), dp(40)));
-        icon.setColorFilter(0xFF2D5F4F); // primary color
+        icon.setColorFilter(0xFF2D5F4F);
         container.addView(icon);
 
-        // Textos
         android.widget.LinearLayout textContainer =
                 new android.widget.LinearLayout(requireContext());
         textContainer.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -440,19 +445,18 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         android.widget.TextView tvTitulo = new android.widget.TextView(requireContext());
         tvTitulo.setText("Gestionar archivos adjuntos");
         tvTitulo.setTextSize(16);
-        tvTitulo.setTextColor(0xFF1F2937); // textPrimary
+        tvTitulo.setTextColor(0xFF1F2937);
         tvTitulo.setTypeface(null, android.graphics.Typeface.BOLD);
         textContainer.addView(tvTitulo);
 
         android.widget.TextView tvCantidad = new android.widget.TextView(requireContext());
         tvCantidad.setText(cantidad + " archivo(s) • Toca para ver y eliminar");
         tvCantidad.setTextSize(14);
-        tvCantidad.setTextColor(0xFF6B7280); // textSecondary
+        tvCantidad.setTextColor(0xFF6B7280);
         textContainer.addView(tvCantidad);
 
         container.addView(textContainer);
 
-        // Icono flecha
         android.widget.ImageView iconArrow = new android.widget.ImageView(requireContext());
         iconArrow.setImageResource(android.R.drawable.ic_menu_view);
         iconArrow.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(24), dp(24)));
@@ -461,20 +465,26 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
         card.addView(container);
 
-        // Click para abrir modal CON opción de eliminar
         card.setOnClickListener(v -> {
-            ArchivosListSheetConEliminar sheet = ArchivosListSheetConEliminar.newInstance(
-                    adjuntosCargados,
-                    "Archivos adjuntos",
-                    actividadId
-            );
-            sheet.show(getParentFragmentManager(), "archivos_list_eliminar");
+            android.util.Log.d("MODIFICAR", "🔘 Abriendo modal de archivos con eliminar");
 
-            // ✅ Recargar cuando se cierre el modal
-            sheet.setOnDismissListener(() -> {
-                android.util.Log.d("MODIFICAR", "🔄 Modal cerrado, recargando adjuntos...");
-                cargarAdjuntos();
-            });
+            try {
+                ArchivosListSheetConEliminar sheet = ArchivosListSheetConEliminar.newInstance(
+                        new ArrayList<>(adjuntosCargados),
+                        "Archivos adjuntos",
+                        actividadId
+                );
+
+                sheet.show(getParentFragmentManager(), "archivos_list_eliminar");
+
+                sheet.setOnDismissListener(() -> {
+                    android.util.Log.d("MODIFICAR", "🔄 Modal cerrado, recargando adjuntos...");
+                    cargarAdjuntos();
+                });
+            } catch (Exception e) {
+                android.util.Log.e("MODIFICAR", "❌ Error abriendo modal: " + e.getMessage(), e);
+                toast("Error al abrir archivos: " + e.getMessage());
+            }
         });
 
         llAdjuntos.addView(card);
