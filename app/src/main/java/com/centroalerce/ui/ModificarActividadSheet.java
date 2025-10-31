@@ -86,13 +86,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     };
     private final String[] periodicidades = new String[]{"Puntual","Periódica"};
 
-    @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        // Aplicar un tema que no tenga el colorControlHighlight amarillo
-        setStyle(STYLE_NORMAL, R.style.BottomSheetDialogThemeAlerce);
-    }
-
     @Nullable @Override
     public View onCreateView(@NonNull LayoutInflater i, @Nullable ViewGroup c, @Nullable Bundle b) {
         return i.inflate(R.layout.sheet_modificar_actividad, c, false);
@@ -286,7 +279,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
         // Card clickeable
         com.google.android.material.card.MaterialCardView card =
-                new com.google.android.material.card.MaterialCardView(requireContext(), null, R.attr.materialCardViewStyle);
+                new com.google.android.material.card.MaterialCardView(requireContext());
 
         android.widget.LinearLayout.LayoutParams params =
                 new android.widget.LinearLayout.LayoutParams(
@@ -297,41 +290,16 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         card.setLayoutParams(params);
         card.setCardElevation(dp(2));
         card.setRadius(dp(12));
-        card.setCardBackgroundColor(requireContext().getResources().getColor(R.color.card_surface, null));
-        card.setStrokeColor(requireContext().getResources().getColor(R.color.cardStroke, null));
-        card.setStrokeWidth(dp(1));
-        card.setClickable(false);
-        card.setFocusable(false);
-
-        // Desactivar completamente el ripple y foreground
-        card.setRippleColor(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
-        card.setForeground(null);
-
-        // Deshabilitar el estado checked/pressed del card
-        card.setCheckable(false);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setForeground(requireContext().getDrawable(
+                android.R.drawable.list_selector_background));
 
         android.widget.LinearLayout container =
                 new android.widget.LinearLayout(requireContext());
         container.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         container.setGravity(android.view.Gravity.CENTER_VERTICAL);
         container.setPadding(dp(16), dp(16), dp(16), dp(16));
-        container.setClickable(true);
-        container.setFocusable(false);
-
-        // Eliminar completamente cualquier background o drawable
-        container.setBackground(null);
-        container.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-
-        // Interceptar el evento touch para prevenir estado pressed
-        container.setOnTouchListener((v, event) -> {
-            // Consumir el evento touch para que no cambie el estado visual
-            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN ||
-                event.getAction() == android.view.MotionEvent.ACTION_UP) {
-                v.setPressed(false);
-                v.setSelected(false);
-            }
-            return false; // Permitir que el onClick se ejecute
-        });
 
         // Icono
         android.widget.ImageView icon = new android.widget.ImageView(requireContext());
@@ -372,8 +340,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         iconArrow.setColorFilter(0xFF2D5F4F);
         container.addView(iconArrow);
 
-        // Click para abrir modal - mover al container
-        container.setOnClickListener(v -> {
+        card.addView(container);
+
+        // Click para abrir modal
+        card.setOnClickListener(v -> {
             ArchivosListSheet sheet = ArchivosListSheet.newInstance(
                     adjuntosCargados,
                     "Archivos adjuntos"
@@ -381,7 +351,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             sheet.show(getParentFragmentManager(), "archivos_list");
         });
 
-        card.addView(container);
         llAdjuntos.addView(card);
     }
 
@@ -427,8 +396,8 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     private void mostrarBotonVerArchivosConEliminar(int cantidad) {
         llAdjuntos.removeAllViews();
 
-        // Usar FrameLayout en lugar de MaterialCardView para evitar el color amarillo
-        android.widget.FrameLayout card = new android.widget.FrameLayout(requireContext());
+        com.google.android.material.card.MaterialCardView card =
+                new com.google.android.material.card.MaterialCardView(requireContext());
 
         android.widget.LinearLayout.LayoutParams params =
                 new android.widget.LinearLayout.LayoutParams(
@@ -437,36 +406,26 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 );
         params.setMargins(0, 0, 0, dp(12));
         card.setLayoutParams(params);
+        card.setCardElevation(dp(2));
+        card.setRadius(dp(12));
+        card.setClickable(true);
+        card.setFocusable(true);
 
-        // Crear un drawable para simular el card con bordes redondeados
-        android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
-        drawable.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-        drawable.setColor(requireContext().getResources().getColor(R.color.card_surface, null));
-        drawable.setCornerRadius(dp(12));
-        drawable.setStroke(dp(1), requireContext().getResources().getColor(R.color.cardStroke, null));
-        card.setBackground(drawable);
+        // ✅ NUEVO: Ripple color verde Alerce en vez de amarillo
+        card.setRippleColor(android.content.res.ColorStateList.valueOf(0x1A2D5F4F)); // 10% opacidad verde
 
-        // Simular elevación con padding y sombra
-        card.setElevation(dp(2));
+        try {
+            card.setForeground(requireContext().getDrawable(
+                    android.R.drawable.list_selector_background));
+        } catch (Exception e) {
+            android.util.Log.w("MODIFICAR", "No se pudo setear foreground");
+        }
 
         android.widget.LinearLayout container =
                 new android.widget.LinearLayout(requireContext());
         container.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         container.setGravity(android.view.Gravity.CENTER_VERTICAL);
         container.setPadding(dp(16), dp(16), dp(16), dp(16));
-
-        // Crear un StateListDrawable que muestre transparente en todos los estados
-        android.graphics.drawable.StateListDrawable stateList = new android.graphics.drawable.StateListDrawable();
-        android.graphics.drawable.ColorDrawable transparent = new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT);
-
-        // Agregar estados en orden de precedencia
-        stateList.addState(new int[]{android.R.attr.state_pressed}, transparent);
-        stateList.addState(new int[]{android.R.attr.state_focused}, transparent);
-        stateList.addState(new int[]{android.R.attr.state_selected}, transparent);
-        stateList.addState(new int[]{android.R.attr.state_activated}, transparent);
-        stateList.addState(new int[]{}, transparent); // Estado por defecto
-
-        container.setBackground(stateList);
 
         android.widget.ImageView icon = new android.widget.ImageView(requireContext());
         icon.setImageResource(android.R.drawable.ic_menu_gallery);
@@ -504,8 +463,9 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         iconArrow.setColorFilter(0xFF2D5F4F);
         container.addView(iconArrow);
 
-        // Mover el click listener al container en lugar del card
-        container.setOnClickListener(v -> {
+        card.addView(container);
+
+        card.setOnClickListener(v -> {
             android.util.Log.d("MODIFICAR", "🔘 Abriendo modal de archivos con eliminar");
 
             try {
@@ -527,7 +487,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             }
         });
 
-        card.addView(container);
         llAdjuntos.addView(card);
     }
     private void limpiarTodosLosAdjuntos() {
