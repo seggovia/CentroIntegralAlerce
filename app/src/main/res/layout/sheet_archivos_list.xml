@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_mantenedores_soft"
+    android:paddingBottom="16dp">
+
+    <!-- Handle del bottom sheet -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_sheet_handle"/>
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingBottom="16dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvTituloSheet"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Archivos adjuntos"
+                android:textStyle="bold"
+                android:textSize="22sp"
+                android:textColor="@color/textPrimary"/>
+
+            <TextView
+                android:id="@+id/tvContador"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="0 archivo(s)"
+                android:textSize="14sp"
+                android:textColor="@color/textSecondary"/>
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCerrar"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="Cerrar"
+            android:textColor="@color/primary"
+            app:icon="@android:drawable/ic_menu_close_clear_cancel"
+            app:iconTint="@color/primary"/>
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/divider"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Lista de archivos -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvArchivos"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxHeight="400dp"
+        android:paddingHorizontal="20dp"
+        android:clipToPadding="false"/>
+
+    <!-- Mensaje vacío (se oculta si hay archivos) -->
+    <LinearLayout
+        android:id="@+id/llEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@android:drawable/ic_menu_gallery"
+            android:alpha="0.3"
+            app:tint="@color/textSecondary"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="No hay archivos adjuntos"
+            android:textSize="15sp"
+            android:textColor="@color/textSecondary"/>
+    </LinearLayout>
+
+</LinearLayout>

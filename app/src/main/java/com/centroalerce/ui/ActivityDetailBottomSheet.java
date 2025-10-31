@@ -93,8 +93,9 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private String estadoActual = "programada";
     private String actividadLugarFallback = null;
 
-    private ListenerRegistration actReg;
-    private ListenerRegistration citaReg;
+    // 👇 NUEVO: listeners para datos en vivo
+    private ListenerRegistration actReg;   // escucha de actividad
+    private ListenerRegistration citaReg;  // escucha de cita
 
     private static final String COL_EN = "activities";
     private static final String COL_ES = "actividades";
@@ -135,40 +136,92 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     public void onViewCreated(@NonNull View root, @Nullable Bundle s) {
         super.onViewCreated(root, s);
 
-        actividadId = getArg(ARG_ACTIVIDAD_ID);
-        citaId      = getArg(ARG_CITA_ID);
+        // 1) Args primero
+        actividadId = getArg("actividadId");
+        citaId      = getArg("citaId");
+        String roleStr = getArg("userRole");
+        if (!TextUtils.isEmpty(roleStr)) {
+            try { userRole = UserRole.fromString(roleStr); } catch (Exception ignore) {}
+        }
+        if (userRole == null) userRole = UserRole.VISUALIZADOR;
 
-        // ✅ NUEVO: Recuperar el rol del usuario
-        String roleString = getArg(ARG_USER_ROLE);
-        userRole = UserRole.fromString(roleString);
-
-        Log.d(TAG, "🔐 Usuario con rol: " + userRole.getValue());
-
+        // 2) Views
         tvNombre        = root.findViewById(id("tvNombre"));
         tvTipoYPer      = root.findViewById(id("tvTipoYPeriodicidad"));
         chFechaHora     = root.findViewById(id("chFechaHora"));
         chLugar         = root.findViewById(id("chLugar"));
         chEstado        = root.findViewById(id("chEstado"));
-
         tvTipo          = root.findViewById(id("tvTipo"));
         tvPeriodicidad  = root.findViewById(id("tvPeriodicidad"));
         tvCupo          = root.findViewById(id("tvCupo"));
         tvOferente      = root.findViewById(id("tvOferente"));
         tvSocio         = root.findViewById(id("tvSocio"));
         tvBeneficiarios = root.findViewById(id("tvBeneficiarios"));
-
-        tvProyecto          = root.findViewById(id("tvProyecto"));
-        tvDiasAviso         = root.findViewById(id("tvDiasAviso"));
-
+        tvProyecto      = root.findViewById(id("tvProyecto"));
+        tvDiasAviso     = root.findViewById(id("tvDiasAviso"));
         llAdjuntos      = root.findViewById(id("llAdjuntos"));
         btnModificar    = root.findViewById(id("btnModificar"));
         btnCancelar     = root.findViewById(id("btnCancelar"));
         btnReagendar    = root.findViewById(id("btnReagendar"));
         btnAdjuntar     = root.findViewById(id("btnAdjuntar"));
         btnCompletar    = root.findViewById(id("btnCompletar"));
+        View spacer     = root.findViewById(id("navBarSpacer"));
 
-        View spacer = root.findViewById(id("navBarSpacer"));
-        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+        // 3) Setup por rol una vez que hay views
+        setupUIBasedOnRole();
+
+        // 4) Listeners con IDs ya definidos
+        Runnable emitEdit       = () -> emitActionToParent("edit", actividadId, citaId);
+        Runnable emitReschedule = () -> emitActionToParent("reschedule", actividadId, citaId);
+        Runnable emitAttach     = () -> emitActionToParent("attach", actividadId, citaId);
+        Runnable emitCancel     = () -> emitActionToParent("cancel", actividadId, citaId);
+
+        if (btnModificar != null) {
+            View.OnClickListener l = v -> { emitEdit.run();
+                ModificarActividadSheet.newInstance(actividadId)
+                        .show(getParentFragmentManager(), "ModificarActividadSheet"); };
+            rememberClickListener(btnModificar, l);
+            btnModificar.setOnClickListener(l);
+        }
+        if (btnCancelar != null) {
+            View.OnClickListener l = v -> { emitCancel.run();
+                CancelarActividadSheet.newInstance(actividadId, citaId)
+                        .show(getParentFragmentManager(), "CancelarActividadSheet"); };
+            rememberClickListener(btnCancelar, l);
+            btnCancelar.setOnClickListener(l);
+        }
+        if (btnReagendar != null) {
+            View.OnClickListener l = v -> { emitReschedule.run();
+                ReagendarActividadSheet.newInstance(actividadId, citaId)
+                        .show(getParentFragmentManager(), "ReagendarActividadSheet"); };
+            rememberClickListener(btnReagendar, l);
+            btnReagendar.setOnClickListener(l);
+        }
+        if (btnAdjuntar != null) {
+            View.OnClickListener l = v -> { emitAttach.run();
+                AdjuntarComunicacionSheet.newInstance(actividadId)
+                        .show(getParentFragmentManager(), "AdjuntarComunicacionSheet"); };
+            rememberClickListener(btnAdjuntar, l);
+            btnAdjuntar.setOnClickListener(l);
+        }
+        if (btnCompletar != null) {
+            View.OnClickListener l = v -> {
+                emitActionToParent("completar", actividadId, citaId);
+                completarCita(actividadId, citaId);
+            };
+            rememberClickListener(btnCompletar, l);
+            btnCompletar.setOnClickListener(l);
+        }
+
+        // 5) Ahora sí, aplicar guardias sobre listeners ya puestos
+        wrapClickWithGuard(btnModificar);
+        wrapClickWithGuard(btnReagendar);
+        wrapClickWithGuard(btnAdjuntar);
+        wrapClickWithGuard(btnCancelar);
+        wrapClickWithGuard(btnCompletar);
+
+        // 6) Insets spacer
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v,insets)->{
             int bottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
             if (spacer != null) {
                 ViewGroup.LayoutParams lp = spacer.getLayoutParams();
@@ -178,90 +231,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             return insets;
         });
 
-        // ✅ NUEVO: Configurar UI según permisos del rol
-        setupUIBasedOnRole();
-
-        Runnable emitEdit       = () -> emitActionToParent("edit", actividadId, citaId);
-        Runnable emitReschedule = () -> emitActionToParent("reschedule", actividadId, citaId);
-        Runnable emitAttach     = () -> emitActionToParent("attach", actividadId, citaId);
-        Runnable emitCancel     = () -> emitActionToParent("cancel", actividadId, citaId);
-
-        if (btnModificar != null) {
-            View.OnClickListener l = v -> {
-                emitEdit.run();
-                ModificarActividadSheet.newInstance(actividadId)
-                        .show(getParentFragmentManager(), "ModificarActividadSheet");
-            };
-            rememberClickListener(btnModificar, l);
-            btnModificar.setOnClickListener(l);
-        }
-        if (btnCancelar != null) {
-            View.OnClickListener l = v -> {
-                emitCancel.run();
-                CancelarActividadSheet.newInstance(actividadId, citaId)
-                        .show(getParentFragmentManager(), "CancelarActividadSheet");
-            };
-            rememberClickListener(btnCancelar, l);
-            btnCancelar.setOnClickListener(l);
-        }
-        if (btnReagendar != null) {
-            View.OnClickListener l = v -> {
-                emitReschedule.run();
-                ReagendarActividadSheet.newInstance(actividadId, citaId)
-                        .show(getParentFragmentManager(), "ReagendarActividadSheet");
-            };
-            rememberClickListener(btnReagendar, l);
-            btnReagendar.setOnClickListener(l);
-        }
-        if (btnAdjuntar != null) {
-            View.OnClickListener l = v -> {
-                emitAttach.run();
-                AdjuntarComunicacionSheet.newInstance(actividadId)
-                        .show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
-            };
-            rememberClickListener(btnAdjuntar, l);
-            btnAdjuntar.setOnClickListener(l);
-        }
-
-        if (btnCompletar != null) {
-            View.OnClickListener l = view -> {
-                emitActionToParent("completar", actividadId, citaId);
-                completarCita(actividadId, citaId);
-            };
-            rememberClickListener(btnCompletar, l);
-            btnCompletar.setOnClickListener(l);
-        }
-
+        // 7) UI inicial y data
         restyleButtonsActive();
-
-        getParentFragmentManager().setFragmentResultListener(
-                "adjuntos_change", getViewLifecycleOwner(),
-                (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
-        );
-
-        getParentFragmentManager().setFragmentResultListener(
-                "actividad_change", getViewLifecycleOwner(),
-                (req, bundle) -> {
-                    loadActividad(actividadId);
-                    loadCita(actividadId, citaId);
-                    loadAdjuntosAll(actividadId, citaId);
-                }
-        );
-
-        requireActivity().getSupportFragmentManager().setFragmentResultListener(
-                "adjuntos_change", getViewLifecycleOwner(),
-                (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
-        );
-
-        requireActivity().getSupportFragmentManager().setFragmentResultListener(
-                "actividad_change", getViewLifecycleOwner(),
-                (req, bundle) -> {
-                    loadActividad(actividadId);
-                    loadCita(actividadId, citaId);
-                    loadAdjuntosAll(actividadId, citaId);
-                }
-        );
-
         setTextOrDash(tvNombre, "Nombre actividad");
         if (tvTipoYPer != null) tvTipoYPer.setText("Tipo • Periodicidad");
         if (chFechaHora != null) chFechaHora.setText("dd/MM/yyyy • HH:mm");
@@ -270,13 +241,23 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (llAdjuntos != null) { llAdjuntos.removeAllViews(); addNoFilesRow(); }
 
         db = FirebaseFirestore.getInstance();
-
         subscribeActividad(actividadId);
         subscribeCita(actividadId, citaId);
         loadActividad(actividadId);
         loadCita(actividadId, citaId);
         loadAdjuntosAll(actividadId, citaId);
+
+        // Listeners de resultados (ambos managers)
+        getParentFragmentManager().setFragmentResultListener("adjuntos_change", getViewLifecycleOwner(),
+                (req,b) -> loadAdjuntosAll(actividadId, citaId));
+        getParentFragmentManager().setFragmentResultListener("actividad_change", getViewLifecycleOwner(),
+                (req,b) -> { loadActividad(actividadId); loadCita(actividadId, citaId); loadAdjuntosAll(actividadId, citaId); });
+        requireActivity().getSupportFragmentManager().setFragmentResultListener("adjuntos_change", getViewLifecycleOwner(),
+                (req,b) -> loadAdjuntosAll(actividadId, citaId));
+        requireActivity().getSupportFragmentManager().setFragmentResultListener("actividad_change", getViewLifecycleOwner(),
+                (req,b) -> { loadActividad(actividadId); loadCita(actividadId, citaId); loadAdjuntosAll(actividadId, citaId); });
     }
+
 
     // ✅ NUEVO: Configurar la UI según el rol del usuario
     private void setupUIBasedOnRole() {
@@ -616,6 +597,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private interface Done { void run(); }
     private void loadAdjuntosAll(String actividadId, String citaId) {
         if (llAdjuntos == null) return;
+        android.util.Log.d("DETAIL", "🚀 Iniciando carga de adjuntos - Actividad: " + actividadId + ", Cita: " + citaId);
         llAdjuntos.removeAllViews();
         addNoFilesRow();
 
@@ -720,7 +702,12 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .orderBy("creadoEn", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(q -> {
-                    if (q == null || q.isEmpty()) { onEmpty.run(); return; }
+                    android.util.Log.d("DETAIL", "📄 Query resultado para " + sub + ": " + (q != null ? q.size() : "null") + " documentos");
+                    if (q == null || q.isEmpty()) { 
+                        android.util.Log.d("DETAIL", "❌ Sin documentos en subcolección " + sub);
+                        onEmpty.run(); 
+                        return; 
+                    }
                     llAdjuntos.removeAllViews();
                     int added = 0;
                     for (DocumentSnapshot d : q.getDocuments()) {

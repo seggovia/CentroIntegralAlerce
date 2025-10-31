@@ -5,6 +5,12 @@
     android:id="@+id/nav_graph"
     app:startDestination="@id/loginFragment">
 
+    <!-- 🎬 ANIMACIONES GLOBALES POR DEFECTO -->
+    <action android:id="@+id/action_global_fade"
+        app:enterAnim="@android:anim/fade_in"
+        app:exitAnim="@android:anim/fade_out"
+        app:popEnterAnim="@android:anim/fade_in"
+        app:popExitAnim="@android:anim/fade_out" />
 
     <!-- LOGIN -->
     <fragment
@@ -16,19 +22,33 @@
             android:id="@+id/action_loginFragment_to_calendarFragment"
             app:destination="@id/calendarFragment"
             app:popUpTo="@id/loginFragment"
-            app:popUpToInclusive="true" />
+            app:popUpToInclusive="true"
+            app:enterAnim="@android:anim/fade_in"
+            app:exitAnim="@android:anim/fade_out" />
 
         <action
             android:id="@+id/action_loginFragment_to_signupFragment"
-            app:destination="@id/signupFragment" />
+            app:destination="@id/signupFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
 
         <action
             android:id="@+id/action_loginFragment_to_forgotPasswordFragment"
-            app:destination="@id/forgotPasswordFragment" />
+            app:destination="@id/forgotPasswordFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
 
         <action
             android:id="@+id/action_loginFragment_to_contactSupportFragment"
-            app:destination="@id/contactSupportFragment" />
+            app:destination="@id/contactSupportFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
     </fragment>
 
     <!-- FORGOT PASSWORD -->
@@ -84,11 +104,19 @@
 
         <action
             android:id="@+id/action_calendarFragment_to_detalleActividadFragment"
-            app:destination="@id/detalleActividadFragment" />
+            app:destination="@id/detalleActividadFragment"
+            app:enterAnim="@android:anim/fade_in"
+            app:exitAnim="@android:anim/fade_out"
+            app:popEnterAnim="@android:anim/fade_in"
+            app:popExitAnim="@android:anim/fade_out" />
 
         <action
             android:id="@+id/action_calendarFragment_to_activityFormFragment"
-            app:destination="@id/activityFormFragment" />
+            app:destination="@id/activityFormFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
     </fragment>
 
     <!-- LISTA ACTIVIDADES -->
@@ -99,11 +127,19 @@
 
         <action
             android:id="@+id/action_activitiesListFragment_to_detalleActividadFragment"
-            app:destination="@id/detalleActividadFragment" />
+            app:destination="@id/detalleActividadFragment"
+            app:enterAnim="@android:anim/fade_in"
+            app:exitAnim="@android:anim/fade_out"
+            app:popEnterAnim="@android:anim/fade_in"
+            app:popExitAnim="@android:anim/fade_out" />
 
         <action
             android:id="@+id/action_activitiesListFragment_to_activityFormFragment"
-            app:destination="@id/activityFormFragment" />
+            app:destination="@id/activityFormFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
     </fragment>
 
     <!-- CONFIGURACIÓN -->
@@ -114,25 +150,43 @@
 
         <action
             android:id="@+id/action_settingsFragment_to_maintainersFragment"
-            app:destination="@id/maintainersFragment" />
+            app:destination="@id/maintainersFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
 
         <action
             android:id="@+id/action_settingsFragment_to_perfilFragment"
-            app:destination="@id/perfilFragment" />
+            app:destination="@id/perfilFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
 
         <action
             android:id="@+id/action_settingsFragment_to_registroActividadesFragment"
-            app:destination="@id/registroActividadesFragment" />
+            app:destination="@id/registroActividadesFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
 
         <action
             android:id="@+id/action_settingsFragment_to_gestionUsuariosFragment"
-            app:destination="@id/gestionUsuariosFragment" />
+            app:destination="@id/gestionUsuariosFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
 
         <action
             android:id="@+id/action_settingsFragment_to_loginFragment"
             app:destination="@id/loginFragment"
             app:popUpTo="@id/loginFragment"
-            app:popUpToInclusive="true" />
+            app:popUpToInclusive="true"
+            app:enterAnim="@android:anim/fade_in"
+            app:exitAnim="@android:anim/fade_out" />
     </fragment>
 
     <!-- PERFIL -->
@@ -161,7 +215,11 @@
 
         <action
             android:id="@+id/action_gestionUsuariosFragment_to_registroUsuariosFragment"
-            app:destination="@id/registroUsuariosFragment" />
+            app:destination="@id/registroUsuariosFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
     </fragment>
 
     <!-- DETALLE ACTIVIDAD -->
@@ -176,11 +234,19 @@
 
         <action
             android:id="@+id/action_detalleActividadFragment_to_activityFormFragment"
-            app:destination="@id/activityFormFragment" />
+            app:destination="@id/activityFormFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
 
         <action
             android:id="@+id/action_detalleActividadFragment_to_activityRescheduleFragment"
-            app:destination="@id/activityRescheduleFragment" />
+            app:destination="@id/activityRescheduleFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
     </fragment>
 
     <!-- FORMULARIO ACTIVIDAD -->
@@ -216,24 +282,46 @@
 
         <action
             android:id="@+id/action_maintainers_to_tiposActividadFragment"
-            app:destination="@id/tiposActividadFragment" />
+            app:destination="@id/tiposActividadFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
         <action
             android:id="@+id/action_maintainers_to_lugaresFragment"
-            app:destination="@id/lugaresFragment" />
+            app:destination="@id/lugaresFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
         <action
             android:id="@+id/action_maintainers_to_oferentesFragment"
-            app:destination="@id/oferentesFragment" />
+            app:destination="@id/oferentesFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
         <action
             android:id="@+id/action_maintainers_to_sociosFragment"
-            app:destination="@id/sociosFragment" />
+            app:destination="@id/sociosFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
         <action
             android:id="@+id/action_maintainers_to_proyectosFragment"
-            app:destination="@id/proyectosFragment" />
-
-        <!-- ✅ NUEVO: acción a Beneficiarios -->
+            app:destination="@id/proyectosFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
         <action
             android:id="@+id/action_maintainers_to_beneficiariosFragment"
-            app:destination="@id/beneficiariosFragment" />
+            app:destination="@id/beneficiariosFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
     </fragment>
 
     <!-- MANTENEDORES INDIVIDUALES -->
@@ -262,7 +350,6 @@
         android:name="com.centroalerce.ui.mantenedores.ProyectosFragment"
         android:label="Proyectos" />
 
-    <!-- ✅ NUEVO: destino Beneficiarios -->
     <fragment
         android:id="@+id/beneficiariosFragment"
         android:name="com.centroalerce.ui.mantenedores.BeneficiariosFragment"

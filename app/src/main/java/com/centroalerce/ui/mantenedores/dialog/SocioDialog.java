@@ -4,6 +4,7 @@ import android.app.Dialog;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 
@@ -16,6 +17,7 @@ import com.centroalerce.gestion.models.SocioComunitario;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 public class SocioDialog extends DialogFragment {
 
@@ -39,6 +41,9 @@ public class SocioDialog extends DialogFragment {
         final TextInputEditText etCaracterizacion = v.findViewById(R.id.etCaracterizacion);
         final MaterialButton btnCancelar = v.findViewById(R.id.btnCancelar);
         final MaterialButton btnGuardar = v.findViewById(R.id.btnGuardar);
+        com.google.android.material.textfield.TextInputLayout tilNombre = null;
+        try { tilNombre = (com.google.android.material.textfield.TextInputLayout) ((View) etNombre.getParent()).getParent(); } catch (Exception ignore) {}
+        final com.google.android.material.textfield.TextInputLayout tilNombreRef = tilNombre;
 
         if (original != null) {
             if (etNombre != null) etNombre.setText(original.getNombre());
@@ -63,6 +68,14 @@ public class SocioDialog extends DialogFragment {
                 String nombre = "";
                 if (etNombre != null && etNombre.getText() != null) {
                     nombre = etNombre.getText().toString().trim();
+                }
+
+                // Validar nombre obligatorio
+                if (TextUtils.isEmpty(nombre)) {
+                    if (tilNombreRef != null) { tilNombreRef.setError("El nombre es obligatorio"); tilNombreRef.setErrorEnabled(true); }
+                    else if (etNombre != null) etNombre.setError("El nombre es obligatorio");
+                    if (etNombre != null) etNombre.requestFocus();
+                    return;
                 }
 
                 String descripcion = "";

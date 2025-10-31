@@ -79,12 +79,14 @@ public class ContactSupportFragment extends Fragment {
             acTipoProblema.setAdapter(adapter);
         }
 
-        // TextWatcher para habilitar/deshabilitar botón
+        // TextWatcher para limpiar errores mientras escribe
         TextWatcher watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                validateFields();
-                updateButtonState();
+                // Limpiar errores mientras escribe
+                clearError(tilEmail, etEmail);
+                clearError(tilMensaje, etMensaje);
+                clearError(tilTipo, acTipoProblema);
             }
             @Override public void afterTextChanged(Editable s) {}
         };
@@ -96,7 +98,7 @@ public class ContactSupportFragment extends Fragment {
         }
 
         if (btnEnviar != null) {
-            btnEnviar.setEnabled(false);
+            btnEnviar.setEnabled(true); // Siempre habilitado, las validaciones se hacen al hacer clic
             btnEnviar.setOnClickListener(x -> enviarSolicitud(v));
         }
 

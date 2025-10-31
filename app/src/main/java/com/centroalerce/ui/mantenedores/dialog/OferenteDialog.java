@@ -34,7 +34,7 @@ public class OferenteDialog extends DialogFragment {
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         View v = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_oferente, null, false);
 
-        TextInputLayout tilNombre   = v.findViewById(R.id.tilNombre); // ✅ usar id del XML
+        TextInputLayout tilNombre   = v.findViewById(R.id.tilNombre);
         TextInputEditText etNombre  = v.findViewById(R.id.etNombre);
         TextInputEditText etDocente = v.findViewById(R.id.etDocente);
         TextInputEditText etCarrera = v.findViewById(R.id.etCarrera);
@@ -51,11 +51,12 @@ public class OferenteDialog extends DialogFragment {
                 .setView(v)
                 .create();
 
-        // Habilitar/validar
-        btnGuardar.setEnabled(!TextUtils.isEmpty(safeText(etNombre)));
+        // ✅ Botón siempre habilitado
+        btnGuardar.setEnabled(true);
+
+        // Solo limpiar errores al escribir
         etNombre.addTextChangedListener(new SimpleWatcher(() -> {
             if (tilNombre != null) tilNombre.setError(null);
-            btnGuardar.setEnabled(!TextUtils.isEmpty(safeText(etNombre)));
         }));
 
         btnCancelar.setOnClickListener(x -> d.dismiss());
@@ -65,11 +66,30 @@ public class OferenteDialog extends DialogFragment {
             String docente = safeText(etDocente);
             String carrera = safeText(etCarrera);
 
-            if (tilNombre != null) tilNombre.setError(null);
+            // Validar nombre obligatorio
             if (TextUtils.isEmpty(nombre)) {
-                if (tilNombre != null) tilNombre.setError("Obligatorio");
-                etNombre.requestFocus();
+                if (tilNombre != null) { 
+                    tilNombre.setError("El nombre es obligatorio"); 
+                    tilNombre.setErrorEnabled(true); 
+                }
+                if (etNombre != null) etNombre.requestFocus();
                 return;
+            }
+
+            // Validar que el nombre tenga al menos 3 caracteres
+            if (nombre.length() < 3) {
+                if (tilNombre != null) { 
+                    tilNombre.setError("El nombre debe tener al menos 3 caracteres"); 
+                    tilNombre.setErrorEnabled(true); 
+                }
+                if (etNombre != null) etNombre.requestFocus();
+                return;
+            }
+
+            // Limpiar errores antes de guardar
+            if (tilNombre != null) {
+                tilNombre.setError(null);
+                tilNombre.setErrorEnabled(false);
             }
 
             Oferente o = (original != null) ? original : new Oferente();
