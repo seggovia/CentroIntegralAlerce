@@ -150,6 +150,38 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         cargarColeccionAOptions("proyectos", actProyecto);
 
         precargar();
+        // ✅ ESCUCHAR CAMBIOS DE ADJUNTOS
+        getParentFragmentManager().setFragmentResultListener(
+                "adjuntos_change", getViewLifecycleOwner(),
+                (req, bundle) -> {
+                    android.util.Log.d("MODIFICAR", "🔄 Recibido evento adjuntos_change");
+                    cargarAdjuntos();
+                }
+        );
+
+        requireActivity().getSupportFragmentManager().setFragmentResultListener(
+                "adjuntos_change", getViewLifecycleOwner(),
+                (req, bundle) -> {
+                    android.util.Log.d("MODIFICAR", "🔄 Recibido evento adjuntos_change (Activity)");
+                    cargarAdjuntos();
+                }
+        );
+
+        getParentFragmentManager().setFragmentResultListener(
+                "adjuntos_change", getViewLifecycleOwner(),
+                (req, bundle) -> {
+                    android.util.Log.d("MODIFICAR", "🔄 Recibido evento adjuntos_change");
+                    cargarAdjuntos();
+                }
+        );
+
+        requireActivity().getSupportFragmentManager().setFragmentResultListener(
+                "adjuntos_change", getViewLifecycleOwner(),
+                (req, bundle) -> {
+                    android.util.Log.d("MODIFICAR", "🔄 Recibido evento adjuntos_change (Activity)");
+                    cargarAdjuntos();
+                }
+        );
         
         // Render inicial de beneficiarios
         if (chipsBeneficiarios != null) {
@@ -177,100 +209,329 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     private void cargarAdjuntos() {
         if (TextUtils.isEmpty(actividadId) || llAdjuntos == null) return;
 
+        android.util.Log.d("MODIFICAR", "🔍 Cargando adjuntos para: " + actividadId);
+
+        llAdjuntos.removeAllViews();
+
+        // Intentar EN primero
         act(actividadId, true).get().addOnSuccessListener(doc -> {
             if (doc != null && doc.exists()) {
+                android.util.Log.d("MODIFICAR", "📄 Documento EN encontrado");
                 mostrarAdjuntosDelDoc(doc);
             } else {
+                // Intentar ES
+                android.util.Log.d("MODIFICAR", "⚠️ Documento EN no existe, probando ES...");
                 act(actividadId, false).get()
                         .addOnSuccessListener(this::mostrarAdjuntosDelDoc)
-                        .addOnFailureListener(e -> android.util.Log.e("ADJ", "Error cargando adjuntos", e));
+                        .addOnFailureListener(e -> {
+                            android.util.Log.e("MODIFICAR", "❌ Error: " + e.getMessage(), e);
+                            mostrarMensajeSinAdjuntos();
+                        });
             }
+        }).addOnFailureListener(e -> {
+            android.util.Log.e("MODIFICAR", "❌ Error cargando: " + e.getMessage(), e);
+            mostrarMensajeSinAdjuntos();
         });
     }
-    private void mostrarAdjuntosDelDoc(DocumentSnapshot doc) {
-        if (doc == null || !doc.exists()) return;
+    private void mostrarAdjuntosDelDoc(com.google.firebase.firestore.DocumentSnapshot doc) {
+        if (doc == null || !doc.exists()) {
+            mostrarMensajeSinAdjuntos();
+            return;
+        }
 
         llAdjuntos.removeAllViews();
         adjuntosCargados.clear();
 
-        // Obtener adjuntos del documento
         Object rawAdj = doc.get("adjuntos");
+
+        android.util.Log.d("MODIFICAR", "📎 Campo adjuntos: " +
+                (rawAdj != null ? rawAdj.getClass().getSimpleName() : "null"));
+
         if (rawAdj instanceof List) {
             List<?> lista = (List<?>) rawAdj;
+            android.util.Log.d("MODIFICAR", "📎 Lista con " + lista.size() + " elementos");
+
             for (Object item : lista) {
                 if (item instanceof Map) {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> adj = (Map<String, Object>) item;
                     adjuntosCargados.add(adj);
-                    agregarVistaAdjunto(adj);
                 }
             }
         }
 
         if (adjuntosCargados.isEmpty()) {
-            TextView tvVacio = new TextView(requireContext());
-            tvVacio.setText("No hay archivos adjuntos");
-            tvVacio.setTextColor(0xFF6B7280);
-            tvVacio.setPadding(dp(16), dp(16), dp(16), dp(16));
-            llAdjuntos.addView(tvVacio);
+            android.util.Log.d("MODIFICAR", "📂 Array vacío, intentando subcolección...");
+            cargarDesdeSubcoleccion(doc.getReference());
+        } else {
+            android.util.Log.d("MODIFICAR", "✅ Cargados " + adjuntosCargados.size() + " adjuntos");
+
+            // ✅ SIEMPRE mostrar botón compacto (sin importar la cantidad)
+            mostrarBotonVerArchivosConEliminar(adjuntosCargados.size());
         }
     }
-    private void agregarVistaAdjunto(Map<String, Object> adjunto) {
-        LinearLayout itemLayout = new LinearLayout(requireContext());
-        itemLayout.setOrientation(LinearLayout.HORIZONTAL);
-        itemLayout.setPadding(dp(12), dp(8), dp(12), dp(8));
-        itemLayout.setGravity(android.view.Gravity.CENTER_VERTICAL);
 
-        // Nombre del archivo
-        TextView tvNombre = new TextView(requireContext());
-        String nombre = adjunto.get("nombre") != null ? adjunto.get("nombre").toString() : "archivo";
-        tvNombre.setText(nombre);
-        tvNombre.setTextSize(14);
-        tvNombre.setTextColor(0xFF111827);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        tvNombre.setLayoutParams(params);
-        itemLayout.addView(tvNombre);
 
-        // Botón eliminar
-        MaterialButton btnEliminar = new MaterialButton(requireContext());
-        btnEliminar.setText("Eliminar");
-        btnEliminar.setTextSize(12);
-        btnEliminar.setBackgroundColor(0xFFDC2626);
-        btnEliminar.setTextColor(0xFFFFFFFF);
-        btnEliminar.setOnClickListener(v -> confirmarEliminarAdjunto(adjunto));
-        itemLayout.addView(btnEliminar);
 
-        llAdjuntos.addView(itemLayout);
+
+    private void mostrarBotonVerArchivos(int cantidad) {
+        llAdjuntos.removeAllViews();
+
+        // Card clickeable
+        com.google.android.material.card.MaterialCardView card =
+                new com.google.android.material.card.MaterialCardView(requireContext());
+
+        android.widget.LinearLayout.LayoutParams params =
+                new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+        params.setMargins(0, 0, 0, dp(12));
+        card.setLayoutParams(params);
+        card.setCardElevation(dp(2));
+        card.setRadius(dp(12));
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setForeground(requireContext().getDrawable(
+                android.R.drawable.list_selector_background));
+
+        android.widget.LinearLayout container =
+                new android.widget.LinearLayout(requireContext());
+        container.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        container.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        container.setPadding(dp(16), dp(16), dp(16), dp(16));
+
+        // Icono
+        android.widget.ImageView icon = new android.widget.ImageView(requireContext());
+        icon.setImageResource(android.R.drawable.ic_menu_gallery);
+        icon.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(40), dp(40)));
+        icon.setColorFilter(0xFF2D5F4F); // primary color
+        container.addView(icon);
+
+        // Textos
+        android.widget.LinearLayout textContainer =
+                new android.widget.LinearLayout(requireContext());
+        textContainer.setOrientation(android.widget.LinearLayout.VERTICAL);
+        android.widget.LinearLayout.LayoutParams textParams =
+                new android.widget.LinearLayout.LayoutParams(0,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        textParams.setMargins(dp(12), 0, dp(12), 0);
+        textContainer.setLayoutParams(textParams);
+
+        android.widget.TextView tvTitulo = new android.widget.TextView(requireContext());
+        tvTitulo.setText("Ver archivos adjuntos");
+        tvTitulo.setTextSize(16);
+        tvTitulo.setTextColor(0xFF1F2937); // textPrimary
+        tvTitulo.setTypeface(null, android.graphics.Typeface.BOLD);
+        textContainer.addView(tvTitulo);
+
+        android.widget.TextView tvCantidad = new android.widget.TextView(requireContext());
+        tvCantidad.setText(cantidad + " archivo(s) disponible(s)");
+        tvCantidad.setTextSize(14);
+        tvCantidad.setTextColor(0xFF6B7280); // textSecondary
+        textContainer.addView(tvCantidad);
+
+        container.addView(textContainer);
+
+        // Icono flecha
+        android.widget.ImageView iconArrow = new android.widget.ImageView(requireContext());
+        iconArrow.setImageResource(android.R.drawable.ic_menu_view);
+        iconArrow.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(24), dp(24)));
+        iconArrow.setColorFilter(0xFF2D5F4F);
+        container.addView(iconArrow);
+
+        card.addView(container);
+
+        // Click para abrir modal
+        card.setOnClickListener(v -> {
+            ArchivosListSheet sheet = ArchivosListSheet.newInstance(
+                    adjuntosCargados,
+                    "Archivos adjuntos"
+            );
+            sheet.show(getParentFragmentManager(), "archivos_list");
+        });
+
+        llAdjuntos.addView(card);
     }
-    private void confirmarEliminarAdjunto(Map<String, Object> adjunto) {
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Eliminar adjunto")
-                .setMessage("¿Estás seguro de eliminar este archivo?")
-                .setPositiveButton("Eliminar", (d, w) -> eliminarAdjunto(adjunto))
+
+
+
+    private void cargarDesdeSubcoleccion(com.google.firebase.firestore.DocumentReference actRef) {
+        actRef.collection("adjuntos")
+                .orderBy("creadoEn", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(qs -> {
+                    android.util.Log.d("MODIFICAR", "📂 Subcolección: " +
+                            (qs != null ? qs.size() : 0) + " documentos");
+
+                    if (qs == null || qs.isEmpty()) {
+                        mostrarMensajeSinAdjuntos();
+                        return;
+                    }
+
+                    llAdjuntos.removeAllViews();
+                    adjuntosCargados.clear();
+
+                    for (com.google.firebase.firestore.DocumentSnapshot d : qs.getDocuments()) {
+                        Map<String, Object> adj = new HashMap<>();
+                        adj.put("nombre", d.getString("nombre"));
+                        adj.put("name", d.getString("name"));
+                        adj.put("url", d.getString("url"));
+                        adj.put("id", d.getId());
+
+                        adjuntosCargados.add(adj);
+                    }
+
+                    android.util.Log.d("MODIFICAR", "✅ Cargados " + adjuntosCargados.size() +
+                            " desde subcolección");
+
+                    // ✅ Mostrar botón con eliminar
+                    mostrarBotonVerArchivosConEliminar(adjuntosCargados.size());
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("MODIFICAR", "❌ Error subcolección: " + e.getMessage(), e);
+                    mostrarMensajeSinAdjuntos();
+                });
+    }
+    private void mostrarBotonVerArchivosConEliminar(int cantidad) {
+        llAdjuntos.removeAllViews();
+
+        // Card clickeable
+        com.google.android.material.card.MaterialCardView card =
+                new com.google.android.material.card.MaterialCardView(requireContext());
+
+        android.widget.LinearLayout.LayoutParams params =
+                new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+        params.setMargins(0, 0, 0, dp(12));
+        card.setLayoutParams(params);
+        card.setCardElevation(dp(2));
+        card.setRadius(dp(12));
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setForeground(requireContext().getDrawable(
+                android.R.drawable.list_selector_background));
+
+        android.widget.LinearLayout container =
+                new android.widget.LinearLayout(requireContext());
+        container.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        container.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        container.setPadding(dp(16), dp(16), dp(16), dp(16));
+
+        // Icono
+        android.widget.ImageView icon = new android.widget.ImageView(requireContext());
+        icon.setImageResource(android.R.drawable.ic_menu_gallery);
+        icon.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(40), dp(40)));
+        icon.setColorFilter(0xFF2D5F4F); // primary color
+        container.addView(icon);
+
+        // Textos
+        android.widget.LinearLayout textContainer =
+                new android.widget.LinearLayout(requireContext());
+        textContainer.setOrientation(android.widget.LinearLayout.VERTICAL);
+        android.widget.LinearLayout.LayoutParams textParams =
+                new android.widget.LinearLayout.LayoutParams(0,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        textParams.setMargins(dp(12), 0, dp(12), 0);
+        textContainer.setLayoutParams(textParams);
+
+        android.widget.TextView tvTitulo = new android.widget.TextView(requireContext());
+        tvTitulo.setText("Gestionar archivos adjuntos");
+        tvTitulo.setTextSize(16);
+        tvTitulo.setTextColor(0xFF1F2937); // textPrimary
+        tvTitulo.setTypeface(null, android.graphics.Typeface.BOLD);
+        textContainer.addView(tvTitulo);
+
+        android.widget.TextView tvCantidad = new android.widget.TextView(requireContext());
+        tvCantidad.setText(cantidad + " archivo(s) • Toca para ver y eliminar");
+        tvCantidad.setTextSize(14);
+        tvCantidad.setTextColor(0xFF6B7280); // textSecondary
+        textContainer.addView(tvCantidad);
+
+        container.addView(textContainer);
+
+        // Icono flecha
+        android.widget.ImageView iconArrow = new android.widget.ImageView(requireContext());
+        iconArrow.setImageResource(android.R.drawable.ic_menu_view);
+        iconArrow.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(24), dp(24)));
+        iconArrow.setColorFilter(0xFF2D5F4F);
+        container.addView(iconArrow);
+
+        card.addView(container);
+
+        // Click para abrir modal CON opción de eliminar
+        card.setOnClickListener(v -> {
+            ArchivosListSheetConEliminar sheet = ArchivosListSheetConEliminar.newInstance(
+                    adjuntosCargados,
+                    "Archivos adjuntos",
+                    actividadId
+            );
+            sheet.show(getParentFragmentManager(), "archivos_list_eliminar");
+
+            // ✅ Recargar cuando se cierre el modal
+            sheet.setOnDismissListener(() -> {
+                android.util.Log.d("MODIFICAR", "🔄 Modal cerrado, recargando adjuntos...");
+                cargarAdjuntos();
+            });
+        });
+
+        llAdjuntos.addView(card);
+    }
+    private void limpiarTodosLosAdjuntos() {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("⚠️ Eliminar todos los archivos")
+                .setMessage("Esto eliminará TODOS los archivos adjuntos de esta actividad. ¿Estás seguro?")
+                .setPositiveButton("Eliminar todo", (d, w) -> {
+                    FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+                    db.runTransaction(trx -> {
+                        DocumentReference refEN = db.collection("activities").document(actividadId);
+                        DocumentReference refES = db.collection("actividades").document(actividadId);
+
+                        try {
+                            if (trx.get(refEN).exists()) {
+                                trx.update(refEN, "adjuntos", new ArrayList<>());
+                            }
+                        } catch (Exception ignored) {}
+
+                        try {
+                            if (trx.get(refES).exists()) {
+                                trx.update(refES, "adjuntos", new ArrayList<>());
+                            }
+                        } catch (Exception ignored) {}
+
+                        return null;
+                    }).addOnSuccessListener(u -> {
+                        adjuntosCargados.clear();
+                        llAdjuntos.removeAllViews();
+                        mostrarMensajeSinAdjuntos();
+                        toast("Todos los archivos eliminados");
+                    }).addOnFailureListener(e -> {
+                        toast("Error: " + e.getMessage());
+                    });
+                })
                 .setNegativeButton("Cancelar", null)
                 .show();
     }
-    private void eliminarAdjunto(Map<String, Object> adjunto) {
-        adjuntosCargados.remove(adjunto);
 
-        // Actualizar en Firestore
-        db.runTransaction(trx -> {
-            DocumentReference en = act(actividadId, true);
-            DocumentReference es = act(actividadId, false);
+    private void mostrarMensajeSinAdjuntos() {
+        if (llAdjuntos == null) return;
 
-            DocumentSnapshot dEn = trx.get(en);
-            DocumentSnapshot dEs = trx.get(es);
+        llAdjuntos.removeAllViews();
 
-            if (dEn.exists()) trx.update(en, "adjuntos", adjuntosCargados);
-            if (dEs.exists()) trx.update(es, "adjuntos", adjuntosCargados);
+        TextView tvVacio = new TextView(requireContext());
+        tvVacio.setText("No hay archivos adjuntos");
+        tvVacio.setTextColor(0xFF6B7280); // textSecondary
+        tvVacio.setPadding(dp(16), dp(16), dp(16), dp(16));
+        tvVacio.setGravity(android.view.Gravity.CENTER);
 
-            return null;
-        }).addOnSuccessListener(u -> {
-            toast("Adjunto eliminado");
-            mostrarAdjuntosDelDoc(null); // Recargar vista
-            cargarAdjuntos(); // Recargar desde Firestore
-        }).addOnFailureListener(e -> toast("Error al eliminar: " + e.getMessage()));
+        llAdjuntos.addView(tvVacio);
     }
+
+
+
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);

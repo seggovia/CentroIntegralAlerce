@@ -24,15 +24,17 @@
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
+            <!-- Ícono del archivo -->
             <ImageView
                 android:id="@+id/ivIconoTipo"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:padding="8dp"
-                android:src="@android:drawable/ic_menu_gallery"
+                android:src="@android:drawable/ic_menu_save"
                 android:background="@drawable/bg_icon_circle"
                 app:tint="@color/primary"/>
 
+            <!-- Info del archivo -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -56,62 +58,28 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="2.4 MB • PDF"
+                    android:text="PDF • Archivo"
                     android:textSize="12sp"
                     android:textColor="@color/textSecondary"/>
             </LinearLayout>
-
-            <ImageButton
-                android:id="@+id/btnMenuAdjunto"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_more"
-                android:contentDescription="Opciones"
-                app:tint="@color/textSecondary"/>
         </LinearLayout>
 
-        <!-- Botones de acción -->
-        <LinearLayout
+        <!-- Botón Eliminar (ancho completo) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnEliminar"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:layout_height="48dp"
             android:layout_marginTop="12dp"
-            android:gravity="center">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnVerAdjunto"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:text="Ver"
-                android:textSize="13sp"
-                android:textColor="@color/primary"
-                app:icon="@android:drawable/ic_menu_view"
-                app:iconSize="16dp"
-                app:iconTint="@color/primary"
-                app:iconGravity="textStart"/>
-
-            <Space
-                android:layout_width="8dp"
-                android:layout_height="wrap_content"/>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnDescargarAdjunto"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:text="Descargar"
-                android:textSize="13sp"
-                android:textColor="@color/primary"
-                app:strokeColor="@color/primary"
-                app:strokeWidth="1dp"
-                app:icon="@android:drawable/stat_sys_download"
-                app:iconSize="16dp"
-                app:iconTint="@color/primary"
-                app:iconGravity="textStart"/>
-        </LinearLayout>
+            android:text="Eliminar archivo"
+            android:textSize="14sp"
+            android:textColor="@color/error"
+            app:strokeColor="@color/error"
+            app:strokeWidth="1dp"
+            app:icon="@android:drawable/ic_menu_delete"
+            app:iconSize="18dp"
+            app:iconTint="@color/error"
+            app:iconGravity="textStart"
+            app:cornerRadius="24dp"/>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

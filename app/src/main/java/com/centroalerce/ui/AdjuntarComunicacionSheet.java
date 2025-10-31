@@ -8,7 +8,6 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -17,8 +16,9 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.centroalerce.gestion.R;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
-import com.google.firebase.firestore.FieldValue;
+import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
@@ -29,7 +29,7 @@ import java.util.Map;
 public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
 
     private Uri fileUri;
-    private ActivityResultLauncher<Intent> pickerLauncher;
+    private ActivityResultLauncher<Intent> pickerLauncher; // ✅ CAMBIO: Intent genérico
 
     public static AdjuntarComunicacionSheet newInstance(String actividadId) {
         AdjuntarComunicacionSheet f = new AdjuntarComunicacionSheet();
@@ -39,27 +39,35 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
         return f;
     }
 
-    private int resId(String name, String defType) {
-        return requireContext().getResources().getIdentifier(name, defType, requireContext().getPackageName());
-    }
-    private int id(String viewIdName) { return resId(viewIdName, "id"); }
-    private int layout(String layoutName) { return resId(layoutName, "layout"); }
-
     @Override
     public void onCreate(@Nullable Bundle s) {
         super.onCreate(s);
 
+        // ✅ CORREGIDO: Usar StartActivityForResult en lugar de OpenMultipleDocuments
         pickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         fileUri = result.getData().getData();
+
+                        // ✅ Tomar permiso persistente
+                        if (fileUri != null) {
+                            try {
+                                requireContext().getContentResolver()
+                                        .takePersistableUriPermission(fileUri,
+                                                Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            } catch (Exception ignored) {
+                                android.util.Log.w("ADJUNTAR", "No se pudo tomar permiso persistente");
+                            }
+                        }
+
+                        // Actualizar UI
                         View dialogView = getView();
                         if (dialogView != null) {
-                            TextView tv = dialogView.findViewById(id("tvArchivo"));
+                            TextView tv = dialogView.findViewById(R.id.tvArchivo);
                             if (tv != null && fileUri != null) {
-                                String last = fileUri.getLastPathSegment();
-                                tv.setText(last != null ? last : fileUri.toString());
+                                String nombre = obtenerNombreArchivo(fileUri);
+                                tv.setText(nombre);
                             }
                         }
                     }
@@ -71,82 +79,264 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        // layout file: res/layout/sheet_adjuntar_comunicacion.xml
-        return inflater.inflate(layout("sheet_adjuntar_comunicacion"), container, false);
+        return inflater.inflate(R.layout.sheet_adjuntar_comunicacion, container, false);
     }
 
     @Override
-    public void onViewCreated(@NonNull View v, @Nullable Bundle s) {
-        super.onViewCreated(v, s);
+    public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(v, savedInstanceState);
 
         String actividadId = getArguments() != null ? getArguments().getString("actividadId", "") : "";
 
-        TextView tvArchivo = v.findViewById(id("tvArchivo"));
-        Button btnSeleccionar = v.findViewById(id("btnSeleccionarArchivo"));
-        Button btnSubir = v.findViewById(id("btnSubir"));
+        TextView tvArchivo = v.findViewById(R.id.tvArchivo);
+        MaterialButton btnSeleccionar = v.findViewById(R.id.btnSeleccionarArchivo);
+        MaterialButton btnSubir = v.findViewById(R.id.btnSubir);
 
+        // ✅ CORREGIDO: Intent ACTION_GET_CONTENT para evitar crash
         btnSeleccionar.setOnClickListener(view -> {
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("*/*");
-            pickerLauncher.launch(intent);
+            try {
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.setType("*/*"); // ✅ Acepta cualquier tipo de archivo
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+
+                // ✅ Añadir tipos MIME adicionales
+                String[] mimeTypes = {
+                        "image/*",
+                        "application/pdf",
+                        "application/msword",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "application/vnd.ms-excel",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                };
+                intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
+
+                pickerLauncher.launch(intent);
+            } catch (Exception e) {
+                android.util.Log.e("ADJUNTAR", "Error al abrir selector: " + e.getMessage(), e);
+                Toast.makeText(requireContext(),
+                        "Error al abrir selector de archivos",
+                        Toast.LENGTH_SHORT).show();
+            }
         });
 
         btnSubir.setOnClickListener(view -> {
             if (fileUri == null) {
-                Toast.makeText(requireContext(), "Selecciona un archivo", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), "Selecciona un archivo primero", Toast.LENGTH_SHORT).show();
                 return;
             }
             if (TextUtils.isEmpty(actividadId)) {
-                Toast.makeText(requireContext(), "Falta actividadId", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), "Error: Falta actividadId", Toast.LENGTH_SHORT).show();
                 return;
             }
 
+            // ✅ Verificar autenticación
+            com.google.firebase.auth.FirebaseUser currentUser =
+                    com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+
+            if (currentUser == null) {
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Sesión expirada")
+                        .setMessage("Debes iniciar sesión para subir archivos")
+                        .setPositiveButton("Entendido", null)
+                        .show();
+                return;
+            }
+
+            // ✅ Deshabilitar botones durante subida
+            btnSubir.setEnabled(false);
+            btnSeleccionar.setEnabled(false);
+            btnSubir.setText("Subiendo...");
+
+            android.util.Log.d("ADJUNTAR", "✅ Usuario: " + currentUser.getEmail());
+            android.util.Log.d("ADJUNTAR", "🚀 Actividad: " + actividadId);
+
             FirebaseStorage storage = FirebaseStorage.getInstance();
             String fileName = obtenerNombreArchivo(fileUri);
-            StorageReference ref =
-                    storage.getReference().child("activities").child(actividadId).child("adjuntos").child(fileName);
 
-            // Subir a Storage y luego guardar metadata
+            // ✅ Ruta correcta
+            StorageReference ref = storage.getReference()
+                    .child("activities")
+                    .child(actividadId)
+                    .child("adjuntos")
+                    .child(fileName);
+
+            android.util.Log.d("ADJUNTAR", "📎 Archivo: " + fileName);
+            android.util.Log.d("ADJUNTAR", "📂 Ruta: " + ref.getPath());
+
+            // ✅ Subir y guardar en Firestore
             ref.putFile(fileUri)
                     .continueWithTask(task -> {
-                        if (!task.isSuccessful()) throw task.getException();
+                        if (!task.isSuccessful()) {
+                            Exception e = task.getException();
+                            android.util.Log.e("ADJUNTAR", "❌ Error: " +
+                                    (e != null ? e.getMessage() : "unknown"), e);
+                            throw task.getException();
+                        }
+                        android.util.Log.d("ADJUNTAR", "✅ Subido, obteniendo URL...");
                         return ref.getDownloadUrl();
                     })
-                    .addOnSuccessListener(download -> {
-                        FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-                        Map<String,Object> meta = new HashMap<>();
-                        meta.put("nombre", fileName);
-                        meta.put("url", download.toString());
-                        meta.put("creadoEn", FieldValue.serverTimestamp());
-
-                        // subcolección (para queries ordenadas)
-                        db.collection("activities").document(actividadId)
-                                .collection("adjuntos").add(meta);
-
-                        // espejo en array del doc principal (opcional)
-                        db.collection("activities").document(actividadId)
-                                .update("adjuntos", FieldValue.arrayUnion(meta));
-
-                        // Notifica al detalle para que recargue
-                        Bundle res = new Bundle();
-                        res.putBoolean("adjunto_subido", true);
-                        getParentFragmentManager().setFragmentResult("adjuntos_change", res);
-
-                        Toast.makeText(requireContext(), "Adjunto subido", Toast.LENGTH_SHORT).show();
-                        dismiss();
+                    .addOnSuccessListener(downloadUrl -> {
+                        android.util.Log.d("ADJUNTAR", "✅ URL: " + downloadUrl.toString());
+                        guardarEnFirestore(actividadId, fileName, downloadUrl.toString());
                     })
-                    .addOnFailureListener(e ->
-                            Toast.makeText(requireContext(), "Error al subir: " + e.getMessage(), Toast.LENGTH_LONG).show()
-                    );
+                    .addOnFailureListener(e -> {
+                        android.util.Log.e("ADJUNTAR", "❌ Error: " + e.getMessage(), e);
+
+                        // ✅ Rehabilitar botones
+                        btnSubir.setEnabled(true);
+                        btnSeleccionar.setEnabled(true);
+                        btnSubir.setText("Guardar archivo");
+
+                        String errorMsg = "Error al subir: ";
+                        if (e instanceof com.google.firebase.storage.StorageException) {
+                            com.google.firebase.storage.StorageException se =
+                                    (com.google.firebase.storage.StorageException) e;
+                            errorMsg += se.getMessage();
+                        } else {
+                            errorMsg += e.getMessage();
+                        }
+
+                        Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_LONG).show();
+                    });
         });
     }
 
+    // ✅ Método separado para guardar en Firestore
+    private void guardarEnFirestore(String actividadId, String fileName, String url) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        Map<String, Object> adjunto = new HashMap<>();
+        adjunto.put("nombre", fileName);
+        adjunto.put("name", fileName);
+        adjunto.put("url", url);
+        adjunto.put("creadoEn", com.google.firebase.firestore.FieldValue.serverTimestamp());
+        adjunto.put("id", "adj_" + System.currentTimeMillis());
+
+        android.util.Log.d("ADJUNTAR", "💾 Guardando en Firestore...");
+
+        // ✅ Intentar EN primero
+        db.collection("activities").document(actividadId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        // Documento EN existe, actualizar
+                        doc.getReference()
+                                .update("adjuntos", com.google.firebase.firestore.FieldValue.arrayUnion(adjunto))
+                                .addOnSuccessListener(u -> {
+                                    android.util.Log.d("ADJUNTAR", "✅ Actualizado en EN");
+                                    notificarYCerrar();
+                                })
+                                .addOnFailureListener(e -> {
+                                    android.util.Log.e("ADJUNTAR", "❌ Error en EN: " + e.getMessage());
+                                    intentarEnES(actividadId, adjunto);
+                                });
+                    } else {
+                        // Documento EN no existe, probar ES
+                        intentarEnES(actividadId, adjunto);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("ADJUNTAR", "❌ Error verificando EN: " + e.getMessage());
+                    intentarEnES(actividadId, adjunto);
+                });
+    }
+    private void intentarEnES(String actividadId, Map<String, Object> adjunto) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("actividades").document(actividadId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        doc.getReference()
+                                .update("adjuntos", com.google.firebase.firestore.FieldValue.arrayUnion(adjunto))
+                                .addOnSuccessListener(u -> {
+                                    android.util.Log.d("ADJUNTAR", "✅ Actualizado en ES");
+                                    notificarYCerrar();
+                                })
+                                .addOnFailureListener(e -> {
+                                    android.util.Log.e("ADJUNTAR", "❌ Error en ES: " + e.getMessage());
+                                    Toast.makeText(requireContext(),
+                                            "Error al guardar: " + e.getMessage(),
+                                            Toast.LENGTH_LONG).show();
+                                });
+                    } else {
+                        Toast.makeText(requireContext(),
+                                "Actividad no encontrada en ninguna colección",
+                                Toast.LENGTH_LONG).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("ADJUNTAR", "❌ Error verificando ES: " + e.getMessage());
+                    Toast.makeText(requireContext(),
+                            "Error al buscar actividad: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                });
+    }
+
+    private void notificarYCerrar() {
+        try {
+            Bundle res = new Bundle();
+            res.putBoolean("adjunto_subido", true);
+            res.putLong("timestamp", System.currentTimeMillis());
+
+            getParentFragmentManager().setFragmentResult("adjuntos_change", res);
+            requireActivity().getSupportFragmentManager().setFragmentResult("adjuntos_change", res);
+
+            Toast.makeText(requireContext(), "✅ Archivo adjuntado", Toast.LENGTH_SHORT).show();
+
+            new android.os.Handler(android.os.Looper.getMainLooper())
+                    .postDelayed(() -> {
+                        try {
+                            dismiss();
+                        } catch (Exception ignored) {}
+                    }, 1000);
+        } catch (Exception e) {
+            android.util.Log.e("ADJUNTAR", "Error notificando: " + e.getMessage());
+        }
+    }
+
+
+    private void notificarCambios() {
+        try {
+            Bundle res = new Bundle();
+            res.putBoolean("adjunto_subido", true);
+            res.putLong("timestamp", System.currentTimeMillis());
+
+            getParentFragmentManager().setFragmentResult("adjuntos_change", res);
+            requireActivity().getSupportFragmentManager()
+                    .setFragmentResult("adjuntos_change", res);
+
+            android.util.Log.d("ADJUNTAR", "📢 Notificaciones enviadas");
+        } catch (Exception e) {
+            android.util.Log.e("ADJUNTAR", "Error notificando: " + e.getMessage());
+        }
+    }
+
+    // ✅ Obtener nombre del archivo
     private String obtenerNombreArchivo(Uri uri) {
+        if (uri == null) return "archivo_" + System.currentTimeMillis();
+
+        try {
+            android.database.Cursor cursor = requireContext().getContentResolver()
+                    .query(uri, null, null, null, null);
+            if (cursor != null) {
+                int nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                if (nameIndex >= 0 && cursor.moveToFirst()) {
+                    String name = cursor.getString(nameIndex);
+                    cursor.close();
+                    if (!TextUtils.isEmpty(name)) return name;
+                }
+                cursor.close();
+            }
+        } catch (Exception ignored) {}
+
         String last = uri.getLastPathSegment();
-        if (last == null) return "archivo";
-        int idx = last.lastIndexOf('/');
-        return idx >= 0 ? last.substring(idx + 1) : last;
+        if (last != null) {
+            int idx = last.lastIndexOf('/');
+            if (idx >= 0) return last.substring(idx + 1);
+            return last;
+        }
+
+        return "archivo_" + System.currentTimeMillis();
     }
 }

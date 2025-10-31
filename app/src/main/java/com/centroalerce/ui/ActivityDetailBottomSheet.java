@@ -13,6 +13,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -23,7 +24,9 @@ import androidx.annotation.Nullable;
 // 👇 NUEVO: para aplicar insets de la barra de navegación
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-
+import com.centroalerce.gestion.R;
+import com.google.android.material.card.MaterialCardView;
+import com.google.firebase.firestore.Source;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton; // 👈 ya lo tenías
 import com.google.android.material.chip.Chip;
@@ -90,7 +93,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     // 👇 NUEVO: listeners para datos en vivo
     private ListenerRegistration actReg;   // escucha de actividad
     private ListenerRegistration citaReg;  // escucha de cita
-
+    private final List<Map<String, Object>> adjuntosCargados = new ArrayList<>();
     private static final String COL_EN = "activities";
     private static final String COL_ES = "actividades";
     private DocumentReference act(String actividadId, boolean preferEN) {
@@ -118,36 +121,35 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     @Override
     public void onViewCreated(@NonNull View root, @Nullable Bundle s) {
-
         super.onViewCreated(root, s);
 
         actividadId = getArg("actividadId");
-        citaId      = getArg("citaId");
+        citaId = getArg("citaId");
 
-        tvNombre        = root.findViewById(id("tvNombre"));
-        tvTipoYPer      = root.findViewById(id("tvTipoYPeriodicidad"));
-        chFechaHora     = root.findViewById(id("chFechaHora"));
-        chLugar         = root.findViewById(id("chLugar"));
-        chEstado        = root.findViewById(id("chEstado"));
+        tvNombre = root.findViewById(id("tvNombre"));
+        tvTipoYPer = root.findViewById(id("tvTipoYPeriodicidad"));
+        chFechaHora = root.findViewById(id("chFechaHora"));
+        chLugar = root.findViewById(id("chLugar"));
+        chEstado = root.findViewById(id("chEstado"));
 
-        tvTipo          = root.findViewById(id("tvTipo"));
-        tvPeriodicidad  = root.findViewById(id("tvPeriodicidad"));
-        tvCupo          = root.findViewById(id("tvCupo"));
-        tvOferente      = root.findViewById(id("tvOferente"));
-        tvSocio         = root.findViewById(id("tvSocio"));
+        tvTipo = root.findViewById(id("tvTipo"));
+        tvPeriodicidad = root.findViewById(id("tvPeriodicidad"));
+        tvCupo = root.findViewById(id("tvCupo"));
+        tvOferente = root.findViewById(id("tvOferente"));
+        tvSocio = root.findViewById(id("tvSocio"));
         tvBeneficiarios = root.findViewById(id("tvBeneficiarios"));
 
-        tvProyecto          = root.findViewById(id("tvProyecto"));
-        tvDiasAviso         = root.findViewById(id("tvDiasAviso"));
+        tvProyecto = root.findViewById(id("tvProyecto"));
+        tvDiasAviso = root.findViewById(id("tvDiasAviso"));
 
-        llAdjuntos      = root.findViewById(id("llAdjuntos"));
-        btnModificar    = root.findViewById(id("btnModificar"));
-        btnCancelar     = root.findViewById(id("btnCancelar"));
-        btnReagendar    = root.findViewById(id("btnReagendar"));
-        btnAdjuntar     = root.findViewById(id("btnAdjuntar"));
-        btnCompletar    = root.findViewById(id("btnCompletar")); // 👈 NUEVO
+        llAdjuntos = root.findViewById(id("llAdjuntos"));
+        btnModificar = root.findViewById(id("btnModificar"));
+        btnCancelar = root.findViewById(id("btnCancelar"));
+        btnReagendar = root.findViewById(id("btnReagendar"));
+        btnAdjuntar = root.findViewById(id("btnAdjuntar"));
+        btnCompletar = root.findViewById(id("btnCompletar"));
 
-        // 👇 NUEVO: reservar espacio real para la barra de navegación
+        // Reservar espacio para navbar
         View spacer = root.findViewById(id("navBarSpacer"));
         ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
             int bottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
@@ -159,50 +161,52 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             return insets;
         });
 
-        // === NUEVO helper: emitir acción al padre, conservando IDs ===
-        Runnable emitEdit       = () -> emitActionToParent("edit", actividadId, citaId);
-        Runnable emitReschedule = () -> emitActionToParent("reschedule", actividadId, citaId);
-        Runnable emitAttach     = () -> emitActionToParent("attach", actividadId, citaId);
-        Runnable emitCancel     = () -> emitActionToParent("cancel", actividadId, citaId);
+        // ✅ BOTÓN ADJUNTAR - CORREGIDO
+        if (btnAdjuntar != null) {
+            View.OnClickListener listenerAdjuntar = v -> {
+                if (actividadCancelada || citaCancelada) {
+                    toast("No se pueden agregar archivos a una actividad cancelada");
+                    return;
+                }
+                emitActionToParent("attach", actividadId, citaId);
+                AdjuntarComunicacionSheet.newInstance(actividadId)
+                        .show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
+            };
+            rememberClickListener(btnAdjuntar, listenerAdjuntar);
+            btnAdjuntar.setOnClickListener(listenerAdjuntar);
+        }
 
+        // Resto de botones (sin cambios)
         if (btnModificar != null) {
             View.OnClickListener l = v -> {
-                emitEdit.run();
+                emitActionToParent("edit", actividadId, citaId);
                 ModificarActividadSheet.newInstance(actividadId)
                         .show(getParentFragmentManager(), "ModificarActividadSheet");
             };
             rememberClickListener(btnModificar, l);
             btnModificar.setOnClickListener(l);
         }
+
         if (btnCancelar != null) {
             View.OnClickListener l = v -> {
-                emitCancel.run();
+                emitActionToParent("cancel", actividadId, citaId);
                 CancelarActividadSheet.newInstance(actividadId, citaId)
                         .show(getParentFragmentManager(), "CancelarActividadSheet");
             };
             rememberClickListener(btnCancelar, l);
             btnCancelar.setOnClickListener(l);
         }
+
         if (btnReagendar != null) {
             View.OnClickListener l = v -> {
-                emitReschedule.run();
+                emitActionToParent("reschedule", actividadId, citaId);
                 ReagendarActividadSheet.newInstance(actividadId, citaId)
                         .show(getParentFragmentManager(), "ReagendarActividadSheet");
             };
             rememberClickListener(btnReagendar, l);
             btnReagendar.setOnClickListener(l);
         }
-        if (btnAdjuntar != null) {
-            View.OnClickListener l = v -> {
-                emitAttach.run();
-                AdjuntarComunicacionSheet.newInstance(actividadId)
-                        .show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
-            };
-            rememberClickListener(btnAdjuntar, l);
-            btnAdjuntar.setOnClickListener(l);
-        }
 
-        // 👇 NUEVO: Botón Completar
         if (btnCompletar != null) {
             View.OnClickListener l = view -> {
                 emitActionToParent("completar", actividadId, citaId);
@@ -212,33 +216,40 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             btnCompletar.setOnClickListener(l);
         }
 
-        // 👇 Fuerza estilos iniciales
         restyleButtonsActive();
 
-        // Listeners de resultados en el Parent FragmentManager
+        // Listeners de resultados
         getParentFragmentManager().setFragmentResultListener(
                 "adjuntos_change", getViewLifecycleOwner(),
-                (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
+                (req, bundle) -> {
+                    android.util.Log.d("ADJUNTOS", "🔄 Recibido evento adjuntos_change");
+                    loadAdjuntosAll(actividadId, citaId);
+                }
         );
 
         getParentFragmentManager().setFragmentResultListener(
                 "actividad_change", getViewLifecycleOwner(),
                 (req, bundle) -> {
+                    android.util.Log.d("ADJUNTOS", "🔄 Recibido evento actividad_change");
                     loadActividad(actividadId);
                     loadCita(actividadId, citaId);
                     loadAdjuntosAll(actividadId, citaId);
                 }
         );
 
-        // 🔊 NUEVO: también escuchar en el SupportFragmentManager de la Activity
+        // También en Activity FragmentManager
         requireActivity().getSupportFragmentManager().setFragmentResultListener(
                 "adjuntos_change", getViewLifecycleOwner(),
-                (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
+                (req, bundle) -> {
+                    android.util.Log.d("ADJUNTOS", "🔄 Recibido evento adjuntos_change (Activity)");
+                    loadAdjuntosAll(actividadId, citaId);
+                }
         );
 
         requireActivity().getSupportFragmentManager().setFragmentResultListener(
                 "actividad_change", getViewLifecycleOwner(),
                 (req, bundle) -> {
+                    android.util.Log.d("ADJUNTOS", "🔄 Recibido evento actividad_change (Activity)");
                     loadActividad(actividadId);
                     loadCita(actividadId, citaId);
                     loadAdjuntosAll(actividadId, citaId);
@@ -250,11 +261,13 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (chFechaHora != null) chFechaHora.setText("dd/MM/yyyy • HH:mm");
         if (chLugar != null) chLugar.setText("Lugar");
         if (chEstado != null) chEstado.setText("Programada");
-        if (llAdjuntos != null) { llAdjuntos.removeAllViews(); addNoFilesRow(); }
+        if (llAdjuntos != null) {
+            llAdjuntos.removeAllViews();
+            addNoFilesRow();
+        }
 
         db = FirebaseFirestore.getInstance();
 
-        // 👇 NUEVO: suscripciones en vivo + carga inicial
         subscribeActividad(actividadId);
         subscribeCita(actividadId, citaId);
         loadActividad(actividadId);
@@ -672,13 +685,251 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private interface Done { void run(); }
     private void loadAdjuntosAll(String actividadId, String citaId) {
         if (llAdjuntos == null) return;
-        android.util.Log.d("DETAIL", "🚀 Iniciando carga de adjuntos - Actividad: " + actividadId + ", Cita: " + citaId);
-        llAdjuntos.removeAllViews();
-        addNoFilesRow();
 
-        loadAdjuntosAllInCollection(actividadId, citaId, true, () ->
-                loadAdjuntosAllInCollection(actividadId, citaId, false, this::showPlaceholderIfEmpty));
+        android.util.Log.d("DETAIL", "🚀 loadAdjuntosAll - Mostrando mensaje para modificar");
+
+        mostrarMensajeArchivosEnModificar();
     }
+
+    private void mostrarMensajeArchivosEnModificar() {
+        if (llAdjuntos == null) return;
+
+        llAdjuntos.removeAllViews();
+
+        com.google.android.material.card.MaterialCardView card =
+                new com.google.android.material.card.MaterialCardView(requireContext());
+
+        android.widget.LinearLayout.LayoutParams params =
+                new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+        params.setMargins(0, 0, 0, dp(12));
+        card.setLayoutParams(params);
+        card.setCardElevation(dp(2));
+        card.setRadius(dp(12));
+        card.setCardBackgroundColor(0xFFFEF3C7);
+
+        android.widget.LinearLayout container =
+                new android.widget.LinearLayout(requireContext());
+        container.setOrientation(android.widget.LinearLayout.VERTICAL);
+        container.setPadding(dp(16), dp(16), dp(16), dp(16));
+
+        android.widget.TextView tvTitulo = new android.widget.TextView(requireContext());
+        tvTitulo.setText("📎 Gestión de archivos");
+        tvTitulo.setTextSize(16);
+        tvTitulo.setTextColor(0xFF92400E);
+        tvTitulo.setTypeface(null, android.graphics.Typeface.BOLD);
+        container.addView(tvTitulo);
+
+        android.widget.TextView tvMensaje = new android.widget.TextView(requireContext());
+        tvMensaje.setText("Para ver o eliminar archivos adjuntos, dirígete a 'Modificar Actividad'");
+        tvMensaje.setTextSize(14);
+        tvMensaje.setTextColor(0xFF92400E);
+        tvMensaje.setPadding(0, dp(8), 0, 0);
+        container.addView(tvMensaje);
+
+        card.addView(container);
+        llAdjuntos.addView(card);
+    }
+
+    private void cargarAdjuntosDeActividad(String actividadId) {
+        if (TextUtils.isEmpty(actividadId)) {
+            showPlaceholderIfEmpty();
+            return;
+        }
+
+        android.util.Log.d("DETAIL", "🔍 Cargando adjuntos de actividad: " + actividadId);
+
+        act(actividadId, true).get()
+                .addOnSuccessListener(doc -> {
+                    if (doc != null && doc.exists()) {
+                        Object rawAdj = doc.get("adjuntos");
+                        android.util.Log.d("DETAIL", "📎 Campo adjuntos: " +
+                                (rawAdj != null ? rawAdj.getClass().getSimpleName() : "null"));
+
+                        if (rawAdj instanceof List && !((List<?>) rawAdj).isEmpty()) {
+                            llAdjuntos.removeAllViews();
+
+                            // ✅ CORREGIDO: Agregar adjuntos al cache
+                            adjuntosCargados.clear();
+                            for (Object item : (List<?>) rawAdj) {
+                                if (item instanceof Map) {
+                                    @SuppressWarnings("unchecked")
+                                    Map<String, Object> adj = (Map<String, Object>) item;
+                                    adjuntosCargados.add(adj);
+                                }
+                            }
+
+                            // ✅ Mostrar según cantidad
+                            if (adjuntosCargados.size() > 3) {
+                                mostrarBotonVerArchivos(adjuntosCargados.size());
+                            } else {
+                                mostrarAdjuntosDesdeArray((List<?>) rawAdj);
+                            }
+                            return;
+                        }
+                    }
+
+                    // Si no hay en documento, intentar subcolección
+                    android.util.Log.d("DETAIL", "🔍 Intentando subcolección adjuntos...");
+                    cargarDesdeSubcoleccion(actividadId);
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("DETAIL", "❌ Error: " + e.getMessage(), e);
+                    showPlaceholderIfEmpty();
+                });
+    }
+    private void cargarDesdeSubcoleccion(String actividadId) {
+        act(actividadId, true).collection("adjuntos")
+                .orderBy("creadoEn", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(qs -> {
+                    android.util.Log.d("DETAIL", "📂 Subcolección: " +
+                            (qs != null ? qs.size() : 0) + " documentos");
+
+                    if (qs == null || qs.isEmpty()) {
+                        showPlaceholderIfEmpty();
+                        return;
+                    }
+
+                    llAdjuntos.removeAllViews();
+                    adjuntosCargados.clear(); // ✅ Limpiar cache
+
+                    for (DocumentSnapshot d : qs.getDocuments()) {
+                        String nombre = firstNonEmpty(d.getString("nombre"), d.getString("name"));
+                        String url = d.getString("url");
+                        String id = d.getId();
+
+                        Map<String, Object> adj = new HashMap<>();
+                        adj.put("nombre", nombre);
+                        adj.put("name", nombre);
+                        adj.put("url", url);
+                        adj.put("id", id);
+
+                        adjuntosCargados.add(adj); // ✅ Agregar al cache
+                    }
+
+                    // ✅ Mostrar según cantidad
+                    if (adjuntosCargados.size() > 3) {
+                        mostrarBotonVerArchivos(adjuntosCargados.size());
+                    } else {
+                        for (Map<String, Object> adj : adjuntosCargados) {
+                            addAdjuntoRow(
+                                    nonEmpty(stringOr(adj.get("nombre"), null), "(archivo)"),
+                                    stringOr(adj.get("url"), null),
+                                    stringOr(adj.get("id"), null)
+                            );
+                        }
+                    }
+
+                    android.util.Log.d("DETAIL", "✅ Adjuntos cargados desde subcolección");
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("DETAIL", "❌ Error subcolección: " + e.getMessage(), e);
+                    showPlaceholderIfEmpty();
+                });
+    }
+
+    private void mostrarBotonVerArchivos(int cantidad) {
+        llAdjuntos.removeAllViews();
+
+        // Card clickeable
+        com.google.android.material.card.MaterialCardView card =
+                new com.google.android.material.card.MaterialCardView(requireContext());
+
+        android.widget.LinearLayout.LayoutParams params =
+                new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+        params.setMargins(0, 0, 0, dp(12));
+        card.setLayoutParams(params);
+        card.setCardElevation(dp(2));
+        card.setRadius(dp(12));
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setForeground(requireContext().getDrawable(
+                android.R.drawable.list_selector_background));
+
+        android.widget.LinearLayout container =
+                new android.widget.LinearLayout(requireContext());
+        container.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        container.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        container.setPadding(dp(16), dp(16), dp(16), dp(16));
+
+        // Icono
+        android.widget.ImageView icon = new android.widget.ImageView(requireContext());
+        icon.setImageResource(android.R.drawable.ic_menu_gallery);
+        icon.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(40), dp(40)));
+        icon.setColorFilter(0xFF2D5F4F); // primary color
+        container.addView(icon);
+
+        // Textos
+        android.widget.LinearLayout textContainer =
+                new android.widget.LinearLayout(requireContext());
+        textContainer.setOrientation(android.widget.LinearLayout.VERTICAL);
+        android.widget.LinearLayout.LayoutParams textParams =
+                new android.widget.LinearLayout.LayoutParams(0,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        textParams.setMargins(dp(12), 0, dp(12), 0);
+        textContainer.setLayoutParams(textParams);
+
+        android.widget.TextView tvTitulo = new android.widget.TextView(requireContext());
+        tvTitulo.setText("Ver archivos adjuntos");
+        tvTitulo.setTextSize(16);
+        tvTitulo.setTextColor(0xFF1F2937); // textPrimary
+        tvTitulo.setTypeface(null, android.graphics.Typeface.BOLD);
+        textContainer.addView(tvTitulo);
+
+        android.widget.TextView tvCantidad = new android.widget.TextView(requireContext());
+        tvCantidad.setText(cantidad + " archivo(s) disponible(s)");
+        tvCantidad.setTextSize(14);
+        tvCantidad.setTextColor(0xFF6B7280); // textSecondary
+        textContainer.addView(tvCantidad);
+
+        container.addView(textContainer);
+
+        // Icono flecha
+        android.widget.ImageView iconArrow = new android.widget.ImageView(requireContext());
+        iconArrow.setImageResource(android.R.drawable.ic_menu_view);
+        iconArrow.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(24), dp(24)));
+        iconArrow.setColorFilter(0xFF2D5F4F);
+        container.addView(iconArrow);
+
+        card.addView(container);
+
+        // Click para abrir modal
+        card.setOnClickListener(v -> {
+            ArchivosListSheet sheet = ArchivosListSheet.newInstance(
+                    adjuntosCargados,
+                    "Archivos de la actividad"
+            );
+            sheet.show(getParentFragmentManager(), "archivos_list");
+        });
+
+        llAdjuntos.addView(card);
+    }
+
+
+    private void mostrarAdjuntosDesdeArray(List<?> array) {
+        for (Object item : array) {
+            if (item instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> adj = (Map<String, Object>) item;
+
+                String nombre = firstNonEmpty(
+                        stringOr(adj.get("nombre"), null),
+                        stringOr(adj.get("name"), null)
+                );
+                String url = stringOr(adj.get("url"), null);
+                String id = stringOr(adj.get("id"), null);
+
+                addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, id);
+            }
+        }
+    }
+
     private void loadAdjuntosAllInCollection(String actividadId, String citaId, boolean preferEN, Done onEmpty) {
         if (!TextUtils.isEmpty(actividadId) && !TextUtils.isEmpty(citaId)) {
             act(actividadId, preferEN).collection("citas").document(citaId).get()
@@ -788,10 +1039,10 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .get()
                 .addOnSuccessListener(q -> {
                     android.util.Log.d("DETAIL", "📄 Query resultado para " + sub + ": " + (q != null ? q.size() : "null") + " documentos");
-                    if (q == null || q.isEmpty()) { 
+                    if (q == null || q.isEmpty()) {
                         android.util.Log.d("DETAIL", "❌ Sin documentos en subcolección " + sub);
-                        onEmpty.run(); 
-                        return; 
+                        onEmpty.run();
+                        return;
                     }
                     llAdjuntos.removeAllViews();
                     int added = 0;
@@ -820,69 +1071,96 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private void addAdjuntoRow(String nombre, @Nullable String url) { addAdjuntoRow(nombre, url, null); }
     private void addAdjuntoRow(String nombre, @Nullable String url, @Nullable String adjuntoId) {
         if (llAdjuntos == null) return;
-        LinearLayout item = new LinearLayout(requireContext());
-        item.setOrientation(LinearLayout.VERTICAL);
-        item.setPadding(0, dp(6), 0, dp(6));
 
-        TextView tvName = new TextView(requireContext());
-        tvName.setText(nombre);
-        tvName.setTextSize(14);
-        tvName.setSingleLine(true);
-        tvName.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        if (!TextUtils.isEmpty(url)) {
-            tvName.setTextColor(0xFF1D4ED8);
-            tvName.setOnClickListener(v -> {
-                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
-                catch (Exception e) { toast("No se pudo abrir el archivo"); }
-            });
-        } else {
-            tvName.setTextColor(0xFF374151);
+        // Inflar el layout del item
+        View itemView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.item_adjunto, llAdjuntos, false);
+
+        // Referencias a vistas
+        TextView tvNombre = itemView.findViewById(R.id.tvNombreAdjunto);
+        TextView tvTamanio = itemView.findViewById(R.id.tvTamanio);
+        ImageView ivIcono = itemView.findViewById(R.id.ivIconoTipo);
+        com.google.android.material.button.MaterialButton btnVer = itemView.findViewById(R.id.btnVerAdjunto);
+        com.google.android.material.button.MaterialButton btnDescargar = itemView.findViewById(R.id.btnDescargarAdjunto);
+
+        // Configurar nombre
+        if (tvNombre != null) {
+            tvNombre.setText(TextUtils.isEmpty(nombre) ? "archivo" : nombre);
         }
-        item.addView(tvName);
 
-        if (!TextUtils.isEmpty(url)) {
-            LinearLayout actions = new LinearLayout(requireContext());
-            actions.setOrientation(LinearLayout.HORIZONTAL);
+        // Configurar ícono según extensión
+        if (ivIcono != null) {
+            String ext = obtenerExtension(nombre);
+            int iconoRes = obtenerIconoPorExtension(ext);
+            ivIcono.setImageResource(iconoRes);
+        }
 
-            TextView btnVer = new TextView(requireContext());
-            btnVer.setText("Ver");
-            btnVer.setTextColor(0xFF1D4ED8);
-            btnVer.setPadding(0, dp(4), dp(16), 0);
+        // Configurar tamaño (por ahora placeholder)
+        if (tvTamanio != null) {
+            String ext = obtenerExtension(nombre);
+            tvTamanio.setText(ext.toUpperCase() + " • Archivo");
+        }
+
+        // Botón VER
+        if (btnVer != null && !TextUtils.isEmpty(url)) {
             btnVer.setOnClickListener(v -> {
-                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
-                catch (Exception e) { toast("No se pudo abrir el archivo"); }
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
+                    intent.setData(Uri.parse(url));
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(intent);
+                } catch (Exception e) {
+                    toast("No se pudo abrir el archivo");
+                    android.util.Log.e("ADJUNTO", "Error al abrir: " + e.getMessage(), e);
+                }
             });
-
-            TextView btnDesc = new TextView(requireContext());
-            btnDesc.setText("Descargar");
-            btnDesc.setTextColor(0xFF1D4ED8);
-            btnDesc.setPadding(0, dp(4), 0, 0);
-            final String nombreFinal = (nombre == null || nombre.trim().isEmpty()) ? nombreDesdeUrl(url) : nombre;
-            btnDesc.setOnClickListener(v -> descargarConDownloadManager(nombreFinal, url));
-
-            actions.addView(btnVer);
-            actions.addView(btnDesc);
-            item.addView(actions);
+        } else if (btnVer != null) {
+            btnVer.setEnabled(false);
+            btnVer.setAlpha(0.5f);
         }
 
-        if (!TextUtils.isEmpty(adjuntoId)) {
-            TextView tvId = new TextView(requireContext());
-            tvId.setText("ID: " + adjuntoId);
-            tvId.setTextSize(12);
-            tvId.setTextColor(0xFF6B7280);
-            tvId.setTypeface(android.graphics.Typeface.MONOSPACE);
-            item.addView(tvId);
+
+        // Botón DESCARGAR
+        if (btnDescargar != null && !TextUtils.isEmpty(url)) {
+            btnDescargar.setOnClickListener(v -> {
+                String nombreFinal = TextUtils.isEmpty(nombre) ? nombreDesdeUrl(url) : nombre;
+                descargarConDownloadManager(nombreFinal, url);
+            });
+        } else if (btnDescargar != null) {
+            btnDescargar.setEnabled(false);
+            btnDescargar.setAlpha(0.5f);
         }
 
-        llAdjuntos.addView(item);
+        llAdjuntos.addView(itemView);
 
-        View sep = new View(requireContext());
-        sep.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)));
-        sep.setBackgroundColor(0xFFE5E7EB);
-        llAdjuntos.addView(sep);
-
-        Log.d(TAG, "Adjunto agregado: " + nombre + " | url=" + url + (adjuntoId != null ? " | id=" + adjuntoId : ""));
+        android.util.Log.d("ADJUNTO", "✅ Adjunto agregado: " + nombre + " | URL: " + url);
     }
+    private String obtenerExtension(String nombre) {
+        if (TextUtils.isEmpty(nombre)) return "";
+        int idx = nombre.lastIndexOf('.');
+        return idx >= 0 ? nombre.substring(idx + 1).toLowerCase() : "";
+    }
+
+    private int obtenerIconoPorExtension(String ext) {
+        switch (ext) {
+            case "pdf":
+                return android.R.drawable.ic_menu_report_image;
+            case "jpg":
+            case "jpeg":
+            case "png":
+            case "gif":
+                return android.R.drawable.ic_menu_gallery;
+            case "doc":
+            case "docx":
+                return android.R.drawable.ic_menu_edit;
+            case "xls":
+            case "xlsx":
+                return android.R.drawable.ic_menu_sort_by_size;
+            default:
+                return android.R.drawable.ic_menu_save;
+        }
+    }
+
 
     private void addNoFilesRow() {
         if (llAdjuntos == null) return;
