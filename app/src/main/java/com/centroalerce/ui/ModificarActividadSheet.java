@@ -30,6 +30,7 @@ import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -171,7 +172,23 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
         // Tipo / Periodicidad (pueden venir en distintas claves)
         setDropText(actTipo, firstNonEmpty(doc.getString("tipoActividad"), doc.getString("tipo")));
-        setDropText(actPeriodicidad, firstNonEmpty(doc.getString("periodicidad"), doc.getString("frecuencia")));
+
+        // 🔥 NUEVO: Guardar periodicidad actual SIN bloquear el campo
+        final String periodicidadActual = firstNonEmpty(doc.getString("periodicidad"), doc.getString("frecuencia"));
+        setDropText(actPeriodicidad, periodicidadActual);
+
+        // 🔥 NUEVO: Detectar cambio de periodicidad y mostrar modal
+        actPeriodicidad.setOnItemClickListener((parent, view, position, id) -> {
+            String periodicidadSeleccionada = actPeriodicidad.getText().toString().trim().toUpperCase();
+            String periodicidadActualUpper = periodicidadActual != null ? periodicidadActual.toUpperCase() : "";
+
+            // Si intenta cambiar la periodicidad, mostrar diálogo
+            if (!periodicidadSeleccionada.equals(periodicidadActualUpper)) {
+                mostrarDialogoCambioPeriodicidad(periodicidadActual);
+                // Revertir al valor original
+                actPeriodicidad.setText(periodicidadActual, false);
+            }
+        });
 
         // Beneficiarios texto
         String beneficiariosTxt = firstNonEmpty(doc.getString("beneficiariosTexto"));
@@ -191,6 +208,19 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         // Guardar lugar actual para validar cambios
         lugarIdActual = firstNonEmpty(doc.getString("lugar_id"), doc.getString("lugarId"), doc.getString("lugar"));
 
+        // Obtener fecha/hora actual de la actividad (primera cita)
+        doc.getReference().collection("citas")
+                .orderBy("startAt", com.google.firebase.firestore.Query.Direction.ASCENDING)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(qs -> {
+                    if (!qs.isEmpty()) {
+                        DocumentSnapshot citaDoc = qs.getDocuments().get(0);
+                        fechaHoraActual = citaDoc.getTimestamp("startAt");
+                        if (fechaHoraActual == null) fechaHoraActual = citaDoc.getTimestamp("fecha");
+                    }
+                });
+
         // Dropdowns por id/nombre
         selectByIdOrName(actLugar, firstNonEmpty(doc.getString("lugar_id"), doc.getString("lugarId"), doc.getString("lugar")),
                 firstNonEmpty(doc.getString("lugarNombre"), doc.getString("lugar")));
@@ -207,6 +237,43 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         // Cargar beneficiarios seleccionados
         cargarBeneficiariosDesdeDocumento(doc);
     }
+    /**
+     * Muestra diálogo cuando el usuario intenta cambiar la periodicidad
+     */
+    private void mostrarDialogoCambioPeriodicidad(String periodicidadActual) {
+        String tipoPeriodo = "PERIODICA".equalsIgnoreCase(periodicidadActual) ? "periódica" : "puntual";
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("⚠️ No se puede cambiar la periodicidad")
+                .setMessage("Esta actividad es " + tipoPeriodo + " y ya tiene citas asociadas.\n\n" +
+                        "Para cambiar la periodicidad necesitas crear una nueva actividad desde cero.")
+                .setPositiveButton("Crear nueva actividad", (dialog, which) -> {
+                    // Cerrar el diálogo y el sheet
+                    dialog.dismiss();
+                    dismiss();
+
+                    // Navegar al formulario de crear actividad usando el NavController de la Activity
+                    try {
+                        // Obtener el NavController desde el nav_host del activity_main
+                        androidx.navigation.NavController navController =
+                                androidx.navigation.Navigation.findNavController(requireActivity(), R.id.nav_host);
+
+                        // Navegar al activityFormFragment (ya existe en nav_graph.xml)
+                        navController.navigate(R.id.activityFormFragment);
+
+                        android.util.Log.d("ModificarActividad", "✅ Navegando a crear nueva actividad");
+                    } catch (Exception e) {
+                        android.util.Log.e("ModificarActividad", "❌ Error navegando: " + e.getMessage(), e);
+                        toast("Cierra este formulario y crea una nueva actividad desde el menú");
+                    }
+                })
+                .setNegativeButton("Cancelar", (dialog, which) -> {
+                    // Solo cerrar el diálogo
+                    dialog.dismiss();
+                })
+                .setCancelable(true)
+                .show();
+    }
 
     // ================== Guardar ==================
     private void guardar(){
@@ -214,25 +281,106 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         String tipo = val(actTipo); if (tipo.isEmpty()){ actTipo.setError("Selecciona tipo"); return; }
         String periodicidad = val(actPeriodicidad); if (periodicidad.isEmpty()){ actPeriodicidad.setError("Selecciona periodicidad"); return; }
 
-        String lugarNuevo = val(actLugar);            // se usa en citas, lo dejamos opcional aquí
+        String lugarNuevo = val(actLugar);
         String oferente = val(actOferente);
         String cupoStr = val(etCupo);
-
-        // NUEVO
         String socio = val(actSocio);
         String beneficiariosTxt = val(etBeneficiarios);
         String proyecto = val(actProyecto);
         String diasAvisoStr = val(etDiasAviso);
 
+        // 🔥 DECLARAR como final FUERA del if para que sea accesible en callbacks
+        final Integer cupoNuevo;
+        if (!TextUtils.isEmpty(cupoStr)) {
+            try {
+                cupoNuevo = Integer.parseInt(cupoStr);
+                ValidationResult validacionCupo = ActividadValidator.validarCupoActividad(cupoNuevo);
+                if (!validacionCupo.isValid()) {
+                    etCupo.setError(validacionCupo.getErrorMessage());
+                    toast(validacionCupo.getErrorMessage());
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                etCupo.setError("Número inválido");
+                return;
+            }
+        } else {
+            cupoNuevo = null; // Si no hay cupo, asignar null
+        }
+
         // Si el lugar cambió, verificar conflictos de horario antes de guardar
         if (!TextUtils.isEmpty(lugarNuevo) && !lugarNuevo.equals(lugarIdActual)) {
             android.util.Log.d("ModificarActividad", "🔍 Lugar cambió de '" + lugarIdActual + "' a '" + lugarNuevo + "' - validando conflictos");
-            verificarConflictosYGuardar(nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+
+            // Validar cupo del nuevo lugar
+            lugarRepository.getLugarPorNombre(lugarNuevo, new LugarRepository.LugarCallback() {
+                @Override
+                public void onSuccess(com.centroalerce.gestion.models.Lugar lugar) {
+                    // Validar cupo del lugar
+                    if (cupoNuevo != null) {
+                        ValidationResult validacionCupoLugar = ActividadValidator.validarCupoLugar(lugar, cupoNuevo);
+                        if (!validacionCupoLugar.isValid()) {
+                            mostrarDialogoErrorCupo(validacionCupoLugar.getErrorMessage());
+                            return;
+                        }
+                    }
+
+                    // Si pasa validación de cupo, continuar con validación de conflictos
+                    verificarConflictosYGuardar(nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+                }
+
+                @Override
+                public void onError(String error) {
+                    toast("Error al obtener lugar: " + error);
+                }
+            });
             return;
         }
 
-        // Si no cambió el lugar, guardar directamente
+        // Si no cambió el lugar, validar cupo del lugar actual si cambió el cupo
+        if (cupoNuevo != null && !TextUtils.isEmpty(lugarNuevo)) {
+            lugarRepository.getLugarPorNombre(lugarNuevo, new LugarRepository.LugarCallback() {
+                @Override
+                public void onSuccess(com.centroalerce.gestion.models.Lugar lugar) {
+                    ValidationResult validacionCupoLugar = ActividadValidator.validarCupoLugar(lugar, cupoNuevo);
+                    if (!validacionCupoLugar.isValid()) {
+                        mostrarDialogoErrorCupo(validacionCupoLugar.getErrorMessage());
+                        return;
+                    }
+
+                    // Si pasa la validación, guardar
+                    realizarGuardado(nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+                }
+
+                @Override
+                public void onError(String error) {
+                    toast("Error al obtener lugar: " + error);
+                }
+            });
+            return;
+        }
+
+        // Si no hay cambios que requieran validación, guardar directamente
         realizarGuardado(nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+    }
+
+    /**
+     * Muestra diálogo de error cuando el cupo excede la capacidad del lugar
+     */
+    private void mostrarDialogoErrorCupo(String mensaje) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("⚠️ Cupo insuficiente")
+                .setMessage(mensaje + "\n\n¿Qué deseas hacer?")
+                .setPositiveButton("Reducir cupo", (dialog, which) -> {
+                    etCupo.requestFocus();
+                    etCupo.selectAll();
+                })
+                .setNeutralButton("Cambiar lugar", (dialog, which) -> {
+                    actLugar.requestFocus();
+                    actLugar.showDropDown();
+                })
+                .setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss())
+                .show();
     }
 
     /**
@@ -300,6 +448,9 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     /**
      * Verifica recursivamente todas las fechas para conflictos
      */
+    /**
+     * Verifica recursivamente todas las fechas para conflictos
+     */
     private void verificarTodasLasFechas(String lugarNombre, List<java.util.Date> fechas, int index, ConflictoCallback callback) {
         if (index >= fechas.size()) {
             callback.onSinConflictos();
@@ -314,24 +465,49 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             public void onSuccess(List<java.util.Date> citasExistentes) {
                 android.util.Log.d("ModificarActividad", "📊 Citas existentes en lugar: " + citasExistentes.size());
 
-                // Excluir las citas de esta actividad (ya que estamos modificándola)
-                List<java.util.Date> citasOtrasActividades = new ArrayList<>();
-                for (java.util.Date cita : citasExistentes) {
-                    // Solo agregamos si NO es de nuestra actividad (simplificado - deberías verificar por ID)
-                    citasOtrasActividades.add(cita);
-                }
+                // 🔥 FILTRAR: Excluir las citas de esta actividad
+                // Para esto necesitamos comparar con nuestras propias citas
+                db.collection("activities").document(actividadId)
+                        .collection("citas")
+                        .get()
+                        .addOnSuccessListener(qs -> {
+                            List<java.util.Date> citasPropias = new ArrayList<>();
+                            for (DocumentSnapshot citaDoc : qs.getDocuments()) {
+                                Timestamp ts = citaDoc.getTimestamp("startAt");
+                                if (ts == null) ts = citaDoc.getTimestamp("fecha");
+                                if (ts != null) citasPropias.add(ts.toDate());
+                            }
 
-                ValidationResult validacion = ActividadValidator.validarConflictoHorario(
-                        lugarNombre, fechaActual, citasOtrasActividades, 30
-                );
+                            // Filtrar citas que NO son de esta actividad
+                            List<java.util.Date> citasOtrasActividades = new ArrayList<>();
+                            for (java.util.Date cita : citasExistentes) {
+                                boolean esPropia = false;
+                                for (java.util.Date citaPropia : citasPropias) {
+                                    // Comparar con margen de 1 minuto
+                                    long diff = Math.abs(cita.getTime() - citaPropia.getTime());
+                                    if (diff < 60000) { // menos de 1 minuto
+                                        esPropia = true;
+                                        break;
+                                    }
+                                }
+                                if (!esPropia) citasOtrasActividades.add(cita);
+                            }
 
-                if (!validacion.isValid()) {
-                    callback.onConflictoDetectado(validacion.getErrorMessage());
-                    return;
-                }
+                            android.util.Log.d("ModificarActividad", "📊 Citas de otras actividades: " + citasOtrasActividades.size());
 
-                // Continuar con la siguiente fecha
-                verificarTodasLasFechas(lugarNombre, fechas, index + 1, callback);
+                            ValidationResult validacion = ActividadValidator.validarConflictoHorario(
+                                    lugarNombre, fechaActual, citasOtrasActividades, 30
+                            );
+
+                            if (!validacion.isValid()) {
+                                callback.onConflictoDetectado(validacion.getErrorMessage());
+                                return;
+                            }
+
+                            // Continuar con la siguiente fecha
+                            verificarTodasLasFechas(lugarNombre, fechas, index + 1, callback);
+                        })
+                        .addOnFailureListener(e -> callback.onError("Error al obtener citas propias: " + e.getMessage()));
             }
 
             @Override
