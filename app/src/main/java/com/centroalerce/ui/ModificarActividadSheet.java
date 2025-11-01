@@ -7,22 +7,14 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.centroalerce.gestion.R;
-import com.centroalerce.gestion.models.Beneficiario;
-import com.centroalerce.ui.mantenedores.dialog.BeneficiariosPickerSheet;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.card.MaterialCardView;
-import com.google.android.material.chip.Chip;
-import com.google.android.material.chip.ChipGroup;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -47,8 +39,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
     // ===== Utils Firestore multi-colección (ES/EN) =====
     private static final String COL_EN = "activities";
-    private LinearLayout llAdjuntos;
-    private final List<Map<String, Object>> adjuntosCargados = new ArrayList<>();
     private static final String COL_ES = "actividades";
     private DocumentReference act(String actividadId, boolean preferEN) {
         return FirebaseFirestore.getInstance().collection(preferEN ? COL_EN : COL_ES).document(actividadId);
@@ -70,15 +60,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
     private TextInputEditText etNombre, etCupo, etBeneficiarios, etDiasAviso;
     private AutoCompleteTextView actTipo, actPeriodicidad, actLugar, actOferente, actSocio, actProyecto;
-    
-    // UI para beneficiarios (como en ActivityFormFragment)
-    private MaterialCardView btnBeneficiarios;
-    private TextView tvBeneficiariosHint;
-    private ChipGroup chipsBeneficiarios;
-    
-    // Datos de beneficiarios seleccionados
-    private final List<Beneficiario> beneficiariosSeleccionados = new ArrayList<>();
-    private final List<String> beneficiariosSeleccionadosIds = new ArrayList<>();
 
     // Fallbacks
     private final String[] tiposFijos = new String[]{
@@ -91,11 +72,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         return i.inflate(R.layout.sheet_modificar_actividad, c, false);
     }
 
-    @Override
-    public void onViewCreated(@NonNull View v, @Nullable Bundle b) {
-        super.onViewCreated(v, b);
+    @Override public void onViewCreated(@NonNull View v, @Nullable Bundle b) {
+        super.onViewCreated(v,b);
         db = FirebaseFirestore.getInstance();
-        actividadId = getArguments() != null ? getArguments().getString(ARG_ACTIVIDAD_ID) : null;
+        actividadId = getArguments()!=null ? getArguments().getString(ARG_ACTIVIDAD_ID) : null;
 
         etNombre = v.findViewById(R.id.etNombre);
         etCupo = v.findViewById(R.id.etCupo);
@@ -109,38 +89,8 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         actSocio = v.findViewById(R.id.actSocio);
         actProyecto = v.findViewById(R.id.actProyecto);
 
-        llAdjuntos = v.findViewById(R.id.llAdjuntos);
-        
-        // Referencias de beneficiarios
-        btnBeneficiarios = v.findViewById(R.id.btnBeneficiarios);
-        tvBeneficiariosHint = v.findViewById(R.id.tvBeneficiariosHint);
-        chipsBeneficiarios = v.findViewById(R.id.chipsBeneficiarios);
-        
-        // Listener para abrir selector de beneficiarios
-        if (btnBeneficiarios != null) {
-            btnBeneficiarios.setOnClickListener(view -> abrirSelectorBeneficiarios());
-        }
-
         // Estáticos
         actPeriodicidad.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, periodicidades));
-
-        // --- NUEVO: Listener para detectar cambio de periodicidad ---
-        final String[] periodicidadOriginal = {null};
-
-        actPeriodicidad.setOnFocusChangeListener((view, hasFocus) -> {
-            if (hasFocus && periodicidadOriginal[0] == null) {
-                periodicidadOriginal[0] = actPeriodicidad.getText().toString();
-            }
-        });
-
-        actPeriodicidad.setOnItemClickListener((parent, view, position, id) -> {
-            String seleccionNueva = parent.getItemAtPosition(position).toString();
-
-            if (periodicidadOriginal[0] != null && !periodicidadOriginal[0].equals(seleccionNueva)) {
-                mostrarDialogoCambiarPeriodicidad();
-                actPeriodicidad.post(() -> actPeriodicidad.setText(periodicidadOriginal[0], false));
-            }
-        });
 
         // Dinámicos con {id, nombre}
         cargarTiposActividad();
@@ -150,43 +100,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         cargarColeccionAOptions("proyectos", actProyecto);
 
         precargar();
-        // ✅ ESCUCHAR CAMBIOS DE ADJUNTOS
-        getParentFragmentManager().setFragmentResultListener(
-                "adjuntos_change", getViewLifecycleOwner(),
-                (req, bundle) -> {
-                    android.util.Log.d("MODIFICAR", "🔄 Recibido evento adjuntos_change");
-                    cargarAdjuntos();
-                }
-        );
-
-        requireActivity().getSupportFragmentManager().setFragmentResultListener(
-                "adjuntos_change", getViewLifecycleOwner(),
-                (req, bundle) -> {
-                    android.util.Log.d("MODIFICAR", "🔄 Recibido evento adjuntos_change (Activity)");
-                    cargarAdjuntos();
-                }
-        );
-
-        getParentFragmentManager().setFragmentResultListener(
-                "adjuntos_change", getViewLifecycleOwner(),
-                (req, bundle) -> {
-                    android.util.Log.d("MODIFICAR", "🔄 Recibido evento adjuntos_change");
-                    cargarAdjuntos();
-                }
-        );
-
-        requireActivity().getSupportFragmentManager().setFragmentResultListener(
-                "adjuntos_change", getViewLifecycleOwner(),
-                (req, bundle) -> {
-                    android.util.Log.d("MODIFICAR", "🔄 Recibido evento adjuntos_change (Activity)");
-                    cargarAdjuntos();
-                }
-        );
-        
-        // Render inicial de beneficiarios
-        if (chipsBeneficiarios != null) {
-            renderChipsBeneficiarios();
-        }
 
         ((MaterialButton) v.findViewById(R.id.btnGuardarCambios)).setOnClickListener(x -> guardar());
     }
@@ -195,356 +108,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     private void precargar(){
         if (TextUtils.isEmpty(actividadId)) { toast("Falta actividadId"); return; }
         act(actividadId,true).get().addOnSuccessListener(doc -> {
-            if (doc!=null && doc.exists()) {
-                bind(doc);
-                cargarAdjuntos(); // NUEVO
-            } else {
-                act(actividadId,false).get().addOnSuccessListener(d -> {
-                    bind(d);
-                    cargarAdjuntos(); // NUEVO
-                }).addOnFailureListener(e -> toast("No se pudo cargar"));
-            }
+            if (doc!=null && doc.exists()) bind(doc);
+            else act(actividadId,false).get().addOnSuccessListener(this::bind)
+                    .addOnFailureListener(e -> toast("No se pudo cargar"));
         }).addOnFailureListener(e -> toast("No se pudo cargar"));
-    }
-    private void cargarAdjuntos() {
-        if (TextUtils.isEmpty(actividadId) || llAdjuntos == null) return;
-
-        android.util.Log.d("MODIFICAR", "🔍 Cargando adjuntos para: " + actividadId);
-
-        llAdjuntos.removeAllViews();
-
-        // Intentar EN primero
-        act(actividadId, true).get().addOnSuccessListener(doc -> {
-            if (doc != null && doc.exists()) {
-                android.util.Log.d("MODIFICAR", "📄 Documento EN encontrado");
-                mostrarAdjuntosDelDoc(doc);
-            } else {
-                // Intentar ES
-                android.util.Log.d("MODIFICAR", "⚠️ Documento EN no existe, probando ES...");
-                act(actividadId, false).get()
-                        .addOnSuccessListener(this::mostrarAdjuntosDelDoc)
-                        .addOnFailureListener(e -> {
-                            android.util.Log.e("MODIFICAR", "❌ Error: " + e.getMessage(), e);
-                            mostrarMensajeSinAdjuntos();
-                        });
-            }
-        }).addOnFailureListener(e -> {
-            android.util.Log.e("MODIFICAR", "❌ Error cargando: " + e.getMessage(), e);
-            mostrarMensajeSinAdjuntos();
-        });
-    }
-    private void mostrarAdjuntosDelDoc(com.google.firebase.firestore.DocumentSnapshot doc) {
-        if (doc == null || !doc.exists()) {
-            mostrarMensajeSinAdjuntos();
-            return;
-        }
-
-        llAdjuntos.removeAllViews();
-        adjuntosCargados.clear();
-
-        Object rawAdj = doc.get("adjuntos");
-
-        android.util.Log.d("MODIFICAR", "📎 Campo adjuntos: " +
-                (rawAdj != null ? rawAdj.getClass().getSimpleName() : "null"));
-
-        if (rawAdj instanceof List) {
-            List<?> lista = (List<?>) rawAdj;
-            android.util.Log.d("MODIFICAR", "📎 Lista con " + lista.size() + " elementos");
-
-            for (Object item : lista) {
-                if (item instanceof Map) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> adj = (Map<String, Object>) item;
-                    adjuntosCargados.add(adj);
-                }
-            }
-        }
-
-        if (adjuntosCargados.isEmpty()) {
-            android.util.Log.d("MODIFICAR", "📂 Array vacío, intentando subcolección...");
-            cargarDesdeSubcoleccion(doc.getReference());
-        } else {
-            android.util.Log.d("MODIFICAR", "✅ Cargados " + adjuntosCargados.size() + " adjuntos");
-
-            // ✅ SIEMPRE mostrar botón compacto (sin importar la cantidad)
-            mostrarBotonVerArchivosConEliminar(adjuntosCargados.size());
-        }
-    }
-
-
-
-
-    private void mostrarBotonVerArchivos(int cantidad) {
-        llAdjuntos.removeAllViews();
-
-        // Card clickeable
-        com.google.android.material.card.MaterialCardView card =
-                new com.google.android.material.card.MaterialCardView(requireContext());
-
-        android.widget.LinearLayout.LayoutParams params =
-                new android.widget.LinearLayout.LayoutParams(
-                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-        params.setMargins(0, 0, 0, dp(12));
-        card.setLayoutParams(params);
-        card.setCardElevation(dp(2));
-        card.setRadius(dp(12));
-        card.setClickable(true);
-        card.setFocusable(true);
-        card.setForeground(requireContext().getDrawable(
-                android.R.drawable.list_selector_background));
-
-        android.widget.LinearLayout container =
-                new android.widget.LinearLayout(requireContext());
-        container.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        container.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        container.setPadding(dp(16), dp(16), dp(16), dp(16));
-
-        // Icono
-        android.widget.ImageView icon = new android.widget.ImageView(requireContext());
-        icon.setImageResource(android.R.drawable.ic_menu_gallery);
-        icon.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(40), dp(40)));
-        icon.setColorFilter(0xFF2D5F4F); // primary color
-        container.addView(icon);
-
-        // Textos
-        android.widget.LinearLayout textContainer =
-                new android.widget.LinearLayout(requireContext());
-        textContainer.setOrientation(android.widget.LinearLayout.VERTICAL);
-        android.widget.LinearLayout.LayoutParams textParams =
-                new android.widget.LinearLayout.LayoutParams(0,
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        textParams.setMargins(dp(12), 0, dp(12), 0);
-        textContainer.setLayoutParams(textParams);
-
-        android.widget.TextView tvTitulo = new android.widget.TextView(requireContext());
-        tvTitulo.setText("Ver archivos adjuntos");
-        tvTitulo.setTextSize(16);
-        tvTitulo.setTextColor(0xFF1F2937); // textPrimary
-        tvTitulo.setTypeface(null, android.graphics.Typeface.BOLD);
-        textContainer.addView(tvTitulo);
-
-        android.widget.TextView tvCantidad = new android.widget.TextView(requireContext());
-        tvCantidad.setText(cantidad + " archivo(s) disponible(s)");
-        tvCantidad.setTextSize(14);
-        tvCantidad.setTextColor(0xFF6B7280); // textSecondary
-        textContainer.addView(tvCantidad);
-
-        container.addView(textContainer);
-
-        // Icono flecha
-        android.widget.ImageView iconArrow = new android.widget.ImageView(requireContext());
-        iconArrow.setImageResource(android.R.drawable.ic_menu_view);
-        iconArrow.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(24), dp(24)));
-        iconArrow.setColorFilter(0xFF2D5F4F);
-        container.addView(iconArrow);
-
-        card.addView(container);
-
-        // Click para abrir modal
-        card.setOnClickListener(v -> {
-            ArchivosListSheet sheet = ArchivosListSheet.newInstance(
-                    adjuntosCargados,
-                    "Archivos adjuntos"
-            );
-            sheet.show(getParentFragmentManager(), "archivos_list");
-        });
-
-        llAdjuntos.addView(card);
-    }
-
-
-
-    private void cargarDesdeSubcoleccion(com.google.firebase.firestore.DocumentReference actRef) {
-        actRef.collection("adjuntos")
-                .orderBy("creadoEn", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .get()
-                .addOnSuccessListener(qs -> {
-                    android.util.Log.d("MODIFICAR", "📂 Subcolección: " +
-                            (qs != null ? qs.size() : 0) + " documentos");
-
-                    if (qs == null || qs.isEmpty()) {
-                        mostrarMensajeSinAdjuntos();
-                        return;
-                    }
-
-                    llAdjuntos.removeAllViews();
-                    adjuntosCargados.clear();
-
-                    for (com.google.firebase.firestore.DocumentSnapshot d : qs.getDocuments()) {
-                        Map<String, Object> adj = new HashMap<>();
-                        adj.put("nombre", d.getString("nombre"));
-                        adj.put("name", d.getString("name"));
-                        adj.put("url", d.getString("url"));
-                        adj.put("id", d.getId());
-
-                        adjuntosCargados.add(adj);
-                    }
-
-                    android.util.Log.d("MODIFICAR", "✅ Cargados " + adjuntosCargados.size() +
-                            " desde subcolección");
-
-                    // ✅ Mostrar botón con eliminar
-                    mostrarBotonVerArchivosConEliminar(adjuntosCargados.size());
-                })
-                .addOnFailureListener(e -> {
-                    android.util.Log.e("MODIFICAR", "❌ Error subcolección: " + e.getMessage(), e);
-                    mostrarMensajeSinAdjuntos();
-                });
-    }
-    private void mostrarBotonVerArchivosConEliminar(int cantidad) {
-        llAdjuntos.removeAllViews();
-
-        com.google.android.material.card.MaterialCardView card =
-                new com.google.android.material.card.MaterialCardView(requireContext());
-
-        android.widget.LinearLayout.LayoutParams params =
-                new android.widget.LinearLayout.LayoutParams(
-                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-        params.setMargins(0, 0, 0, dp(12));
-        card.setLayoutParams(params);
-        card.setCardElevation(dp(2));
-        card.setRadius(dp(12));
-        card.setClickable(true);
-        card.setFocusable(true);
-
-        // ✅ NUEVO: Ripple color verde Alerce en vez de amarillo
-        card.setRippleColor(android.content.res.ColorStateList.valueOf(0x1A2D5F4F)); // 10% opacidad verde
-
-        try {
-            card.setForeground(requireContext().getDrawable(
-                    android.R.drawable.list_selector_background));
-        } catch (Exception e) {
-            android.util.Log.w("MODIFICAR", "No se pudo setear foreground");
-        }
-
-        android.widget.LinearLayout container =
-                new android.widget.LinearLayout(requireContext());
-        container.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        container.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        container.setPadding(dp(16), dp(16), dp(16), dp(16));
-
-        android.widget.ImageView icon = new android.widget.ImageView(requireContext());
-        icon.setImageResource(android.R.drawable.ic_menu_gallery);
-        icon.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(40), dp(40)));
-        icon.setColorFilter(0xFF2D5F4F);
-        container.addView(icon);
-
-        android.widget.LinearLayout textContainer =
-                new android.widget.LinearLayout(requireContext());
-        textContainer.setOrientation(android.widget.LinearLayout.VERTICAL);
-        android.widget.LinearLayout.LayoutParams textParams =
-                new android.widget.LinearLayout.LayoutParams(0,
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        textParams.setMargins(dp(12), 0, dp(12), 0);
-        textContainer.setLayoutParams(textParams);
-
-        android.widget.TextView tvTitulo = new android.widget.TextView(requireContext());
-        tvTitulo.setText("Gestionar archivos adjuntos");
-        tvTitulo.setTextSize(16);
-        tvTitulo.setTextColor(0xFF1F2937);
-        tvTitulo.setTypeface(null, android.graphics.Typeface.BOLD);
-        textContainer.addView(tvTitulo);
-
-        android.widget.TextView tvCantidad = new android.widget.TextView(requireContext());
-        tvCantidad.setText(cantidad + " archivo(s) • Toca para ver y eliminar");
-        tvCantidad.setTextSize(14);
-        tvCantidad.setTextColor(0xFF6B7280);
-        textContainer.addView(tvCantidad);
-
-        container.addView(textContainer);
-
-        android.widget.ImageView iconArrow = new android.widget.ImageView(requireContext());
-        iconArrow.setImageResource(android.R.drawable.ic_menu_view);
-        iconArrow.setLayoutParams(new android.widget.LinearLayout.LayoutParams(dp(24), dp(24)));
-        iconArrow.setColorFilter(0xFF2D5F4F);
-        container.addView(iconArrow);
-
-        card.addView(container);
-
-        card.setOnClickListener(v -> {
-            android.util.Log.d("MODIFICAR", "🔘 Abriendo modal de archivos con eliminar");
-
-            try {
-                ArchivosListSheetConEliminar sheet = ArchivosListSheetConEliminar.newInstance(
-                        new ArrayList<>(adjuntosCargados),
-                        "Archivos adjuntos",
-                        actividadId
-                );
-
-                sheet.show(getParentFragmentManager(), "archivos_list_eliminar");
-
-                sheet.setOnDismissListener(() -> {
-                    android.util.Log.d("MODIFICAR", "🔄 Modal cerrado, recargando adjuntos...");
-                    cargarAdjuntos();
-                });
-            } catch (Exception e) {
-                android.util.Log.e("MODIFICAR", "❌ Error abriendo modal: " + e.getMessage(), e);
-                toast("Error al abrir archivos: " + e.getMessage());
-            }
-        });
-
-        llAdjuntos.addView(card);
-    }
-    private void limpiarTodosLosAdjuntos() {
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("⚠️ Eliminar todos los archivos")
-                .setMessage("Esto eliminará TODOS los archivos adjuntos de esta actividad. ¿Estás seguro?")
-                .setPositiveButton("Eliminar todo", (d, w) -> {
-                    FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-                    db.runTransaction(trx -> {
-                        DocumentReference refEN = db.collection("activities").document(actividadId);
-                        DocumentReference refES = db.collection("actividades").document(actividadId);
-
-                        try {
-                            if (trx.get(refEN).exists()) {
-                                trx.update(refEN, "adjuntos", new ArrayList<>());
-                            }
-                        } catch (Exception ignored) {}
-
-                        try {
-                            if (trx.get(refES).exists()) {
-                                trx.update(refES, "adjuntos", new ArrayList<>());
-                            }
-                        } catch (Exception ignored) {}
-
-                        return null;
-                    }).addOnSuccessListener(u -> {
-                        adjuntosCargados.clear();
-                        llAdjuntos.removeAllViews();
-                        mostrarMensajeSinAdjuntos();
-                        toast("Todos los archivos eliminados");
-                    }).addOnFailureListener(e -> {
-                        toast("Error: " + e.getMessage());
-                    });
-                })
-                .setNegativeButton("Cancelar", null)
-                .show();
-    }
-
-    private void mostrarMensajeSinAdjuntos() {
-        if (llAdjuntos == null) return;
-
-        llAdjuntos.removeAllViews();
-
-        TextView tvVacio = new TextView(requireContext());
-        tvVacio.setText("No hay archivos adjuntos");
-        tvVacio.setTextColor(0xFF6B7280); // textSecondary
-        tvVacio.setPadding(dp(16), dp(16), dp(16), dp(16));
-        tvVacio.setGravity(android.view.Gravity.CENTER);
-
-        llAdjuntos.addView(tvVacio);
-    }
-
-
-
-
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private void bind(DocumentSnapshot doc){
@@ -558,33 +125,16 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         setDropText(actTipo, firstNonEmpty(doc.getString("tipoActividad"), doc.getString("tipo")));
         setDropText(actPeriodicidad, firstNonEmpty(doc.getString("periodicidad"), doc.getString("frecuencia")));
 
-        // Beneficiarios - Cargar desde beneficiariosIds (array de IDs)
-        beneficiariosSeleccionados.clear();
-        beneficiariosSeleccionadosIds.clear();
-        
-        try {
-            @SuppressWarnings("unchecked")
-            List<String> beneficiariosIds = (List<String>) doc.get("beneficiariosIds");
-            if (beneficiariosIds != null && !beneficiariosIds.isEmpty()) {
-                beneficiariosSeleccionadosIds.addAll(beneficiariosIds);
-                cargarBeneficiariosDesdeIds(beneficiariosIds);
-            } else {
-                // Fallback: cargar desde beneficiariosTexto o beneficiarios (array de nombres)
-                String beneficiariosTxt = firstNonEmpty(doc.getString("beneficiariosTexto"));
-                if (TextUtils.isEmpty(beneficiariosTxt)) {
-                    @SuppressWarnings("unchecked")
-                    List<String> lista = (List<String>) doc.get("beneficiarios");
-                    if (lista != null && !lista.isEmpty()) {
-                        beneficiariosTxt = TextUtils.join(", ", lista);
-                    }
-                }
-                // Si hay texto pero no IDs, dejamos el campo de texto como fallback
-                if (!TextUtils.isEmpty(beneficiariosTxt) && etBeneficiarios != null) {
-                    etBeneficiarios.setText(beneficiariosTxt);
-                }
-            }
-            renderChipsBeneficiarios();
-        } catch (Exception ignored) {}
+        // Beneficiarios texto
+        String beneficiariosTxt = firstNonEmpty(doc.getString("beneficiariosTexto"));
+        if (TextUtils.isEmpty(beneficiariosTxt)) {
+            try {
+                @SuppressWarnings("unchecked")
+                List<String> lista = (List<String>) doc.get("beneficiarios");
+                if (lista != null && !lista.isEmpty()) beneficiariosTxt = TextUtils.join(", ", lista);
+            } catch (Exception ignored) {}
+        }
+        if (!TextUtils.isEmpty(beneficiariosTxt)) etBeneficiarios.setText(beneficiariosTxt);
 
         Long diasAviso = firstNonNull(doc.getLong("diasAviso"), doc.getLong("dias_aviso"),
                 doc.getLong("diasAvisoPrevio"), doc.getLong("diasAvisoCancelacion"));
@@ -600,76 +150,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         selectByIdOrName(actProyecto, firstNonEmpty(doc.getString("proyecto_id"), doc.getString("project_id"), doc.getString("proyecto")),
                 firstNonEmpty(doc.getString("proyectoNombre"), doc.getString("proyecto")));
     }
-    
-    private void cargarBeneficiariosDesdeIds(List<String> ids) {
-        if (ids == null || ids.isEmpty()) return;
-        
-        db.collection("beneficiarios")
-                .get()
-                .addOnSuccessListener(snapshot -> {
-                    beneficiariosSeleccionados.clear();
-                    for (DocumentSnapshot doc : snapshot.getDocuments()) {
-                        if (ids.contains(doc.getId())) {
-                            Beneficiario b = doc.toObject(Beneficiario.class);
-                            if (b != null) {
-                                b.setId(doc.getId());
-                                beneficiariosSeleccionados.add(b);
-                            }
-                        }
-                    }
-                    renderChipsBeneficiarios();
-                })
-                .addOnFailureListener(e -> {
-                    toast("Error cargando beneficiarios");
-                });
-    }
-    
-    private void abrirSelectorBeneficiarios() {
-        BeneficiariosPickerSheet sheet = BeneficiariosPickerSheet.newInstance(beneficiariosSeleccionadosIds);
-        sheet.setListener(seleccionados -> {
-            beneficiariosSeleccionados.clear();
-            beneficiariosSeleccionados.addAll(seleccionados);
-            
-            beneficiariosSeleccionadosIds.clear();
-            for (Beneficiario b : seleccionados) {
-                beneficiariosSeleccionadosIds.add(b.getId());
-            }
-            
-            renderChipsBeneficiarios();
-        });
-        sheet.show(getChildFragmentManager(), "beneficiariosPicker");
-    }
-    
-    private void renderChipsBeneficiarios() {
-        if (chipsBeneficiarios == null) return;
-        
-        chipsBeneficiarios.removeAllViews();
-        
-        if (beneficiariosSeleccionados.isEmpty()) {
-            if (tvBeneficiariosHint != null) {
-                tvBeneficiariosHint.setText("Seleccionar beneficiarios");
-                tvBeneficiariosHint.setVisibility(View.VISIBLE);
-            }
-            return;
-        }
-        
-        if (tvBeneficiariosHint != null) {
-            tvBeneficiariosHint.setVisibility(View.GONE);
-        }
-        
-        for (Beneficiario b : beneficiariosSeleccionados) {
-            Chip chip = new Chip(requireContext());
-            chip.setText(b.getNombre());
-            chip.setCloseIconVisible(true);
-            chip.setCheckable(false);
-            chip.setOnCloseIconClickListener(v -> {
-                beneficiariosSeleccionadosIds.remove(b.getId());
-                beneficiariosSeleccionados.remove(b);
-                renderChipsBeneficiarios();
-            });
-            chipsBeneficiarios.addView(chip);
-        }
-    }
 
     // ================== Guardar ==================
     private void guardar(){
@@ -683,10 +163,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
         // NUEVO
         String socio = val(actSocio);
-        String beneficiariosTxt = "";
-        if (etBeneficiarios != null && etBeneficiarios.getText() != null) {
-            beneficiariosTxt = etBeneficiarios.getText().toString().trim();
-        }
+        String beneficiariosTxt = val(etBeneficiarios);
         String proyecto = val(actProyecto);
         String diasAvisoStr = val(etDiasAviso);
 
@@ -710,23 +187,9 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
         if (!TextUtils.isEmpty(socio)) up.put("socioComunitario", socio);
 
-        // Guardar beneficiarios - Priorizar IDs sobre texto
-        if (!beneficiariosSeleccionadosIds.isEmpty()) {
-            up.put("beneficiariosIds", beneficiariosSeleccionadosIds);
-            // También guardar nombres como texto para compatibilidad
-            java.util.List<String> nombres = new java.util.ArrayList<>();
-            for (Beneficiario b : beneficiariosSeleccionados) {
-                if (b != null && !TextUtils.isEmpty(b.getNombre())) {
-                    nombres.add(b.getNombre());
-                }
-            }
-            if (!nombres.isEmpty()) {
-                up.put("beneficiarios", nombres);
-                up.put("beneficiariosTexto", TextUtils.join(", ", nombres));
-            }
-        } else if (!TextUtils.isEmpty(beneficiariosTxt)) {
-            // Fallback: si hay texto manual pero no IDs
+        if (!TextUtils.isEmpty(beneficiariosTxt)) {
             up.put("beneficiariosTexto", beneficiariosTxt);
+            // si quieres mantener también array:
             java.util.List<String> lista = new java.util.ArrayList<>();
             for (String s : beneficiariosTxt.split(",")) {
                 String t = s.trim(); if (!t.isEmpty()) lista.add(t);
@@ -920,31 +383,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         try { getParentFragmentManager().setFragmentResult("calendar_refresh", b); } catch (Exception ignore) {}
         try { requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", b); } catch (Exception ignore) {}
         try { requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b); } catch (Exception ignore) {}
-    }
-    private void mostrarDialogoCambiarPeriodicidad() {
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("⚠️ Cambiar periodicidad")
-                .setMessage("Para cambiar la periodicidad de una actividad (de puntual a periódica o viceversa), es necesario crear una nueva actividad.\n\n" +
-                        "Esto se debe a que cambiar la periodicidad afecta la forma en que se generan las citas.\n\n" +
-                        "¿Qué deseas hacer?")
-                .setPositiveButton("Crear nueva actividad", (d, w) -> {
-                    // Navegar al formulario de creación
-                    try {
-                        dismiss();
-                        // Usar el NavController del Activity
-                        androidx.navigation.NavController navController =
-                                androidx.navigation.Navigation.findNavController(requireActivity(), R.id.nav_host);
-                        navController.navigate(R.id.activityFormFragment);
-                    } catch (Exception e) {
-                        toast("No se pudo navegar al formulario de creación");
-                    }
-                })
-                .setNegativeButton("Continuar editando", (d, w) -> {
-                    // No hacer nada, mantener el valor original
-                    d.dismiss();
-                })
-                .setCancelable(true)
-                .show();
     }
 
     private void toast(String m){ Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }

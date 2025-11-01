@@ -16,6 +16,8 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.utils.RoleManager;
+import com.centroalerce.gestion.utils.UserRole;
 import com.google.android.material.chip.ChipGroup;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -42,15 +44,19 @@ public class ActivitiesListFragment extends Fragment {
     private FirebaseFirestore db;
     private ListenerRegistration activitiesListener;
 
+    // ✅ NUEVO: Sistema de roles
+    private RoleManager roleManager;
+    private UserRole currentUserRole;
+
     // Todas las actividades cargadas desde Firestore
     private final List<ActivityItem> allActivities = new ArrayList<>();
     // Actividades filtradas (lo que se muestra)
     private final List<ActivityItem> filteredActivities = new ArrayList<>();
 
-    private String currentFilter = "todas"; // todas, proximas, pasadas, canceladas
+    private String currentFilter = "todas";
     private String searchQuery = "";
 
-    // === NUEVO: cache de metadatos de la actividad padre ===
+    // Cache de metadatos de la actividad padre
     private final Map<String, String> activityTipoMap  = new HashMap<>();
     private final Map<String, String> activityPerMap   = new HashMap<>();
     private final Map<String, String> activityLugarMap = new HashMap<>();
@@ -71,6 +77,9 @@ public class ActivitiesListFragment extends Fragment {
 
         db = FirebaseFirestore.getInstance();
 
+        // ✅ NUEVO: Inicializar sistema de roles
+        initializeRoleSystem();
+
         setupSearchBar();
         setupFilters();
 
@@ -86,6 +95,18 @@ public class ActivitiesListFragment extends Fragment {
 
         loadActivitiesFromFirestore();
         return v;
+    }
+
+    /**
+     * ✅ NUEVO: Inicializa el sistema de roles
+     */
+    private void initializeRoleSystem() {
+        roleManager = RoleManager.getInstance();
+
+        roleManager.loadUserRole((RoleManager.RoleLoadCallback) role -> {
+            currentUserRole = role;
+            Log.d(TAG, "✅ Rol cargado: " + role.getValue());
+        });
     }
 
     @Override
@@ -106,8 +127,8 @@ public class ActivitiesListFragment extends Fragment {
             activitiesListener = null;
         }
 
-        // 1) Precargar metadatos de la colección padre "activities"
-        db.collection("activities") // ajusta el nombre si tu colección es distinta
+        // Precargar metadatos de la colección padre "activities"
+        db.collection("activities")
                 .get()
                 .addOnSuccessListener(qs -> {
                     activityTipoMap.clear();
@@ -127,20 +148,17 @@ public class ActivitiesListFragment extends Fragment {
                         }
                     }
                     Log.d(TAG, "✅ Activities precargadas: " + activityTipoMap.size());
-                    // 2) Ahora sí, escuchar todas las citas
                     attachCitasListener();
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Error precargando activities", e);
-                    // Aun así, enganchamos citas para no dejar de mostrar
                     attachCitasListener();
                 });
     }
 
-    // === NUEVO: listener separado para citas ===
     private void attachCitasListener() {
         activitiesListener = db.collectionGroup("citas")
-                .orderBy("startAt", Query.Direction.ASCENDING) // temporal ASC si no hay índice DESC
+                .orderBy("startAt", Query.Direction.ASCENDING)
                 .addSnapshotListener((snapshot, error) -> {
                     if (error != null) {
                         Log.e(TAG, "❌ Error cargando actividades", error);
@@ -174,16 +192,13 @@ public class ActivitiesListFragment extends Fragment {
     // ============ PARSEAR DOCUMENTO A ActivityItem ============
     @Nullable
     private ActivityItem parseActivityFromCita(DocumentSnapshot doc) {
-        // 1) IDs
         String activityId = getActivityIdFromRef(doc);
         String citaId = doc.getId();
 
-        // 2) Título
         String titulo = doc.getString("titulo");
         if (TextUtils.isEmpty(titulo)) titulo = doc.getString("actividadNombre");
         if (TextUtils.isEmpty(titulo)) titulo = "Actividad sin nombre";
 
-        // 3) Tipo / Periodicidad / Lugar (primero desde la cita)
         String tipo = firstNonEmpty(
                 doc.getString("tipo"),
                 doc.getString("tipoActividad")
@@ -198,7 +213,6 @@ public class ActivitiesListFragment extends Fragment {
                 doc.getString("lugar")
         );
 
-        // 3b) Fallback inmediato al cache de la actividad padre (precargado)
         if (TextUtils.isEmpty(tipo) && activityId != null) {
             String cached = activityTipoMap.get(activityId);
             if (!TextUtils.isEmpty(cached)) tipo = cached;
@@ -212,12 +226,11 @@ public class ActivitiesListFragment extends Fragment {
             if (!TextUtils.isEmpty(cached)) lugar = cached;
         }
 
-        // 3c) Último recurso: leer padre sincrónicamente (solo si aún falta algo)
         if ((TextUtils.isEmpty(tipo) || TextUtils.isEmpty(periodicidad) || TextUtils.isEmpty(lugar)) && activityId != null) {
             try {
                 DocumentSnapshot parent = doc.getReference()
-                        .getParent()  // .../citas
-                        .getParent()  // .../activities/{id}
+                        .getParent()
+                        .getParent()
                         .get()
                         .getResult();
 
@@ -237,16 +250,13 @@ public class ActivitiesListFragment extends Fragment {
             }
         }
 
-        // Defaults finales
         if (TextUtils.isEmpty(tipo)) tipo = "Tipo no especificado";
         if (TextUtils.isEmpty(periodicidad)) periodicidad = "PUNTUAL";
         periodicidad = periodicidad.toUpperCase(Locale.ROOT);
         if (TextUtils.isEmpty(lugar)) lugar = "—";
 
-        // Subtítulo final: Tipo • PERIODICIDAD
         String subtitle = tipo + " • " + periodicidad;
 
-        // 4) Fecha / Estado
         Timestamp startAt = doc.getTimestamp("startAt");
         if (startAt == null) startAt = doc.getTimestamp("fecha");
 
@@ -256,7 +266,6 @@ public class ActivitiesListFragment extends Fragment {
                 "programada"
         ).toLowerCase();
 
-        // 5) "dd/MM/yyyy HH:mm · Lugar"
         String fechaStr = "Sin fecha";
         if (startAt != null) {
             try {
@@ -305,7 +314,7 @@ public class ActivitiesListFragment extends Fragment {
         if (checkedId == R.id.chipTodas) currentFilter = "todas";
         else if (checkedId == R.id.chipProgramadas) currentFilter = "programadas";
         else if (checkedId == R.id.chipCompletadas) currentFilter = "completadas";
-        else if (checkedId == R.id.chipReagendadas) currentFilter = "reagendadas"; // 👈 NUEVO
+        else if (checkedId == R.id.chipReagendadas) currentFilter = "reagendadas";
         else if (checkedId == R.id.chipCanceladas) currentFilter = "canceladas";
         else currentFilter = "todas";
 
@@ -317,7 +326,7 @@ public class ActivitiesListFragment extends Fragment {
                 if (newCheckedId == R.id.chipTodas) currentFilter = "todas";
                 else if (newCheckedId == R.id.chipProgramadas) currentFilter = "programadas";
                 else if (newCheckedId == R.id.chipCompletadas) currentFilter = "completadas";
-                else if (newCheckedId == R.id.chipReagendadas) currentFilter = "reagendadas"; // 👈 NUEVO
+                else if (newCheckedId == R.id.chipReagendadas) currentFilter = "reagendadas";
                 else if (newCheckedId == R.id.chipCanceladas) currentFilter = "canceladas";
             }
             if (!allActivities.isEmpty()) applyFilters();
@@ -335,7 +344,7 @@ public class ActivitiesListFragment extends Fragment {
         Date now = new Date();
 
         for (ActivityItem item : allActivities) {
-            // 1. Búsqueda
+            // Búsqueda
             if (!searchQuery.isEmpty()) {
                 if (!item.title.toLowerCase().contains(searchQuery) &&
                         !item.subtitle.toLowerCase().contains(searchQuery)) {
@@ -343,23 +352,20 @@ public class ActivitiesListFragment extends Fragment {
                 }
             }
 
-            // 2. Normalizar estado (minúsculas)
             String estadoNorm = item.estado == null ? "" : item.estado.toLowerCase();
 
-            // 3. Filtro por estado
+            // Filtro por estado
             switch (currentFilter) {
                 case "programadas":
-                    // Solo mostrar actividades con estado "programada" y fecha futura
                     if (!estadoNorm.equals("programada") && !estadoNorm.equals("scheduled")) {
                         continue;
                     }
                     if (item.startAt != null && item.startAt.toDate().before(now)) {
-                        continue; // No mostrar si ya pasó
+                        continue;
                     }
                     break;
 
                 case "completadas":
-                    // Solo mostrar con estado "completada" o "finalizada"
                     if (!estadoNorm.equals("completada") &&
                             !estadoNorm.equals("finalizada") &&
                             !estadoNorm.equals("completed")) {
@@ -368,14 +374,12 @@ public class ActivitiesListFragment extends Fragment {
                     break;
 
                 case "reagendadas":
-                    // Solo mostrar con estado "reagendada"
                     if (!estadoNorm.equals("reagendada") && !estadoNorm.equals("rescheduled")) {
                         continue;
                     }
                     break;
 
                 case "canceladas":
-                    // Solo mostrar con estado "cancelada"
                     if (!estadoNorm.equals("cancelada") && !estadoNorm.equals("canceled")) {
                         continue;
                     }
@@ -383,7 +387,6 @@ public class ActivitiesListFragment extends Fragment {
 
                 case "todas":
                 default:
-                    // Mostrar todo sin filtrar
                     break;
             }
 
@@ -411,9 +414,11 @@ public class ActivitiesListFragment extends Fragment {
     private void onActivityClick(ActivityItem item) {
         Log.d(TAG, "🔘 Click en actividad: " + item.title + " | ID: " + item.activityId);
 
+        // ✅ NUEVO: Pasar el rol al bottom sheet
         ActivityDetailBottomSheet sheet = ActivityDetailBottomSheet.newInstance(
                 item.activityId,
-                item.citaId
+                item.citaId,
+                currentUserRole // ✅ AGREGADO
         );
         sheet.show(getChildFragmentManager(), "activity_detail_sheet");
     }
@@ -479,10 +484,8 @@ public class ActivitiesListFragment extends Fragment {
                 h.lugar.setText("Sin lugar");
             }
 
-            // Normalizar estado
             String estadoNorm = it.estado == null ? "" : it.estado.toLowerCase();
 
-            // Color y texto del estado
             int colorRes;
             String textoEstado;
             switch (estadoNorm) {

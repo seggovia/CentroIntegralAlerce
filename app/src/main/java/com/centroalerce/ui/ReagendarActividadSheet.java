@@ -7,6 +7,9 @@ import android.view.*;
 import android.widget.Toast;
 import androidx.annotation.*;
 import com.centroalerce.gestion.R;
+// ✅ IMPORTS COMBINADOS de ambas ramas
+import com.centroalerce.gestion.utils.PermissionChecker;
+import com.centroalerce.gestion.utils.RoleManager;
 import com.centroalerce.gestion.repositories.LugarRepository;
 import com.centroalerce.gestion.models.Lugar;
 import com.centroalerce.gestion.utils.ActividadValidator;
@@ -40,6 +43,10 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
         return FirebaseFirestore.getInstance().collection(preferEN ? COL_EN : COL_ES).document(actividadId);
     }
 
+    // ✅ Sistema de roles y permisos
+    private PermissionChecker permissionChecker;
+    private RoleManager roleManager;
+
     private FirebaseFirestore db;
     private LugarRepository lugarRepository;
     private String actividadId, citaId;
@@ -62,22 +69,48 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
     }
 
     @Override public void onViewCreated(@NonNull View v, @Nullable Bundle b) {
-        super.onViewCreated(v,b);
+        super.onViewCreated(v, b);
+
+        // ✅ Inicializar sistema de roles
+        permissionChecker = new PermissionChecker();
+        roleManager = RoleManager.getInstance();
+
+        // ✅ Verificar permisos ANTES de hacer cualquier cosa
+        if (!permissionChecker.checkAndNotify(getContext(),
+                PermissionChecker.Permission.RESCHEDULE_ACTIVITY)) {
+            android.util.Log.d("ReagendarSheet", "🚫 Usuario sin permisos para reagendar");
+            dismiss();
+            return;
+        }
+
+        android.util.Log.d("ReagendarSheet", "✅ Usuario autorizado para reagendar");
+
         db = FirebaseFirestore.getInstance();
         lugarRepository = new LugarRepository();
         Bundle args = getArguments();
         actividadId = args != null ? args.getString(ARG_ACTIVIDAD_ID) : null;
-        citaId      = args != null ? args.getString(ARG_CITA_ID) : null;
+        citaId = args != null ? args.getString(ARG_CITA_ID) : null;
 
         etMotivo = v.findViewById(R.id.etMotivo);
-        etFecha  = v.findViewById(R.id.etFecha);
-        etHora   = v.findViewById(R.id.etHora);
+        etFecha = v.findViewById(R.id.etFecha);
+        etHora = v.findViewById(R.id.etHora);
 
         etFecha.setOnClickListener(x -> abrirDatePicker());
         etHora.setOnClickListener(x -> abrirTimePicker());
-        ((MaterialButton) v.findViewById(R.id.btnGuardarNuevaFecha)).setOnClickListener(x -> reagendar());
 
-        // Cargar datos de la actividad y cita actual
+        // ✅ COMBINADO: botón con validación de permisos
+        MaterialButton btnGuardar = v.findViewById(R.id.btnGuardarNuevaFecha);
+        if (btnGuardar != null) {
+            btnGuardar.setOnClickListener(x -> {
+                // Doble verificación antes de guardar
+                if (permissionChecker.checkAndNotify(getContext(),
+                        PermissionChecker.Permission.RESCHEDULE_ACTIVITY)) {
+                    reagendar();
+                }
+            });
+        }
+
+        // ✅ Cargar datos de la actividad y cita actual
         cargarDatosActuales();
     }
 
@@ -158,7 +191,7 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
             return;
         }
 
-        // ✅ NUEVO: Validar fecha futura
+        // ✅ Validar fecha futura
         Date nuevaFecha = cal.getTime();
         ValidationResult validacionFecha = ActividadValidator.validarFechaFutura(nuevaFecha);
         if (!validacionFecha.isValid()) {
@@ -166,7 +199,7 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
             return;
         }
 
-        // ✅ NUEVO: Validar cupo del lugar si está definido
+        // ✅ Validar cupo del lugar si está definido
         if (!TextUtils.isEmpty(lugarNombreActual)) {
             validarCupoYConflicto(motivo, nuevaFecha);
         } else {
@@ -179,7 +212,7 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
         }
     }
 
-    // ===== NUEVO: Validación de cupo del lugar =====
+    // ===== Validación de cupo del lugar =====
     private void validarCupoYConflicto(String motivo, Date nuevaFecha) {
         if (TextUtils.isEmpty(lugarNombreActual)) {
             validarConflictoGlobal(motivo, nuevaFecha);
@@ -193,7 +226,6 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                 .get()
                 .addOnSuccessListener(qs -> {
                     if (qs.isEmpty()) {
-                        // Lugar no encontrado, proceder sin validación de cupo
                         validarConflictoGlobal(motivo, nuevaFecha);
                         return;
                     }
@@ -202,7 +234,6 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                     lugarRepository.getLugar(lugarId, new LugarRepository.LugarCallback() {
                         @Override
                         public void onSuccess(Lugar lugar) {
-                            // Validar cupo solo si el lugar lo tiene definido Y la actividad también
                             if (lugar.tieneCupo() && cupoActividad != null) {
                                 ValidationResult validacionCupo = ActividadValidator.validarCupoLugar(lugar, cupoActividad);
                                 if (!validacionCupo.isValid()) {
@@ -214,25 +245,19 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                                     return;
                                 }
                             }
-
-                            // Cupo OK, continuar con validación de conflictos
                             validarConflictoGlobal(motivo, nuevaFecha);
                         }
 
                         @Override
                         public void onError(String error) {
-                            // Error al obtener lugar, proceder sin validación de cupo
                             validarConflictoGlobal(motivo, nuevaFecha);
                         }
                     });
                 })
-                .addOnFailureListener(e -> {
-                    // Error al buscar lugar, proceder sin validación
-                    validarConflictoGlobal(motivo, nuevaFecha);
-                });
+                .addOnFailureListener(e -> validarConflictoGlobal(motivo, nuevaFecha));
     }
 
-    // ===== NUEVO: Validación de conflicto global =====
+    // ===== Validación de conflicto global =====
     private void validarConflictoGlobal(String motivo, Date nuevaFecha) {
         TimeZone tz = TimeZone.getTimeZone("America/Santiago");
         Calendar day = Calendar.getInstance(tz);
@@ -252,7 +277,6 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
         final String lugarNorm = norm(lugarNombreActual);
         final String oferNorm  = norm(oferenteNombreActual);
 
-        // Buscar citas en el mismo día y hora
         db.collectionGroup("citas")
                 .whereGreaterThanOrEqualTo("startAt", new Timestamp(dayStart))
                 .whereLessThan("startAt", new Timestamp(nextDayStart))
@@ -261,7 +285,6 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                     boolean hayConflicto = false;
 
                     for (DocumentSnapshot d : snap.getDocuments()) {
-                        // Ignorar la cita que estamos reagendando
                         if (citaId != null && citaId.equals(d.getId())) continue;
 
                         String estado = d.getString("estado");
@@ -279,7 +302,6 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                         if (c.get(Calendar.HOUR_OF_DAY) != targetHour ||
                                 c.get(Calendar.MINUTE) != targetMin) continue;
 
-                        // Verificar conflicto por lugar
                         String docLugar = norm(firstNonEmpty(
                                 d.getString("lugarNombre"),
                                 d.getString("lugar")
@@ -289,7 +311,6 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                             break;
                         }
 
-                        // Verificar conflicto por oferente
                         String docOfer = norm(firstNonEmpty(
                                 d.getString("oferenteNombre"),
                                 d.getString("oferente")
@@ -306,7 +327,6 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                                         ") para el mismo lugar u oferente.\n\n¿Qué deseas hacer?"
                         );
                     } else {
-                        // ✅ No hay conflictos, proceder con el reagendamiento
                         if (!TextUtils.isEmpty(citaId)) {
                             reagendarCita(citaId, motivo, nuevaFecha);
                         } else {
@@ -314,9 +334,7 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                         }
                     }
                 })
-                .addOnFailureListener(e -> {
-                    toast("Error al validar: " + e.getMessage());
-                });
+                .addOnFailureListener(e -> toast("Error al validar: " + e.getMessage()));
     }
 
     private void proximaCitaYReagendar(String motivo, Date nuevaFecha){
@@ -356,8 +374,15 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
             up.put("fecha_reagendo", Timestamp.now());
             up.put("estado", "reagendada");
 
+            // ✅ Log de auditoría con usuario
+            String userId = roleManager.getCurrentUserId();
+            if (userId != null) {
+                up.put("lastModifiedBy", userId);
+            }
+
             ref.update(up)
                     .addOnSuccessListener(u -> {
+                        android.util.Log.d("ReagendarSheet", "✅ Cita reagendada por usuario: " + userId);
                         toast("Cita reagendada con éxito ✅");
                         registrarAuditoria("reagendar_cita", motivo);
                         notifyChanged();
@@ -376,11 +401,15 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
             audit.put("actividadId", actividadId);
             if (!TextUtils.isEmpty(citaId)) audit.put("citaId", citaId);
 
+            // ✅ Registrar quién hizo la acción
+            String userId = roleManager.getCurrentUserId();
+            if (userId != null) audit.put("userId", userId);
+
             db.collection("auditoria").add(audit);
         } catch (Exception ignored) {}
     }
 
-    // ===== NUEVO: Diálogos informativos =====
+    // ===== Diálogos informativos =====
     private void mostrarDialogoError(String titulo, String mensaje) {
         new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(titulo)

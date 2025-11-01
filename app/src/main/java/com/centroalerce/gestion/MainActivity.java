@@ -6,7 +6,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.View;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -18,16 +20,32 @@ import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.NavigationUI;
 
+import com.centroalerce.gestion.utils.PermissionChecker;
+import com.centroalerce.gestion.utils.RoleManager;
+import com.centroalerce.gestion.utils.UserRole;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String TAG = "MainActivity";
+
     private FloatingActionButton fabGlobal;
     private NavController navController;
+    private BottomNavigationView bottomNav;
 
+    // ✅ Sistema de roles (TU CÓDIGO)
+    private RoleManager roleManager;
+    private PermissionChecker permissionChecker;
+    private FirebaseAuth auth;
+    private UserRole currentUserRole;
+    private boolean navControllerReady = false;
+
+    // 🆕 Sistema de notificaciones (CÓDIGO DE TU COMPAÑERO)
     private final ActivityResultLauncher<String> requestNotifPermission =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
                 if (!granted) {
@@ -40,7 +58,16 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 🆕 NUEVO: pedir permiso de notificaciones
+        // ✅ Inicializar Firebase Auth (TU CÓDIGO)
+        auth = FirebaseAuth.getInstance();
+
+        // ✅ Verificar usuario autenticado (TU CÓDIGO)
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) {
+            Log.d(TAG, "⚠️ No hay usuario autenticado");
+        }
+
+        // 🆕 Pedir permiso de notificaciones (CÓDIGO DE TU COMPAÑERO)
         asegurarPermisoNotificaciones();
 
         // 1) Obtener NavController desde el NavHostFragment
@@ -50,9 +77,10 @@ public class MainActivity extends AppCompatActivity {
             throw new IllegalStateException("No se encontró NavHostFragment con id @id/nav_host");
         }
         navController = Objects.requireNonNull(navHost).getNavController();
+        navControllerReady = true;
 
         // 2) Conectar BottomNavigationView con NavController
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
+        bottomNav = findViewById(R.id.bottom_nav);
         NavigationUI.setupWithNavController(bottomNav, navController);
 
         // Evitar re-navegar al re-seleccionar el mismo tab
@@ -61,11 +89,18 @@ public class MainActivity extends AppCompatActivity {
         // 3) Obtener referencia al FAB global
         fabGlobal = findViewById(R.id.fabAddGlobal);
 
-        // 4) Configurar click del FAB
+        // 4) ✅ Configurar click del FAB CON VALIDACIÓN DE PERMISOS (TU CÓDIGO)
         fabGlobal.setOnClickListener(v -> {
-            // Navegar a crear actividad
-            navController.navigate(R.id.activityFormFragment);
+            // Solo usuarios comunes y admins pueden crear actividades
+            if (currentUserRole != null && currentUserRole.canInteractWithActivities()) {
+                navController.navigate(R.id.activityFormFragment);
+            } else {
+                Toast.makeText(this, "No tienes permisos para crear actividades", Toast.LENGTH_SHORT).show();
+            }
         });
+
+        // ✅ Inicializar sistema de roles ANTES de los listeners (TU CÓDIGO)
+        initializeRoleSystem();
 
         // 5) Mostrar/ocultar BottomNav y FAB según destino
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
@@ -82,7 +117,6 @@ public class MainActivity extends AppCompatActivity {
                             id == R.id.detalleActividadFragment ||
                             id == R.id.perfilFragment ||
                             id == R.id.registroActividadesFragment ||
-                            id == R.id.registroUsuariosFragment ||
                             id == R.id.gestionUsuariosFragment ||
                             id == R.id.maintainersFragment ||
                             id == R.id.tiposActividadFragment ||
@@ -94,16 +128,115 @@ public class MainActivity extends AppCompatActivity {
 
             bottomNav.setVisibility(hideBottomNav ? View.GONE : View.VISIBLE);
 
-            // 🆕 Mostrar FAB en CalendarFragment y ActivitiesListFragment
+            // ✅ LÓGICA MEJORADA: Mostrar FAB en CalendarFragment Y ActivitiesListFragment
+            // pero SOLO si el usuario tiene permisos (TU CÓDIGO + CÓDIGO DE TU COMPAÑERO)
             if (id == R.id.calendarFragment || id == R.id.activitiesListFragment) {
-                fabGlobal.show(); // Animación de entrada
+                // Verificar permisos antes de mostrar
+                if (currentUserRole != null && currentUserRole.canInteractWithActivities()) {
+                    fabGlobal.show(); // ✅ Usuario/Admin pueden crear
+                } else {
+                    fabGlobal.hide(); // ❌ Visualizador no puede crear
+                }
             } else {
-                fabGlobal.hide(); // Animación de salida
+                fabGlobal.hide(); // Ocultar en otros fragments
             }
         });
     }
 
-    // 🆕 NUEVO: pedir permiso de notificaciones en Android 13+
+    // ✅ ==================== MÉTODOS DE ROLES (TU CÓDIGO) ====================
+
+    /**
+     * ✅ Inicializa el sistema de roles
+     */
+    private void initializeRoleSystem() {
+        roleManager = RoleManager.getInstance();
+        permissionChecker = new PermissionChecker();
+
+        // Cargar el rol del usuario actual
+        roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
+            currentUserRole = role;
+            Log.d(TAG, "✅ Rol del usuario cargado: " + role.getValue());
+
+            // Configurar el menú según el rol
+            configureMenuByRole(role);
+
+            // Actualizar visibilidad del FAB si ya estamos en CalendarFragment o ActivitiesListFragment
+            runOnUiThread(() -> {
+                if (navControllerReady && navController.getCurrentDestination() != null) {
+                    int currentDestination = navController.getCurrentDestination().getId();
+                    if (currentDestination == R.id.calendarFragment ||
+                            currentDestination == R.id.activitiesListFragment) {
+                        if (role.canInteractWithActivities()) {
+                            fabGlobal.show();
+                        } else {
+                            fabGlobal.hide();
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    /**
+     * ✅ Configura el menú de navegación según el rol del usuario
+     */
+    private void configureMenuByRole(UserRole role) {
+        if (bottomNav == null || bottomNav.getMenu() == null) {
+            return;
+        }
+
+        Log.d(TAG, "🔧 Configurando menú para rol: " + role.getValue());
+
+        // Todos ven el calendario
+        if (bottomNav.getMenu().findItem(R.id.calendarFragment) != null) {
+            bottomNav.getMenu().findItem(R.id.calendarFragment).setVisible(true);
+        }
+
+        // Todos ven configuración/ajustes
+        if (bottomNav.getMenu().findItem(R.id.settingsFragment) != null) {
+            bottomNav.getMenu().findItem(R.id.settingsFragment).setVisible(true);
+        }
+
+        // Solo admins ven mantenedores (si está en el menú)
+        if (bottomNav.getMenu().findItem(R.id.maintainersFragment) != null) {
+            bottomNav.getMenu().findItem(R.id.maintainersFragment)
+                    .setVisible(role == UserRole.ADMINISTRADOR);
+        }
+
+        Log.d(TAG, "✅ Menú configurado correctamente");
+    }
+
+    /**
+     * ✅ Método para verificar roles actuales (debug)
+     */
+    private void verificarRolesActuales() {
+        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                .collection("usuarios")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    java.util.Map<String, Integer> conteoRoles = new java.util.HashMap<>();
+
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        String rol = doc.getString("rol");
+                        if (rol == null) rol = "sin_rol";
+                        conteoRoles.put(rol, conteoRoles.getOrDefault(rol, 0) + 1);
+                    }
+
+                    Log.d(TAG, "📊 Distribución de roles en Firebase:");
+                    for (java.util.Map.Entry<String, Integer> entry : conteoRoles.entrySet()) {
+                        Log.d(TAG, "  " + entry.getKey() + ": " + entry.getValue() + " usuario(s)");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error al verificar roles", e);
+                });
+    }
+
+    // 🆕 ==================== MÉTODOS DE NOTIFICACIONES (CÓDIGO DE TU COMPAÑERO) ====================
+
+    /**
+     * 🆕 Pedir permiso de notificaciones en Android 13+
+     */
     private void asegurarPermisoNotificaciones() {
         if (Build.VERSION.SDK_INT >= 33) {
             requestNotifPermission.launch(Manifest.permission.POST_NOTIFICATIONS);
@@ -115,7 +248,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🆕 NUEVO: abrir ajustes si el usuario niega el permiso
+    /**
+     * 🆕 Abrir ajustes si el usuario niega el permiso
+     */
     private void mostrarDialogoIrAjustes() {
         new AlertDialog.Builder(this)
                 .setTitle("Permitir notificaciones")
@@ -125,7 +260,9 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
-    // 🆕 NUEVO: dirigir al usuario a la pantalla de ajustes
+    /**
+     * 🆕 Dirigir al usuario a la pantalla de ajustes
+     */
     private void abrirAjustesNotificaciones() {
         Intent intent = new Intent();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -136,5 +273,42 @@ public class MainActivity extends AppCompatActivity {
             intent.setData(Uri.fromParts("package", getPackageName(), null));
         }
         startActivity(intent);
+    }
+
+    // ✅ ==================== MÉTODOS DE LIFECYCLE ====================
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // ✅ Recargar el rol por si cambió (TU CÓDIGO)
+        if (roleManager != null) {
+            roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
+                currentUserRole = role;
+                configureMenuByRole(role);
+
+                // Verificar que navController esté listo
+                if (navControllerReady && navController.getCurrentDestination() != null) {
+                    int currentDestId = navController.getCurrentDestination().getId();
+                    if (currentDestId == R.id.calendarFragment ||
+                            currentDestId == R.id.activitiesListFragment) {
+                        if (role.canInteractWithActivities()) {
+                            fabGlobal.show();
+                        } else {
+                            fabGlobal.hide();
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // ✅ Limpiar listener de roles (TU CÓDIGO)
+        if (roleManager != null) {
+            roleManager.unsubscribeFromRoleChanges();
+        }
     }
 }
