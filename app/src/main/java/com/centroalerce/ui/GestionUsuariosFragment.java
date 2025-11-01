@@ -367,29 +367,59 @@ public class GestionUsuariosFragment extends Fragment {
     private void mostrarDetallesUsuario(Usuario usuario) {
         // Crear el dialog personalizado
         androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
-        
+
         // Inflar el layout personalizado
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_detalles_usuario, null);
         builder.setView(dialogView);
-        
+
         // Configurar los datos
         android.widget.TextView textDetalleEmail = dialogView.findViewById(R.id.textDetalleEmail);
         android.widget.TextView textDetalleRol = dialogView.findViewById(R.id.textDetalleRol);
         android.widget.TextView textDetalleEstado = dialogView.findViewById(R.id.textDetalleEstado);
+        MaterialButton btnRestablecerPassword = dialogView.findViewById(R.id.btnRestablecerPassword);
         MaterialButton btnCerrarDetalles = dialogView.findViewById(R.id.btnCerrarDetalles);
-        
+
         textDetalleEmail.setText(usuario.email);
         textDetalleRol.setText(usuario.rol);
         textDetalleEstado.setText(usuario.activo ? "Activo" : "Inactivo");
-        
+
         // Crear y mostrar el dialog
         androidx.appcompat.app.AlertDialog dialog = builder.create();
         dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         dialog.setCancelable(false);
-        
+
+        // Botón para restablecer contraseña
+        btnRestablecerPassword.setOnClickListener(v -> {
+            enviarCorreoRestablecimiento(usuario.email);
+        });
+
         btnCerrarDetalles.setOnClickListener(v -> dialog.dismiss());
-        
+
         dialog.show();
+    }
+
+    private void enviarCorreoRestablecimiento(String email) {
+        // Mostrar diálogo de confirmación antes de enviar
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Restablecer contraseña")
+                .setMessage("¿Deseas enviar un correo de restablecimiento de contraseña a:\n\n" + email + "?")
+                .setPositiveButton("Enviar", (dialog, which) -> {
+                    // Enviar correo de restablecimiento
+                    com.google.firebase.auth.FirebaseAuth.getInstance()
+                            .sendPasswordResetEmail(email)
+                            .addOnSuccessListener(aVoid -> {
+                                Toast.makeText(getContext(),
+                                        "Correo de restablecimiento enviado a " + email,
+                                        Toast.LENGTH_LONG).show();
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(getContext(),
+                                        "Error al enviar correo: " + e.getMessage(),
+                                        Toast.LENGTH_LONG).show();
+                            });
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     private void actualizarUsuario(Usuario usuario) {
@@ -455,27 +485,98 @@ public class GestionUsuariosFragment extends Fragment {
     }
 
     private void eliminarUsuario(Usuario usuario) {
+        // Verificar si el usuario intenta eliminarse a sí mismo
+        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null && currentUser.getUid().equals(usuario.uid)) {
+            // El usuario está intentando eliminarse a sí mismo
+            mostrarDialogoAutoEliminacion(usuario);
+            return;
+        }
+
+        // Continuar con eliminación normal
+        mostrarDialogoEliminacionNormal(usuario);
+    }
+
+    private void mostrarDialogoAutoEliminacion(Usuario usuario) {
+        // Crear diálogo de advertencia especial
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
+
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_eliminar_usuario, null);
+        builder.setView(dialogView);
+
+        android.widget.TextView textEmailEliminar = dialogView.findViewById(R.id.textEmailEliminar);
+        android.widget.TextView textMensajeAdicional = dialogView.findViewById(R.id.textMensajeAdicional);
+        MaterialButton btnCancelarEliminar = dialogView.findViewById(R.id.btnCancelarEliminar);
+        MaterialButton btnConfirmarEliminar = dialogView.findViewById(R.id.btnConfirmarEliminar);
+
+        // Configurar mensaje de advertencia
+        textEmailEliminar.setText(usuario.email);
+
+        // Cambiar el mensaje adicional para auto-eliminación
+        textMensajeAdicional.setText("⚠️ ADVERTENCIA: Estás a punto de eliminar tu propia cuenta de administrador.\n\n" +
+                "Si continúas:\n" +
+                "• Perderás acceso al sistema\n" +
+                "• Se cerrará tu sesión automáticamente\n" +
+                "• No podrás recuperar esta cuenta\n\n" +
+                "¿Estás seguro de continuar?");
+        textMensajeAdicional.setTextColor(getResources().getColor(android.R.color.holo_red_dark, null));
+        textMensajeAdicional.setTextSize(14);
+
+        // Cambiar color del botón confirmar a rojo
+        btnConfirmarEliminar.setBackgroundColor(getResources().getColor(android.R.color.holo_red_dark, null));
+        btnConfirmarEliminar.setText("SÍ, ELIMINAR MI CUENTA");
+
+        androidx.appcompat.app.AlertDialog dialog = builder.create();
+        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        dialog.setCancelable(false);
+
+        btnCancelarEliminar.setOnClickListener(v -> dialog.dismiss());
+
+        btnConfirmarEliminar.setOnClickListener(v -> {
+            // Eliminar la cuenta del administrador actual
+            db.collection("usuarios").document(usuario.uid)
+                    .delete()
+                    .addOnSuccessListener(aVoid -> {
+                        Toast.makeText(getContext(),
+                            "Tu cuenta ha sido eliminada del sistema. Cerrando sesión...",
+                            Toast.LENGTH_LONG).show();
+                        dialog.dismiss();
+
+                        // Cerrar sesión y volver al login
+                        cerrarSesionYVolverAlLogin();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(getContext(),
+                            "Error al eliminar tu cuenta: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                    });
+        });
+
+        dialog.show();
+    }
+
+    private void mostrarDialogoEliminacionNormal(Usuario usuario) {
         // Crear el dialog personalizado
         androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
-        
+
         // Inflar el layout personalizado
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_eliminar_usuario, null);
         builder.setView(dialogView);
-        
+
         // Configurar los elementos
         android.widget.TextView textEmailEliminar = dialogView.findViewById(R.id.textEmailEliminar);
         MaterialButton btnCancelarEliminar = dialogView.findViewById(R.id.btnCancelarEliminar);
         MaterialButton btnConfirmarEliminar = dialogView.findViewById(R.id.btnConfirmarEliminar);
-        
+
         textEmailEliminar.setText(usuario.email);
-        
+
         // Crear y mostrar el dialog
         androidx.appcompat.app.AlertDialog dialog = builder.create();
         dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         dialog.setCancelable(false);
-        
+
         btnCancelarEliminar.setOnClickListener(v -> dialog.dismiss());
-        
+
         btnConfirmarEliminar.setOnClickListener(v -> {
             // Eliminar completamente de Firestore
             // Nota: No podemos eliminar de Firebase Auth desde el cliente sin credenciales
@@ -495,6 +596,32 @@ public class GestionUsuariosFragment extends Fragment {
         });
         
         dialog.show();
+    }
+
+    private void cerrarSesionYVolverAlLogin() {
+        // Cerrar sesión de Firebase
+        com.google.firebase.auth.FirebaseAuth.getInstance().signOut();
+
+        // Mostrar mensaje final
+        Toast.makeText(getContext(),
+            "Sesión cerrada. Tu cuenta ha sido eliminada.",
+            Toast.LENGTH_LONG).show();
+
+        // Navegar de vuelta al LoginFragment
+        try {
+            // Usar NavController para volver al login
+            androidx.navigation.NavController navController = androidx.navigation.Navigation.findNavController(requireView());
+
+            // Limpiar todo el back stack y navegar al login
+            navController.popBackStack(R.id.loginFragment, false);
+            navController.navigate(R.id.loginFragment);
+        } catch (Exception e) {
+            // Si falla la navegación, intentar cerrar la actividad
+            android.util.Log.e("GestionUsuarios", "Error navegando al login", e);
+            if (getActivity() != null) {
+                getActivity().finish();
+            }
+        }
     }
 
     // Clase para representar un usuario

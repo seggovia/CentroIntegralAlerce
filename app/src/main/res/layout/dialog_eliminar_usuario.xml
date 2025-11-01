@@ -114,6 +114,7 @@
                 android:layout_marginBottom="12dp"/>
 
             <TextView
+                android:id="@+id/textMensajeAdicional"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Esta acción eliminará permanentemente todos los datos del usuario y no se puede deshacer."
