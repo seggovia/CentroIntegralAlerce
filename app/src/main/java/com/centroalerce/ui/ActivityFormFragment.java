@@ -142,6 +142,14 @@ public class ActivityFormFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle b) {
         View v = inf.inflate(R.layout.fragment_activity_form, c, false);
 
+        // ✅ NUEVO: Configurar toolbar navigation para que la X funcione
+        com.google.android.material.appbar.MaterialToolbar toolbar = v.findViewById(R.id.toolbar);
+        if (toolbar != null) {
+            toolbar.setNavigationOnClickListener(view -> {
+                Navigation.findNavController(v).popBackStack();
+            });
+        }
+
         // Inputs del layout
         etNombre         = v.findViewById(R.id.etNombre);
         etCupo           = v.findViewById(R.id.etCupo);
@@ -250,7 +258,6 @@ public class ActivityFormFragment extends Fragment {
         etFecha.setError(null);
         etHora.setError(null);
         return v;
-
     }
 
     @Override
