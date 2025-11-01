@@ -52,6 +52,9 @@ public class RegistroUsuariosFragment extends Fragment {
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
+        // Ejecutar limpieza automática de datos inconsistentes
+        limpiarDatosAutomaticamente();
+
         // Inicializar vistas
         etEmail = view.findViewById(R.id.etEmail);
         etPassword = view.findViewById(R.id.etPassword);
@@ -66,6 +69,31 @@ public class RegistroUsuariosFragment extends Fragment {
 
         // Configurar combobox de roles
         configurarComboBoxRoles();
+
+        // Agregar TextWatchers para limpiar errores mientras el usuario escribe
+        etEmail.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (tilEmail != null) { tilEmail.setError(null); tilEmail.setErrorEnabled(false); }
+            }
+            @Override public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        etPassword.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (tilPassword != null) { tilPassword.setError(null); tilPassword.setErrorEnabled(false); }
+            }
+            @Override public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        etConfirmPassword.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (tilConfirmPassword != null) { tilConfirmPassword.setError(null); tilConfirmPassword.setErrorEnabled(false); }
+            }
+            @Override public void afterTextChanged(android.text.Editable s) {}
+        });
 
         // Botón de retroceso
         MaterialButton btnVolver = view.findViewById(R.id.btnVolver);
@@ -138,7 +166,7 @@ public class RegistroUsuariosFragment extends Fragment {
             etPassword.requestFocus();
             return;
         }
-        
+
         // Validar que la contraseña tenga mayúsculas, minúsculas y números
         boolean hasUpper = false, hasLower = false, hasDigit = false;
         for (char c : password.toCharArray()) {
@@ -146,7 +174,7 @@ public class RegistroUsuariosFragment extends Fragment {
             if (Character.isLowerCase(c)) hasLower = true;
             if (Character.isDigit(c)) hasDigit = true;
         }
-        
+
         if (!hasUpper) {
             if (tilPassword != null) { tilPassword.setError("Debe incluir al menos una mayúscula"); tilPassword.setErrorEnabled(true); }
             else etPassword.setError("La contraseña debe tener al menos una mayúscula");
@@ -173,7 +201,7 @@ public class RegistroUsuariosFragment extends Fragment {
             etConfirmPassword.requestFocus();
             return;
         }
-        
+
         if (!password.equals(confirmPassword)) {
             if (tilConfirmPassword != null) { tilConfirmPassword.setError("Las contraseñas no coinciden"); tilConfirmPassword.setErrorEnabled(true); }
             else etConfirmPassword.setError("Las contraseñas no coinciden");
@@ -189,8 +217,75 @@ public class RegistroUsuariosFragment extends Fragment {
 
         // Deshabilitar botón para evitar múltiples registros
         btnRegistrar.setEnabled(false);
-        btnRegistrar.setText("Registrando...");
+        btnRegistrar.setText("Validando...");
 
+        // Verificar si el correo ya está registrado ANTES de intentar crear el usuario
+        mAuth.fetchSignInMethodsForEmail(email)
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        // Error al verificar
+                        btnRegistrar.setEnabled(true);
+                        btnRegistrar.setText("Registrar Usuario");
+                        mostrarError("No se pudo validar el correo, intenta nuevamente");
+                        return;
+                    }
+
+                    // Verificar si el correo ya existe
+                    com.google.firebase.auth.SignInMethodQueryResult result = task.getResult();
+                    boolean emailYaRegistrado = result != null &&
+                                                result.getSignInMethods() != null &&
+                                                !result.getSignInMethods().isEmpty();
+
+                    if (emailYaRegistrado) {
+                        // El correo existe en Firebase Auth, verificar si está inactivo en Firestore
+                        btnRegistrar.setText("Verificando estado...");
+
+                        db.collection("usuarios")
+                                .whereEqualTo("email", email)
+                                .get()
+                                .addOnSuccessListener(querySnapshot -> {
+                                    if (!querySnapshot.isEmpty()) {
+                                        // El usuario existe en Firestore
+                                        com.google.firebase.firestore.DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
+                                        Boolean activo = doc.getBoolean("activo");
+
+                                        if (activo != null && !activo) {
+                                            // Usuario inactivo, reactivarlo
+                                            reactivarUsuario(doc.getId(), email, rol);
+                                        } else {
+                                            // Usuario activo, no se puede registrar
+                                            btnRegistrar.setEnabled(true);
+                                            btnRegistrar.setText("Registrar Usuario");
+                                            if (tilEmail != null) {
+                                                tilEmail.setError("Este correo ya está registrado y activo");
+                                                tilEmail.setErrorEnabled(true);
+                                            } else {
+                                                etEmail.setError("Este correo ya está registrado y activo");
+                                            }
+                                            etEmail.requestFocus();
+                                            Toast.makeText(getContext(), "Este correo ya está registrado en el sistema", Toast.LENGTH_LONG).show();
+                                        }
+                                    } else {
+                                        // Existe en Auth pero no en Firestore
+                                        // Intentar crearlo nuevamente (Firebase Auth rechazará si ya existe)
+                                        btnRegistrar.setText("Registrando...");
+                                        crearUsuarioEnFirebase(email, password, rol);
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    btnRegistrar.setEnabled(true);
+                                    btnRegistrar.setText("Registrar Usuario");
+                                    mostrarError("Error al verificar usuario: " + e.getMessage());
+                                });
+                    } else {
+                        // El correo está disponible, proceder con el registro
+                        btnRegistrar.setText("Registrando...");
+                        crearUsuarioEnFirebase(email, password, rol);
+                    }
+                });
+    }
+
+    private void crearUsuarioEnFirebase(String email, String password, String rol) {
         // Crear usuario en Firebase Auth
         mAuth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(task -> {
@@ -213,13 +308,17 @@ public class RegistroUsuariosFragment extends Fragment {
                                     });
                         }
                     } else {
+                        // Rehabilitar botón cuando hay error
+                        btnRegistrar.setEnabled(true);
+                        btnRegistrar.setText("Registrar Usuario");
+
                         String msg = task.getException() != null ? task.getException().getMessage() : "";
                         if (msg != null && msg.toLowerCase().contains("already in use")) {
-                            if (tilEmail != null) { tilEmail.setError("Este correo ya está registrado"); tilEmail.setErrorEnabled(true); }
-                            else etEmail.setError("Este correo ya está registrado");
-                            etEmail.requestFocus();
+                            // El correo existe en Firebase Auth pero fue eliminado de Firestore
+                            // Mostrar diálogo de confirmación para eliminarlo completamente
+                            mostrarDialogoEliminarCuentaAuth(email, password, rol);
                         } else {
-                            mostrarError("Error al crear usuario");
+                            mostrarError("Error al crear usuario: " + msg);
                         }
                     }
                 });
@@ -250,6 +349,30 @@ public class RegistroUsuariosFragment extends Fragment {
                 });
     }
 
+    private void reactivarUsuario(String uid, String email, String rol) {
+        // Reactivar usuario que estaba marcado como inactivo
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("activo", true);
+        updates.put("rol", rol);
+        updates.put("fechaCreacion", com.google.firebase.Timestamp.now());
+
+        db.collection("usuarios")
+                .document(uid)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "Usuario reactivado exitosamente", Toast.LENGTH_LONG).show();
+
+                    // Limpiar formulario
+                    limpiarFormulario();
+
+                    // Volver a la pantalla anterior
+                    androidx.navigation.fragment.NavHostFragment.findNavController(this).popBackStack();
+                })
+                .addOnFailureListener(e -> {
+                    mostrarError("Error al reactivar usuario: " + e.getMessage());
+                });
+    }
+
     private void limpiarFormulario() {
         etEmail.setText("");
         etPassword.setText("");
@@ -258,12 +381,141 @@ public class RegistroUsuariosFragment extends Fragment {
     }
 
     private void mostrarError(String mensaje) {
-        // Mostrar error genérico en el email si no tenemos más contexto
+        // Mostrar error en el campo de email
         if (tilEmail != null) { tilEmail.setError(mensaje); tilEmail.setErrorEnabled(true); }
         else etEmail.setError(mensaje);
+
+        // Mostrar Toast con el mensaje de error
+        Toast.makeText(getContext(), mensaje, Toast.LENGTH_LONG).show();
 
         // Rehabilitar botón
         btnRegistrar.setEnabled(true);
         btnRegistrar.setText("Registrar Usuario");
+    }
+
+    private void mostrarDialogoEliminarCuentaAuth(String email, String password, String rol) {
+        // Crear diálogo de confirmación
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
+
+        View dialogView = getLayoutInflater().inflate(android.R.layout.simple_list_item_2, null);
+        android.widget.TextView tvTitulo = new android.widget.TextView(requireContext());
+        android.widget.TextView tvMensaje = new android.widget.TextView(requireContext());
+
+        tvTitulo.setText("Cuenta existente detectada");
+        tvTitulo.setTextSize(20);
+        tvTitulo.setPadding(50, 40, 50, 20);
+        tvTitulo.setTextColor(getResources().getColor(android.R.color.black, null));
+
+        tvMensaje.setText("Este correo ya existe en el sistema de autenticación pero fue eliminado de la base de datos.\n\n" +
+                "¿Deseas eliminar completamente la cuenta anterior y crear una nueva?\n\n" +
+                "Nota: Se usará la contraseña actual que ingresaste para verificar y eliminar la cuenta anterior.");
+        tvMensaje.setPadding(50, 20, 50, 40);
+        tvMensaje.setTextColor(getResources().getColor(android.R.color.darker_gray, null));
+
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.addView(tvTitulo);
+        layout.addView(tvMensaje);
+
+        builder.setView(layout);
+        builder.setPositiveButton("Eliminar y crear nuevo", (dialog, which) -> {
+            eliminarCuentaAuthYCrearNueva(email, password, rol);
+        });
+        builder.setNegativeButton("Cancelar", (dialog, which) -> {
+            btnRegistrar.setEnabled(true);
+            btnRegistrar.setText("Registrar Usuario");
+            dialog.dismiss();
+        });
+
+        builder.create().show();
+    }
+
+    private void eliminarCuentaAuthYCrearNueva(String email, String password, String rol) {
+        btnRegistrar.setEnabled(false);
+        btnRegistrar.setText("Eliminando cuenta anterior...");
+
+        // Iniciar sesión con la cuenta existente para poder eliminarla
+        mAuth.signInWithEmailAndPassword(email, password)
+                .addOnCompleteListener(signInTask -> {
+                    if (signInTask.isSuccessful()) {
+                        FirebaseUser user = mAuth.getCurrentUser();
+                        if (user != null) {
+                            // Eliminar el usuario de Firebase Auth
+                            user.delete()
+                                    .addOnCompleteListener(deleteTask -> {
+                                        if (deleteTask.isSuccessful()) {
+                                            // Cuenta eliminada, ahora crear una nueva
+                                            btnRegistrar.setText("Creando cuenta nueva...");
+                                            Toast.makeText(getContext(), "Cuenta anterior eliminada, creando nueva...", Toast.LENGTH_SHORT).show();
+                                            crearUsuarioEnFirebase(email, password, rol);
+                                        } else {
+                                            btnRegistrar.setEnabled(true);
+                                            btnRegistrar.setText("Registrar Usuario");
+                                            mostrarError("Error al eliminar cuenta anterior: " + deleteTask.getException().getMessage());
+                                        }
+                                    });
+                        } else {
+                            btnRegistrar.setEnabled(true);
+                            btnRegistrar.setText("Registrar Usuario");
+                            mostrarError("Error: no se pudo obtener el usuario");
+                        }
+                    } else {
+                        // La contraseña no coincide
+                        btnRegistrar.setEnabled(true);
+                        btnRegistrar.setText("Registrar Usuario");
+
+                        if (tilPassword != null) {
+                            tilPassword.setError("La contraseña no coincide con la cuenta existente");
+                            tilPassword.setErrorEnabled(true);
+                        }
+
+                        Toast.makeText(getContext(),
+                                "Error: La contraseña no coincide con la cuenta existente en el sistema. " +
+                                "Contacta al administrador del sistema para eliminar la cuenta manualmente.",
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    private void limpiarDatosAutomaticamente() {
+        // Ejecutar limpieza silenciosa en segundo plano
+        db.collection("usuarios")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    int usuariosActualizados = 0;
+
+                    for (com.google.firebase.firestore.QueryDocumentSnapshot doc : querySnapshot) {
+                        Boolean activo = doc.getBoolean("activo");
+                        String estado = doc.getString("estado");
+
+                        // Si no existe el campo "activo", migrar desde "estado"
+                        if (activo == null) {
+                            // Si tiene estado="activo" o no tiene ninguno de los dos campos, considerar como activo
+                            boolean nuevoActivo = (estado == null || estado.equalsIgnoreCase("activo"));
+
+                            Map<String, Object> updates = new HashMap<>();
+                            updates.put("activo", nuevoActivo);
+
+                            db.collection("usuarios")
+                                    .document(doc.getId())
+                                    .update(updates)
+                                    .addOnSuccessListener(aVoid ->
+                                        android.util.Log.d("RegistroUsuarios", "Auto-migración exitosa: " + doc.getId())
+                                    )
+                                    .addOnFailureListener(e ->
+                                        android.util.Log.e("RegistroUsuarios", "Error en auto-migración: " + doc.getId(), e)
+                                    );
+
+                            usuariosActualizados++;
+                        }
+                    }
+
+                    if (usuariosActualizados > 0) {
+                        android.util.Log.i("RegistroUsuarios", "Limpieza automática completada: " + usuariosActualizados + " usuarios actualizados");
+                    }
+                })
+                .addOnFailureListener(e ->
+                    android.util.Log.e("RegistroUsuarios", "Error en limpieza automática", e)
+                );
     }
 }

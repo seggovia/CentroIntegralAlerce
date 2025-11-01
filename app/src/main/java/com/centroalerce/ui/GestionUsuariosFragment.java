@@ -296,19 +296,20 @@ public class GestionUsuariosFragment extends Fragment {
     private void cargarUsuarios() {
         // Mostrar indicador de carga
         Toast.makeText(getContext(), "Cargando usuarios...", Toast.LENGTH_SHORT).show();
-        
+
+        // Cargar todos los usuarios (filtraremos los inactivos después)
         db.collection("usuarios")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     todosLosUsuarios.clear();
-                    
+
                     if (queryDocumentSnapshots.isEmpty()) {
                         Toast.makeText(getContext(), "No hay usuarios registrados", Toast.LENGTH_SHORT).show();
                         adapter.actualizarUsuarios(new ArrayList<>());
                         actualizarControlesPaginacion();
                         return;
                     }
-                    
+
                     for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
                         Usuario usuario = new Usuario();
                         usuario.uid = doc.getId(); // Usar el ID del documento como UID
@@ -316,25 +317,44 @@ public class GestionUsuariosFragment extends Fragment {
                         usuario.rol = doc.getString("rol");
                         usuario.fechaCreacion = doc.getDate("fechaCreacion");
                         usuario.activo = doc.getBoolean("activo");
-                        
+
                         // Debug logging
-                        android.util.Log.d("GestionUsuarios", "Usuario cargado: " + usuario.uid + 
-                                ", email: " + usuario.email + 
-                                ", rol: " + usuario.rol);
-                        
+                        android.util.Log.d("GestionUsuarios", "Usuario cargado: " + usuario.uid +
+                                ", email: " + usuario.email +
+                                ", rol: " + usuario.rol +
+                                ", activo: " + usuario.activo);
+
                         // Valores por defecto si son null
                         if (usuario.email == null) usuario.email = "Sin email";
                         if (usuario.rol == null) usuario.rol = "Usuario";
-                        if (usuario.activo == null) usuario.activo = true;
-                        
-                        todosLosUsuarios.add(usuario);
+
+                        // Si el campo "activo" no existe, verificar campo "estado" (usuarios antiguos)
+                        if (usuario.activo == null) {
+                            String estado = doc.getString("estado");
+                            // Si tiene estado="activo" o no tiene ninguno, considerar como activo
+                            usuario.activo = (estado == null || estado.equalsIgnoreCase("activo"));
+
+                            // Actualizar el documento con el nuevo campo
+                            if (usuario.activo) {
+                                db.collection("usuarios").document(usuario.uid)
+                                        .update("activo", true)
+                                        .addOnFailureListener(e ->
+                                            android.util.Log.e("GestionUsuarios", "Error actualizando campo activo", e)
+                                        );
+                            }
+                        }
+
+                        // Solo agregar usuarios activos a la lista
+                        if (usuario.activo != null && usuario.activo) {
+                            todosLosUsuarios.add(usuario);
+                        }
                     }
-                    
+
                     // Ordenar por email después de cargar
                     todosLosUsuarios.sort((u1, u2) -> u1.email.compareToIgnoreCase(u2.email));
-                    
+
                     Toast.makeText(getContext(), "Usuarios cargados: " + todosLosUsuarios.size(), Toast.LENGTH_SHORT).show();
-                    
+
                     // Aplicar filtros por defecto y cargar página actual
                     aplicarFiltros();
                 })
@@ -457,10 +477,15 @@ public class GestionUsuariosFragment extends Fragment {
         btnCancelarEliminar.setOnClickListener(v -> dialog.dismiss());
         
         btnConfirmarEliminar.setOnClickListener(v -> {
+            // Eliminar completamente de Firestore
+            // Nota: No podemos eliminar de Firebase Auth desde el cliente sin credenciales
+            // El administrador deberá eliminar manualmente desde la consola de Firebase si es necesario
             db.collection("usuarios").document(usuario.uid)
                     .delete()
                     .addOnSuccessListener(aVoid -> {
-                        Toast.makeText(getContext(), "Usuario eliminado exitosamente", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(),
+                            "Usuario eliminado de la base de datos.\nNota: Deberás eliminar la cuenta de Firebase Auth manualmente si es necesario.",
+                            Toast.LENGTH_LONG).show();
                         dialog.dismiss();
                         cargarUsuarios(); // Recargar la lista
                     })
@@ -633,5 +658,60 @@ public class GestionUsuariosFragment extends Fragment {
                 btnEliminar = itemView.findViewById(R.id.btnEliminar);
             }
         }
+    }
+
+    // ===== LIMPIEZA AUTOMÁTICA DE DATOS =====
+
+    private void limpiarDatosAutomaticamente() {
+        // Ejecutar limpieza silenciosa en segundo plano
+        db.collection("usuarios")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    int usuariosActualizados = 0;
+
+                    for (com.google.firebase.firestore.QueryDocumentSnapshot doc : querySnapshot) {
+                        Boolean activo = doc.getBoolean("activo");
+                        String estado = doc.getString("estado");
+
+                        // Si no tiene el campo activo, agregarlo
+                        if (activo == null) {
+                            boolean nuevoActivo = (estado == null || estado.equalsIgnoreCase("activo"));
+
+                            java.util.Map<String, Object> updates = new java.util.HashMap<>();
+                            updates.put("activo", nuevoActivo);
+
+                            // Log silencioso para debugging
+                            if (estado != null) {
+                                android.util.Log.d("GestionUsuarios",
+                                    "Auto-migración: " + doc.getId() + " de estado='" + estado + "' a activo=" + nuevoActivo);
+                            } else {
+                                android.util.Log.d("GestionUsuarios",
+                                    "Auto-migración: " + doc.getId() + " agregando activo=" + nuevoActivo);
+                            }
+
+                            db.collection("usuarios")
+                                    .document(doc.getId())
+                                    .update(updates)
+                                    .addOnSuccessListener(aVoid ->
+                                        android.util.Log.d("GestionUsuarios", "Auto-migración exitosa: " + doc.getId())
+                                    )
+                                    .addOnFailureListener(e ->
+                                        android.util.Log.e("GestionUsuarios", "Error en auto-migración: " + doc.getId(), e)
+                                    );
+
+                            usuariosActualizados++;
+                        }
+                    }
+
+                    // Solo mostrar mensaje si se actualizaron usuarios
+                    if (usuariosActualizados > 0) {
+                        final int actualizados = usuariosActualizados;
+                        android.util.Log.i("GestionUsuarios",
+                            "Limpieza automática completada: " + actualizados + " usuarios actualizados");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("GestionUsuarios", "Error en limpieza automática", e);
+                });
     }
 }

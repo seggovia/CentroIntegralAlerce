@@ -22,6 +22,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.SignInMethodQueryResult;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.Timestamp;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -286,9 +287,9 @@ public class SignupFragment extends Fragment {
                     perfil.put("uid", user.getUid());
                     perfil.put("email", email);
                     perfil.put("rol", "usuario");
-                    perfil.put("estado", "activo");
+                    perfil.put("activo", true);
                     perfil.put("emailVerificado", false);
-                    perfil.put("creadoEn", System.currentTimeMillis());
+                    perfil.put("fechaCreacion", com.google.firebase.Timestamp.now());
 
                     FirebaseFirestore.getInstance().collection("usuarios").document(user.getUid())
                             .set(perfil)

@@ -222,28 +222,100 @@ public class LoginFragment extends Fragment {
                         }
 
                         // Actualizar texto del loading
-                        btnLogin.setText("Finalizando...");
+                        btnLogin.setText("Verificando estado...");
 
-                        // Actualizar emailVerificado en Firestore
+                        // Verificar si el usuario existe y está activo en Firestore
                         if (db == null) db = FirebaseFirestore.getInstance();
 
                         db.collection("usuarios")
                                 .document(user.getUid())
-                                .update("emailVerificado", true)
-                                .addOnSuccessListener(aVoid -> {
-                                    showLoading(false);
-                                    btnLogin.setText("Iniciar sesión");
-                                    Toast.makeText(getContext(), "Bienvenido ✅", Toast.LENGTH_SHORT).show();
-                                    Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+                                .get()
+                                .addOnSuccessListener(documentSnapshot -> {
+                                    if (!documentSnapshot.exists()) {
+                                        // El usuario no existe en Firestore
+                                        showLoading(false);
+                                        btnLogin.setEnabled(true);
+                                        btnLogin.setText("Iniciar sesión");
+                                        if (tilEmail != null) {
+                                            tilEmail.setError("Esta cuenta no existe en el sistema");
+                                            tilEmail.setErrorEnabled(true);
+                                        }
+                                        Toast.makeText(getContext(),
+                                                "Esta cuenta ha sido eliminada del sistema",
+                                                Toast.LENGTH_LONG).show();
+                                        auth.signOut();
+                                        return;
+                                    }
+
+                                    // Verificar si el usuario está activo
+                                    Boolean activo = documentSnapshot.getBoolean("activo");
+
+                                    // Si el campo "activo" no existe, verificar si tiene "estado" (usuarios antiguos)
+                                    if (activo == null) {
+                                        String estado = documentSnapshot.getString("estado");
+                                        // Si tiene estado="activo" o no tiene ninguno de los dos campos, considerar como activo
+                                        // Esto es para compatibilidad con usuarios creados antes del cambio
+                                        activo = (estado == null || estado.equalsIgnoreCase("activo"));
+
+                                        // Actualizar el campo para futuros logins
+                                        if (activo) {
+                                            db.collection("usuarios")
+                                                    .document(user.getUid())
+                                                    .update("activo", true)
+                                                    .addOnFailureListener(e ->
+                                                        android.util.Log.e("LoginFragment", "Error actualizando campo activo", e)
+                                                    );
+                                        }
+                                    }
+
+                                    if (!activo) {
+                                        // El usuario está inactivo (eliminado)
+                                        showLoading(false);
+                                        btnLogin.setEnabled(true);
+                                        btnLogin.setText("Iniciar sesión");
+                                        if (tilEmail != null) {
+                                            tilEmail.setError("Esta cuenta ha sido desactivada");
+                                            tilEmail.setErrorEnabled(true);
+                                        }
+                                        Toast.makeText(getContext(),
+                                                "Tu cuenta ha sido desactivada. Contacta al administrador",
+                                                Toast.LENGTH_LONG).show();
+                                        auth.signOut();
+                                        return;
+                                    }
+
+                                    // Usuario activo, continuar con el login
+                                    btnLogin.setText("Finalizando...");
+
+                                    // Actualizar emailVerificado en Firestore
+                                    db.collection("usuarios")
+                                            .document(user.getUid())
+                                            .update("emailVerificado", true)
+                                            .addOnSuccessListener(aVoid -> {
+                                                showLoading(false);
+                                                btnLogin.setText("Iniciar sesión");
+                                                Toast.makeText(getContext(), "Bienvenido ✅", Toast.LENGTH_SHORT).show();
+                                                Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                // Si falla la actualización, igual permitir continuar
+                                                showLoading(false);
+                                                btnLogin.setText("Iniciar sesión");
+                                                Toast.makeText(getContext(),
+                                                        "Sesión iniciada (error al actualizar perfil)",
+                                                        Toast.LENGTH_SHORT).show();
+                                                Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+                                            });
                                 })
                                 .addOnFailureListener(e -> {
-                                    // Si falla la actualización, igual permitir continuar
+                                    // Error al consultar Firestore
                                     showLoading(false);
+                                    btnLogin.setEnabled(true);
                                     btnLogin.setText("Iniciar sesión");
                                     Toast.makeText(getContext(),
-                                            "Sesión iniciada (error al actualizar perfil)",
-                                            Toast.LENGTH_SHORT).show();
-                                    Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+                                            "Error al verificar estado de la cuenta: " + e.getMessage(),
+                                            Toast.LENGTH_LONG).show();
+                                    auth.signOut();
                                 });
                     });
                 });
