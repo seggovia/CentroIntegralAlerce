@@ -244,17 +244,12 @@ public class SettingsFragment extends Fragment {
 
         android.util.Log.d("SettingsFragment", "✅ Sesión cerrada");
 
-        // Navegar al login
-        NavHostFragment.findNavController(this)
-                .navigate(R.id.action_settingsFragment_to_loginFragment);
-
         // Mostrar mensaje
         Toast.makeText(getContext(), "Sesión cerrada exitosamente", Toast.LENGTH_SHORT).show();
 
-        // Limpiar back stack para que no pueda volver atrás
-        if (getActivity() != null) {
-            getActivity().finish();
-        }
+        // Navegar al login (el popUpTo en nav_graph limpia el back stack automáticamente)
+        NavHostFragment.findNavController(this)
+                .navigate(R.id.action_settingsFragment_to_loginFragment);
     }
 
     @Override
