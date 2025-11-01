@@ -856,7 +856,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     }
 
     /**
-     * Renderiza los archivos adjuntos con botón para ver/descargar
+     * Renderiza los archivos adjuntos con botón para ver/descargar/eliminar
+     */
+    /**
+     * Renderiza los archivos adjuntos con botón para ver/descargar/eliminar
      */
     private void renderizarArchivosAdjuntos(List<Map<String, Object>> adjuntos) {
         if (llAdjuntos == null) return;
@@ -868,14 +871,27 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             return;
         }
 
-        // Crear botón para abrir el sheet de archivos
+        // ✅ Crear botón CON EL ESTILO ORIGINAL (sin color azul)
         MaterialButton btnVerArchivos = new MaterialButton(requireContext());
         btnVerArchivos.setText(adjuntos.size() + " archivo(s) adjunto(s) - Ver/Descargar/Eliminar");
         btnVerArchivos.setIcon(requireContext().getDrawable(android.R.drawable.ic_menu_view));
+
+        // ✅ SIN modificar colores - usa el estilo por defecto del tema
         btnVerArchivos.setOnClickListener(v -> {
-            // Abrir el ArchivosListSheet para ver, descargar y eliminar archivos
-            ArchivosListSheet sheet = ArchivosListSheet.newInstance(adjuntos, "Archivos adjuntos", actividadId, true);
-            sheet.show(getParentFragmentManager(), "archivos_list");
+            // Abrir ArchivosListSheetConEliminar para poder eliminar archivos
+            ArchivosListSheetConEliminar sheet = ArchivosListSheetConEliminar.newInstance(
+                    adjuntos,
+                    "Archivos adjuntos",
+                    actividadId
+            );
+
+            // Listener para recargar cuando se cierre el sheet
+            sheet.setOnDismissListener(() -> {
+                android.util.Log.d("ModificarActividad", "🔄 Sheet cerrado, recargando actividad...");
+                precargar(); // Recargar toda la actividad para reflejar cambios
+            });
+
+            sheet.show(getParentFragmentManager(), "archivos_list_eliminar");
         });
 
         llAdjuntos.addView(btnVerArchivos);

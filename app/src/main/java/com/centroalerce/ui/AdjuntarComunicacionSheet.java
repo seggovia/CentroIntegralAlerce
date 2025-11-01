@@ -18,6 +18,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
@@ -82,8 +83,8 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
         String actividadId = getArguments() != null ? getArguments().getString("actividadId", "") : "";
 
         TextView tvArchivo = v.findViewById(id("tvArchivo"));
-        Button btnSeleccionar = v.findViewById(id("btnSeleccionarArchivo"));
-        Button btnSubir = v.findViewById(id("btnSubir"));
+        com.google.android.material.button.MaterialButton btnSeleccionar = v.findViewById(id("btnSeleccionarArchivo")); // ✅ CORREGIDO
+        com.google.android.material.button.MaterialButton btnSubir = v.findViewById(id("btnSubir")); // ✅ CORREGIDO
 
         btnSeleccionar.setOnClickListener(view -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -102,10 +103,18 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
                 return;
             }
 
+            // ✅ Cambiar texto del botón mientras sube
+            btnSubir.setEnabled(false);
+            btnSubir.setText("Subiendo archivo...");
+            btnSubir.setIcon(null);
+
             FirebaseStorage storage = FirebaseStorage.getInstance();
             String fileName = obtenerNombreArchivo(fileUri);
-            StorageReference ref =
-                    storage.getReference().child("activities").child(actividadId).child("adjuntos").child(fileName);
+            StorageReference ref = storage.getReference()
+                    .child("activities")
+                    .child(actividadId)
+                    .child("attachments")
+                    .child(fileName);
 
             // Subir a Storage y luego guardar metadata
             ref.putFile(fileUri)
@@ -116,30 +125,56 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
                     .addOnSuccessListener(download -> {
                         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-                        Map<String,Object> meta = new HashMap<>();
+                        Map<String, Object> meta = new HashMap<>();
                         meta.put("nombre", fileName);
+                        meta.put("name", fileName);
                         meta.put("url", download.toString());
-                        meta.put("creadoEn", FieldValue.serverTimestamp());
+                        meta.put("creadoEn", Timestamp.now());
 
-                        // subcolección (para queries ordenadas)
+                        // Subcolección (para queries ordenadas)
                         db.collection("activities").document(actividadId)
-                                .collection("adjuntos").add(meta);
+                                .collection("adjuntos").add(meta)
+                                .addOnSuccessListener(docRef -> {
+                                    // Agregar el ID del documento al metadata
+                                    meta.put("id", docRef.getId());
+                                    docRef.update("id", docRef.getId());
 
-                        // espejo en array del doc principal (opcional)
-                        db.collection("activities").document(actividadId)
-                                .update("adjuntos", FieldValue.arrayUnion(meta));
+                                    // ✅ Actualizar array en el documento principal
+                                    db.collection("activities").document(actividadId)
+                                            .update("adjuntos", FieldValue.arrayUnion(meta))
+                                            .addOnSuccessListener(aVoid -> {
+                                                // También actualizar en colección ES
+                                                db.collection("actividades").document(actividadId)
+                                                        .update("adjuntos", FieldValue.arrayUnion(meta));
+                                            });
 
-                        // Notifica al detalle para que recargue
-                        Bundle res = new Bundle();
-                        res.putBoolean("adjunto_subido", true);
-                        getParentFragmentManager().setFragmentResult("adjuntos_change", res);
+                                    // Notifica al detalle para que recargue
+                                    Bundle res = new Bundle();
+                                    res.putBoolean("adjunto_subido", true);
+                                    res.putLong("timestamp", System.currentTimeMillis());
+                                    getParentFragmentManager().setFragmentResult("adjuntos_change", res);
 
-                        Toast.makeText(requireContext(), "Adjunto subido", Toast.LENGTH_SHORT).show();
-                        dismiss();
+                                    try {
+                                        requireActivity().getSupportFragmentManager()
+                                                .setFragmentResult("adjuntos_change", res);
+                                    } catch (Exception ignore) {}
+
+                                    Toast.makeText(requireContext(), "✅ Archivo adjuntado", Toast.LENGTH_SHORT).show();
+                                    dismiss();
+                                })
+                                .addOnFailureListener(e -> {
+                                    btnSubir.setEnabled(true);
+                                    btnSubir.setText("Guardar archivo");
+                                    btnSubir.setIcon(requireContext().getDrawable(android.R.drawable.ic_menu_upload));
+                                    Toast.makeText(requireContext(), "Error al guardar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                });
                     })
-                    .addOnFailureListener(e ->
-                            Toast.makeText(requireContext(), "Error al subir: " + e.getMessage(), Toast.LENGTH_LONG).show()
-                    );
+                    .addOnFailureListener(e -> {
+                        btnSubir.setEnabled(true);
+                        btnSubir.setText("Guardar archivo");
+                        btnSubir.setIcon(requireContext().getDrawable(android.R.drawable.ic_menu_upload));
+                        Toast.makeText(requireContext(), "Error al subir: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    });
         });
     }
 
