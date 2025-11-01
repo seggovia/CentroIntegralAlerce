@@ -1,5 +1,7 @@
 package com.centroalerce.ui;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -7,18 +9,25 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.models.Beneficiario;
 import com.centroalerce.gestion.repositories.LugarRepository;
 import com.centroalerce.gestion.utils.ActividadValidator;
 import com.centroalerce.gestion.utils.DateUtils;
 import com.centroalerce.gestion.utils.ValidationResult;
+import com.centroalerce.ui.mantenedores.dialog.BeneficiariosPickerSheet;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.Timestamp;
@@ -70,6 +79,16 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     private TextInputEditText etNombre, etCupo, etBeneficiarios, etDiasAviso;
     private AutoCompleteTextView actTipo, actPeriodicidad, actLugar, actOferente, actSocio, actProyecto;
 
+    // UI para archivos adjuntos
+    private LinearLayout llAdjuntos;
+
+    // UI para beneficiarios
+    private MaterialCardView btnBeneficiarios;
+    private TextView tvBeneficiariosHint;
+    private ChipGroup chipsBeneficiarios;
+    private final List<Beneficiario> beneficiariosSeleccionados = new ArrayList<>();
+    private final List<String> beneficiariosSeleccionadosIds = new ArrayList<>();
+
     // Fallbacks
     private final String[] tiposFijos = new String[]{
             "Capacitación","Taller","Charlas","Atenciones","Operativo en oficina","Operativo rural","Operativo","Práctica profesional","Diagnostico"
@@ -98,6 +117,25 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         actOferente = v.findViewById(R.id.actOferente);
         actSocio = v.findViewById(R.id.actSocio);
         actProyecto = v.findViewById(R.id.actProyecto);
+
+        // Referencias UI para archivos adjuntos
+        llAdjuntos = v.findViewById(R.id.llAdjuntos);
+
+        // Referencias UI para beneficiarios
+        btnBeneficiarios = v.findViewById(R.id.btnBeneficiarios);
+        tvBeneficiariosHint = v.findViewById(R.id.tvBeneficiariosHint);
+        chipsBeneficiarios = v.findViewById(R.id.chipsBeneficiarios);
+
+        // Listener para abrir selector de beneficiarios
+        if (btnBeneficiarios != null) {
+            btnBeneficiarios.setOnClickListener(view -> abrirSelectorBeneficiarios());
+        }
+
+        // Listener para recargar adjuntos cuando se eliminan
+        getParentFragmentManager().setFragmentResultListener("adjuntos_change", getViewLifecycleOwner(),
+                (req, bundle) -> precargar());
+        requireActivity().getSupportFragmentManager().setFragmentResultListener("adjuntos_change", getViewLifecycleOwner(),
+                (req, bundle) -> precargar());
 
         // Estáticos
         actPeriodicidad.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, periodicidades));
@@ -162,6 +200,12 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 firstNonEmpty(doc.getString("socio_nombre"), doc.getString("socioComunitario")));
         selectByIdOrName(actProyecto, firstNonEmpty(doc.getString("proyecto_id"), doc.getString("project_id"), doc.getString("proyecto")),
                 firstNonEmpty(doc.getString("proyectoNombre"), doc.getString("proyecto")));
+
+        // Cargar archivos adjuntos
+        cargarArchivosAdjuntos(doc);
+
+        // Cargar beneficiarios seleccionados
+        cargarBeneficiariosDesdeDocumento(doc);
     }
 
     // ================== Guardar ==================
@@ -324,9 +368,21 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
         if (!TextUtils.isEmpty(socio)) up.put("socioComunitario", socio);
 
-        if (!TextUtils.isEmpty(beneficiariosTxt)) {
+        // Beneficiarios: priorizar la selección con chips, fallback a texto
+        if (!beneficiariosSeleccionados.isEmpty()) {
+            // Guardar IDs y nombres de beneficiarios seleccionados con chips
+            List<String> nombresSeleccionados = new ArrayList<>();
+            for (Beneficiario b : beneficiariosSeleccionados) {
+                nombresSeleccionados.add(b.getNombre());
+            }
+            up.put("beneficiarios", nombresSeleccionados);
+            up.put("beneficiariosNombres", nombresSeleccionados);
+            up.put("beneficiarios_ids", beneficiariosSeleccionadosIds);
+            up.put("beneficiariosIds", beneficiariosSeleccionadosIds);
+        } else if (!TextUtils.isEmpty(beneficiariosTxt)) {
+            // Fallback: usar texto de beneficiarios si no hay selección con chips
             up.put("beneficiariosTexto", beneficiariosTxt);
-            // si quieres mantener también array:
+            // Convertir texto a array
             java.util.List<String> lista = new java.util.ArrayList<>();
             for (String s : beneficiariosTxt.split(",")) {
                 String t = s.trim(); if (!t.isEmpty()) lista.add(t);
@@ -546,5 +602,221 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         void onConflictoDetectado(String mensaje);
         void onSinConflictos();
         void onError(String error);
+    }
+
+    // ==================== ARCHIVOS ADJUNTOS ====================
+
+    /**
+     * Carga archivos adjuntos desde el documento de Firestore
+     */
+    private void cargarArchivosAdjuntos(DocumentSnapshot doc) {
+        if (llAdjuntos == null) return;
+
+        // 1) Intentar cargar desde el campo del documento
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> adjDoc = (List<Map<String, Object>>) doc.get("adjuntos");
+        if (adjDoc == null || adjDoc.isEmpty()) {
+            // Fallback al alias "attachments"
+            //noinspection unchecked
+            adjDoc = (List<Map<String, Object>>) doc.get("attachments");
+        }
+
+        if (adjDoc != null && !adjDoc.isEmpty()) {
+            renderizarArchivosAdjuntos(adjDoc);
+        } else {
+            // 2) Fallback: cargar desde subcolecciones
+            cargarAdjuntosDesdeSubcolecciones(doc.getReference());
+        }
+    }
+
+    /**
+     * Carga adjuntos desde subcolecciones si no están en el documento principal
+     */
+    private void cargarAdjuntosDesdeSubcolecciones(DocumentReference actRef) {
+        // Intentar en orden: adjuntos -> attachments -> archivos
+        actRef.collection("adjuntos").get()
+                .addOnSuccessListener(q -> {
+                    if (q != null && !q.isEmpty()) {
+                        renderizarArchivosAdjuntos(mapDocsToList(q));
+                    } else {
+                        actRef.collection("attachments").get()
+                                .addOnSuccessListener(q2 -> {
+                                    if (q2 != null && !q2.isEmpty()) {
+                                        renderizarArchivosAdjuntos(mapDocsToList(q2));
+                                    } else {
+                                        actRef.collection("archivos").get()
+                                                .addOnSuccessListener(q3 -> {
+                                                    if (q3 != null && !q3.isEmpty()) {
+                                                        renderizarArchivosAdjuntos(mapDocsToList(q3));
+                                                    } else {
+                                                        mostrarMensajeSinAdjuntos();
+                                                    }
+                                                })
+                                                .addOnFailureListener(e -> mostrarMensajeSinAdjuntos());
+                                    }
+                                })
+                                .addOnFailureListener(e -> mostrarMensajeSinAdjuntos());
+                    }
+                })
+                .addOnFailureListener(e -> mostrarMensajeSinAdjuntos());
+    }
+
+    /**
+     * Convierte QuerySnapshot a lista de mapas
+     */
+    private List<Map<String, Object>> mapDocsToList(QuerySnapshot qs) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (DocumentSnapshot d : qs.getDocuments()) {
+            Map<String, Object> m = new HashMap<>();
+            String name = d.getString("name");
+            if (TextUtils.isEmpty(name)) name = d.getString("nombre");
+            String url = d.getString("url");
+            if (!TextUtils.isEmpty(name)) m.put("name", name);
+            if (!TextUtils.isEmpty(name)) m.put("nombre", name);
+            if (!TextUtils.isEmpty(url)) m.put("url", url);
+            list.add(m);
+        }
+        return list;
+    }
+
+    /**
+     * Renderiza los archivos adjuntos con botón para ver/descargar
+     */
+    private void renderizarArchivosAdjuntos(List<Map<String, Object>> adjuntos) {
+        if (llAdjuntos == null) return;
+
+        llAdjuntos.removeAllViews();
+
+        if (adjuntos == null || adjuntos.isEmpty()) {
+            mostrarMensajeSinAdjuntos();
+            return;
+        }
+
+        // Crear botón para abrir el sheet de archivos
+        MaterialButton btnVerArchivos = new MaterialButton(requireContext());
+        btnVerArchivos.setText(adjuntos.size() + " archivo(s) adjunto(s) - Ver/Descargar/Eliminar");
+        btnVerArchivos.setIcon(requireContext().getDrawable(android.R.drawable.ic_menu_view));
+        btnVerArchivos.setOnClickListener(v -> {
+            // Abrir el ArchivosListSheet para ver, descargar y eliminar archivos
+            ArchivosListSheet sheet = ArchivosListSheet.newInstance(adjuntos, "Archivos adjuntos", actividadId, true);
+            sheet.show(getParentFragmentManager(), "archivos_list");
+        });
+
+        llAdjuntos.addView(btnVerArchivos);
+    }
+
+    /**
+     * Muestra mensaje cuando no hay archivos adjuntos
+     */
+    private void mostrarMensajeSinAdjuntos() {
+        if (llAdjuntos == null) return;
+
+        llAdjuntos.removeAllViews();
+
+        TextView tvSinArchivos = new TextView(requireContext());
+        tvSinArchivos.setText("Sin archivos adjuntos");
+        tvSinArchivos.setTextColor(0xFF6B7280);
+        tvSinArchivos.setTextSize(14);
+        tvSinArchivos.setPadding(0, 8, 0, 8);
+
+        llAdjuntos.addView(tvSinArchivos);
+    }
+
+    // ==================== BENEFICIARIOS ====================
+
+    /**
+     * Carga los beneficiarios seleccionados desde el documento
+     */
+    private void cargarBeneficiariosDesdeDocumento(DocumentSnapshot doc) {
+        beneficiariosSeleccionados.clear();
+        beneficiariosSeleccionadosIds.clear();
+
+        // Intentar cargar IDs de beneficiarios
+        @SuppressWarnings("unchecked")
+        List<String> ids = (List<String>) doc.get("beneficiarios_ids");
+        if (ids == null || ids.isEmpty()) {
+            //noinspection unchecked
+            ids = (List<String>) doc.get("beneficiariosIds");
+        }
+
+        // Intentar cargar nombres de beneficiarios
+        @SuppressWarnings("unchecked")
+        List<String> nombres = (List<String>) doc.get("beneficiarios");
+        if (nombres == null || nombres.isEmpty()) {
+            //noinspection unchecked
+            nombres = (List<String>) doc.get("beneficiariosNombres");
+        }
+
+        // Si tenemos IDs y nombres, crear objetos Beneficiario
+        if (ids != null && !ids.isEmpty() && nombres != null && !nombres.isEmpty()) {
+            int count = Math.min(ids.size(), nombres.size());
+            for (int i = 0; i < count; i++) {
+                String id = ids.get(i);
+                String nombre = nombres.get(i);
+                beneficiariosSeleccionadosIds.add(id);
+                beneficiariosSeleccionados.add(new Beneficiario(id, nombre, null));
+            }
+            renderChipsBeneficiarios();
+        } else if (nombres != null && !nombres.isEmpty()) {
+            // Solo tenemos nombres, usarlos como ID y nombre
+            for (String nombre : nombres) {
+                beneficiariosSeleccionadosIds.add(nombre);
+                beneficiariosSeleccionados.add(new Beneficiario(nombre, nombre, null));
+            }
+            renderChipsBeneficiarios();
+        }
+    }
+
+    /**
+     * Abre el selector de beneficiarios
+     */
+    private void abrirSelectorBeneficiarios() {
+        BeneficiariosPickerSheet sheet = BeneficiariosPickerSheet.newInstance(beneficiariosSeleccionadosIds);
+        sheet.setListener(seleccionados -> {
+            beneficiariosSeleccionados.clear();
+            beneficiariosSeleccionados.addAll(seleccionados);
+
+            beneficiariosSeleccionadosIds.clear();
+            for (Beneficiario b : seleccionados) {
+                beneficiariosSeleccionadosIds.add(b.getId());
+            }
+
+            renderChipsBeneficiarios();
+        });
+        sheet.show(getParentFragmentManager(), "beneficiarios_picker");
+    }
+
+    /**
+     * Renderiza los chips de beneficiarios seleccionados
+     */
+    private void renderChipsBeneficiarios() {
+        if (chipsBeneficiarios == null) return;
+
+        chipsBeneficiarios.removeAllViews();
+
+        if (beneficiariosSeleccionados.isEmpty()) {
+            if (tvBeneficiariosHint != null) {
+                tvBeneficiariosHint.setText("Seleccionar beneficiarios");
+                tvBeneficiariosHint.setVisibility(View.VISIBLE);
+            }
+            return;
+        }
+
+        if (tvBeneficiariosHint != null) {
+            tvBeneficiariosHint.setVisibility(View.GONE);
+        }
+
+        for (Beneficiario b : beneficiariosSeleccionados) {
+            Chip chip = new Chip(requireContext());
+            chip.setText(b.getNombre());
+            chip.setCloseIconVisible(true);
+            chip.setCheckable(false);
+            chip.setOnCloseIconClickListener(v -> {
+                beneficiariosSeleccionadosIds.remove(b.getId());
+                beneficiariosSeleccionados.remove(b);
+                renderChipsBeneficiarios();
+            });
+            chipsBeneficiarios.addView(chip);
+        }
     }
 }

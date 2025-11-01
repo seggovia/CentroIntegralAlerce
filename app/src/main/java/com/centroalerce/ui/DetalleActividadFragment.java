@@ -164,7 +164,8 @@ public class DetalleActividadFragment extends Fragment {
         set(tvMotivoCancelacion, "Motivo de cancelación: " + orDash(doc.getString("motivo_cancelacion")));
         set(tvFechaCancelacion,  "Fecha de cancelación: " + fmtDate(asDate(doc.get("fecha_cancelacion"))));
 
-        // TODO: si manejas adjuntos, aquí recárgalos en llAdjuntos (query a subcolección)
+        // Mostrar mensaje informativo sobre archivos adjuntos
+        mostrarMensajeArchivosAdjuntos();
     }
 
     // ========= Helpers =========
@@ -199,5 +200,41 @@ public class DetalleActividadFragment extends Fragment {
         if (xs==null) return null;
         for (Long x: xs){ if (x!=null) return x; }
         return null;
+    }
+
+    /**
+     * Muestra un mensaje informativo en amarillo sobre archivos adjuntos
+     * SIEMPRE muestra solo el mensaje, sin cargar los archivos adjuntos
+     */
+    private void mostrarMensajeArchivosAdjuntos() {
+        if (llAdjuntos == null) return;
+
+        // Limpiar cualquier contenido previo
+        llAdjuntos.removeAllViews();
+
+        // Crear TextView con mensaje informativo en amarillo
+        TextView tvMensaje = new TextView(requireContext());
+        tvMensaje.setText("ℹ️ Para ver y gestionar los archivos adjuntos, utiliza el botón 'Modificar'");
+        tvMensaje.setTextColor(0xFFF59E0B); // Amarillo/Ámbar (#F59E0B)
+        tvMensaje.setTextSize(14);
+        tvMensaje.setPadding(16, 12, 16, 12);
+
+        // Agregar bordes redondeados y fondo con borde
+        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+        shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        shape.setCornerRadius(12); // Bordes redondeados
+        shape.setColor(0xFFFEF3C7); // Fondo amarillo claro (#FEF3C7)
+        shape.setStroke(2, 0xFFF59E0B); // Borde amarillo (#F59E0B)
+        tvMensaje.setBackground(shape);
+
+        // Agregar margen vertical para separación
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, 8, 0, 8);
+        tvMensaje.setLayoutParams(params);
+
+        llAdjuntos.addView(tvMensaje);
     }
 }

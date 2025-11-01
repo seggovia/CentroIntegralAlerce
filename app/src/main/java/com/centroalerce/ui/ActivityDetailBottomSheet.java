@@ -245,17 +245,13 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         subscribeCita(actividadId, citaId);
         loadActividad(actividadId);
         loadCita(actividadId, citaId);
-        loadAdjuntosAll(actividadId, citaId);
+        mostrarMensajeArchivosAdjuntos();
 
         // Listeners de resultados (ambos managers)
-        getParentFragmentManager().setFragmentResultListener("adjuntos_change", getViewLifecycleOwner(),
-                (req,b) -> loadAdjuntosAll(actividadId, citaId));
         getParentFragmentManager().setFragmentResultListener("actividad_change", getViewLifecycleOwner(),
-                (req,b) -> { loadActividad(actividadId); loadCita(actividadId, citaId); loadAdjuntosAll(actividadId, citaId); });
-        requireActivity().getSupportFragmentManager().setFragmentResultListener("adjuntos_change", getViewLifecycleOwner(),
-                (req,b) -> loadAdjuntosAll(actividadId, citaId));
+                (req,b) -> { loadActividad(actividadId); loadCita(actividadId, citaId); });
         requireActivity().getSupportFragmentManager().setFragmentResultListener("actividad_change", getViewLifecycleOwner(),
-                (req,b) -> { loadActividad(actividadId); loadCita(actividadId, citaId); loadAdjuntosAll(actividadId, citaId); });
+                (req,b) -> { loadActividad(actividadId); loadCita(actividadId, citaId); });
     }
 
 
@@ -724,6 +720,42 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private void showPlaceholderIfEmpty() {
         if (llAdjuntos == null) return;
         if (llAdjuntos.getChildCount() == 0) addNoFilesRow();
+    }
+
+    /**
+     * Muestra un mensaje informativo en amarillo sobre archivos adjuntos
+     * SIEMPRE muestra solo el mensaje, sin cargar los archivos adjuntos
+     */
+    private void mostrarMensajeArchivosAdjuntos() {
+        if (llAdjuntos == null) return;
+
+        // Limpiar cualquier contenido previo
+        llAdjuntos.removeAllViews();
+
+        // Crear TextView con mensaje informativo en amarillo
+        TextView tvMensaje = new TextView(requireContext());
+        tvMensaje.setText("ℹ️ Para ver y gestionar los archivos adjuntos, utiliza el botón 'Modificar'");
+        tvMensaje.setTextColor(0xFFF59E0B); // Amarillo/Ámbar (#F59E0B)
+        tvMensaje.setTextSize(14);
+        tvMensaje.setPadding(dp(16), dp(12), dp(16), dp(12));
+
+        // Agregar bordes redondeados y fondo con borde
+        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+        shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        shape.setCornerRadius(dp(12)); // Bordes redondeados
+        shape.setColor(0xFFFEF3C7); // Fondo amarillo claro (#FEF3C7)
+        shape.setStroke(dp(2), 0xFFF59E0B); // Borde amarillo (#F59E0B)
+        tvMensaje.setBackground(shape);
+
+        // Agregar margen vertical para separación
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, dp(8), 0, dp(8));
+        tvMensaje.setLayoutParams(params);
+
+        llAdjuntos.addView(tvMensaje);
     }
 
     // ---------- UI helpers ----------
