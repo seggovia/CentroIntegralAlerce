@@ -54,7 +54,7 @@
             android:padding="16dp"
             android:orientation="vertical">
 
-            <!-- Nombre del oferente -->
+            <!-- ✅ Nombre del oferente con contador -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilNombre"
                 style="@style/TextInputLayout.Alerce"
@@ -63,7 +63,9 @@
                 android:hint="Nombre del oferente *"
                 app:startIconDrawable="@android:drawable/ic_menu_myplaces"
                 app:startIconTint="@color/primary"
-                app:endIconMode="clear_text">
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="50">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etNombre"
@@ -71,19 +73,22 @@
                     android:layout_height="wrap_content"
                     android:textColor="@color/textPrimary"
                     android:textSize="16sp"
+                    android:maxLength="100"
                     android:inputType="textCapWords"/>
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Docente responsable -->
+            <!-- ✅ Docente responsable con contador -->
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:hint="Docente responsable"
+                android:hint="Docente responsable (opcional)"
                 app:startIconDrawable="@android:drawable/ic_menu_share"
                 app:startIconTint="@color/primary"
-                app:endIconMode="clear_text">
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="50">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etDocente"
@@ -91,19 +96,22 @@
                     android:layout_height="wrap_content"
                     android:textColor="@color/textPrimary"
                     android:textSize="16sp"
+                    android:maxLength="100"
                     android:inputType="textCapWords"/>
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Carrera -->
+            <!-- ✅ Carrera con contador -->
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:hint="Carrera"
+                android:hint="Carrera (opcional)"
                 app:startIconDrawable="@android:drawable/ic_menu_info_details"
                 app:startIconTint="@color/primary"
-                app:endIconMode="clear_text">
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="50">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etCarrera"
@@ -111,6 +119,7 @@
                     android:layout_height="wrap_content"
                     android:textColor="@color/textPrimary"
                     android:textSize="16sp"
+                    android:maxLength="150"
                     android:inputType="textCapWords"/>
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>

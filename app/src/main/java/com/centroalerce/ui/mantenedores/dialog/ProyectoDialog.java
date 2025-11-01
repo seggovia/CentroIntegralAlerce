@@ -4,6 +4,7 @@ import android.app.Dialog;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,6 +15,7 @@ import androidx.fragment.app.DialogFragment;
 
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.Proyecto;
+import com.centroalerce.gestion.utils.ValidationUtils;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
@@ -39,9 +41,15 @@ public class ProyectoDialog extends DialogFragment {
         final TextInputEditText etDescripcion = v.findViewById(R.id.etDescripcion);
         final MaterialButton btnCancelar = v.findViewById(R.id.btnCancelar);
         final MaterialButton btnGuardar = v.findViewById(R.id.btnGuardar);
+
         com.google.android.material.textfield.TextInputLayout tilNombre = null;
+        com.google.android.material.textfield.TextInputLayout tilDescripcion = null;
+
         try { tilNombre = (com.google.android.material.textfield.TextInputLayout) ((View) etNombre.getParent()).getParent(); } catch (Exception ignore) {}
+        try { tilDescripcion = (com.google.android.material.textfield.TextInputLayout) ((View) etDescripcion.getParent()).getParent(); } catch (Exception ignore) {}
+
         final com.google.android.material.textfield.TextInputLayout tilNombreRef = tilNombre;
+        final com.google.android.material.textfield.TextInputLayout tilDescripcionRef = tilDescripcion;
 
         if (original != null) {
             if (etNombre != null) etNombre.setText(original.getNombre());
@@ -56,6 +64,15 @@ public class ProyectoDialog extends DialogFragment {
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         }
 
+        // ✅ Limpiar errores al escribir
+        etNombre.addTextChangedListener(new SimpleWatcher(() -> {
+            if (tilNombreRef != null) tilNombreRef.setError(null);
+        }));
+
+        etDescripcion.addTextChangedListener(new SimpleWatcher(() -> {
+            if (tilDescripcionRef != null) tilDescripcionRef.setError(null);
+        }));
+
         if (btnCancelar != null) {
             btnCancelar.setOnClickListener(view -> dialog.dismiss());
         }
@@ -67,17 +84,62 @@ public class ProyectoDialog extends DialogFragment {
                     nombre = etNombre.getText().toString().trim();
                 }
 
-                // Validar nombre obligatorio
-                if (TextUtils.isEmpty(nombre)) {
-                    if (tilNombreRef != null) { tilNombreRef.setError("El nombre es obligatorio"); tilNombreRef.setErrorEnabled(true); }
-                    else if (etNombre != null) etNombre.setError("El nombre es obligatorio");
+                String descripcion = "";
+                if (etDescripcion != null && etDescripcion.getText() != null) {
+                    descripcion = etDescripcion.getText().toString().trim();
+                }
+
+                // ===== VALIDACIONES =====
+
+                // 1️⃣ Nombre obligatorio
+                if (!ValidationUtils.isNotEmpty(nombre)) {
+                    if (tilNombreRef != null) {
+                        tilNombreRef.setError(ValidationUtils.getErrorRequired());
+                        tilNombreRef.setErrorEnabled(true);
+                    }
+                    else if (etNombre != null) etNombre.setError(ValidationUtils.getErrorRequired());
                     if (etNombre != null) etNombre.requestFocus();
                     return;
                 }
 
-                String descripcion = "";
-                if (etDescripcion != null && etDescripcion.getText() != null) {
-                    descripcion = etDescripcion.getText().toString().trim();
+                // 2️⃣ Nombre mínimo 3 caracteres
+                if (!ValidationUtils.hasMinLength(nombre, 3)) {
+                    if (tilNombreRef != null) {
+                        tilNombreRef.setError(ValidationUtils.getErrorMinLength(3));
+                        tilNombreRef.setErrorEnabled(true);
+                    }
+                    if (etNombre != null) etNombre.requestFocus();
+                    return;
+                }
+
+                // 3️⃣ Nombre máximo 150 caracteres
+                if (!ValidationUtils.hasMaxLength(nombre, 150)) {
+                    if (tilNombreRef != null) {
+                        tilNombreRef.setError(ValidationUtils.getErrorMaxLength(150));
+                        tilNombreRef.setErrorEnabled(true);
+                    }
+                    if (etNombre != null) etNombre.requestFocus();
+                    return;
+                }
+
+                // 4️⃣ Descripción máximo 1000 caracteres (opcional)
+                if (ValidationUtils.isNotEmpty(descripcion) && !ValidationUtils.hasMaxLength(descripcion, 1000)) {
+                    if (tilDescripcionRef != null) {
+                        tilDescripcionRef.setError(ValidationUtils.getErrorMaxLength(1000));
+                        tilDescripcionRef.setErrorEnabled(true);
+                    }
+                    if (etDescripcion != null) etDescripcion.requestFocus();
+                    return;
+                }
+
+                // 5️⃣ Caracteres seguros
+                if (!ValidationUtils.isSafeText(nombre) || !ValidationUtils.isSafeText(descripcion)) {
+                    if (tilNombreRef != null) {
+                        tilNombreRef.setError(ValidationUtils.getErrorUnsafeCharacters());
+                        tilNombreRef.setErrorEnabled(true);
+                    }
+                    if (etNombre != null) etNombre.requestFocus();
+                    return;
                 }
 
                 Proyecto p = (original == null)
@@ -90,5 +152,13 @@ public class ProyectoDialog extends DialogFragment {
         }
 
         return dialog;
+    }
+
+    private static class SimpleWatcher implements android.text.TextWatcher {
+        private final Runnable onAfter;
+        SimpleWatcher(Runnable onAfter) { this.onAfter = onAfter; }
+        @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+        @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+        @Override public void afterTextChanged(Editable s) { onAfter.run(); }
     }
 }

@@ -54,7 +54,7 @@
             android:padding="16dp"
             android:orientation="vertical">
 
-            <!-- Nombre -->
+            <!-- ✅ Nombre con contador -->
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
@@ -62,7 +62,11 @@
                 android:hint="Nombre *"
                 app:startIconDrawable="@android:drawable/ic_menu_myplaces"
                 app:startIconTint="@color/primary"
-                app:endIconMode="clear_text">
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="50"
+                app:helperText="Nombre del socio comunitario u organización"
+                app:helperTextTextColor="@color/textSecondary">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etNombre"
@@ -70,10 +74,11 @@
                     android:layout_height="wrap_content"
                     android:textColor="@color/textPrimary"
                     android:textSize="16sp"
+                    android:maxLength="150"
                     android:inputType="textCapWords"/>
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Descripción -->
+            <!-- ✅ Descripción con contador -->
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
@@ -82,7 +87,11 @@
                 android:hint="Descripción (opcional)"
                 app:startIconDrawable="@android:drawable/ic_menu_info_details"
                 app:startIconTint="@color/primary"
-                app:endIconMode="clear_text">
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="500"
+                app:helperText="Describe la organización y su propósito"
+                app:helperTextTextColor="@color/textSecondary">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etDescripcion"
@@ -91,11 +100,13 @@
                     android:textColor="@color/textPrimary"
                     android:textSize="16sp"
                     android:minLines="2"
+                    android:maxLines="5"
+                    android:maxLength="500"
                     android:gravity="top"
                     android:inputType="textCapSentences|textMultiLine"/>
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Caracterización beneficiarios -->
+            <!-- ✅ Caracterización beneficiarios con contador -->
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
@@ -104,7 +115,11 @@
                 android:hint="Caracterización beneficiarios (opcional)"
                 app:startIconDrawable="@android:drawable/ic_menu_agenda"
                 app:startIconTint="@color/primary"
-                app:endIconMode="clear_text">
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="500"
+                app:helperText="Describe el perfil de los beneficiarios atendidos"
+                app:helperTextTextColor="@color/textSecondary">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etCaracterizacion"
@@ -113,6 +128,8 @@
                     android:textColor="@color/textPrimary"
                     android:textSize="16sp"
                     android:minLines="2"
+                    android:maxLines="5"
+                    android:maxLength="500"
                     android:gravity="top"
                     android:inputType="textCapSentences|textMultiLine"/>
             </com.google.android.material.textfield.TextInputLayout>
@@ -124,13 +141,15 @@
             android:layout_height="1dp"
             android:background="@color/cardStroke"/>
 
-        <!-- Botones -->
+        <!-- Botones fijos en la parte inferior -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="end"
-            android:padding="16dp">
+            android:padding="20dp"
+            android:background="@color/card_surface"
+            android:elevation="4dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancelar"
@@ -138,16 +157,18 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAllCaps="false"
-                android:text="Cancelar"/>
+                android:text="Cancelar"
+                android:minWidth="100dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnGuardar"
                 style="@style/Button.Primary.Alerce"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="12dp"
                 android:textAllCaps="false"
                 android:text="Guardar"
+                android:minWidth="100dp"
                 app:backgroundTint="@color/primary"/>
         </LinearLayout>
     </LinearLayout>

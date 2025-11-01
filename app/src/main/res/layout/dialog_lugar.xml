@@ -54,7 +54,7 @@
             android:padding="16dp"
             android:orientation="vertical">
 
-            <!-- Nombre del lugar -->
+            <!-- ✅ Nombre del lugar con contador -->
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
@@ -62,7 +62,9 @@
                 android:hint="Nombre del lugar *"
                 app:startIconDrawable="@android:drawable/ic_dialog_map"
                 app:startIconTint="@color/primary"
-                app:endIconMode="clear_text">
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="50">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etNombre"
@@ -70,10 +72,11 @@
                     android:layout_height="wrap_content"
                     android:textColor="@color/textPrimary"
                     android:textSize="16sp"
+                    android:maxLength="100"
                     android:inputType="textCapWords"/>
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Cupo (opcional) -->
+            <!-- ✅ Cupo (opcional) con rango -->
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
@@ -83,7 +86,7 @@
                 app:startIconDrawable="@android:drawable/ic_menu_myplaces"
                 app:startIconTint="@color/primary"
                 app:endIconMode="clear_text"
-                app:helperText="Capacidad máxima del lugar"
+                app:helperText="Capacidad máxima del lugar (1-100)"
                 app:helperTextTextColor="@color/textSecondary">
 
                 <com.google.android.material.textfield.TextInputEditText
@@ -92,6 +95,7 @@
                     android:layout_height="wrap_content"
                     android:textColor="@color/textPrimary"
                     android:textSize="16sp"
+                    android:maxLength="5"
                     android:inputType="number"/>
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>

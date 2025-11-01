@@ -13,6 +13,7 @@ import androidx.fragment.app.DialogFragment;
 
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.Oferente;
+import com.centroalerce.gestion.utils.ValidationUtils;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
@@ -51,10 +52,9 @@ public class OferenteDialog extends DialogFragment {
                 .setView(v)
                 .create();
 
-        // ✅ Botón siempre habilitado
         btnGuardar.setEnabled(true);
 
-        // Solo limpiar errores al escribir
+        // ✅ Limpiar errores al escribir
         etNombre.addTextChangedListener(new SimpleWatcher(() -> {
             if (tilNombre != null) tilNombre.setError(null);
         }));
@@ -66,27 +66,60 @@ public class OferenteDialog extends DialogFragment {
             String docente = safeText(etDocente);
             String carrera = safeText(etCarrera);
 
-            // Validar nombre obligatorio
-            if (TextUtils.isEmpty(nombre)) {
-                if (tilNombre != null) { 
-                    tilNombre.setError("El nombre es obligatorio"); 
-                    tilNombre.setErrorEnabled(true); 
+            // ===== VALIDACIONES =====
+
+            // 1️⃣ Nombre obligatorio
+            if (!ValidationUtils.isNotEmpty(nombre)) {
+                if (tilNombre != null) {
+                    tilNombre.setError(ValidationUtils.getErrorRequired());
+                    tilNombre.setErrorEnabled(true);
                 }
                 if (etNombre != null) etNombre.requestFocus();
                 return;
             }
 
-            // Validar que el nombre tenga al menos 3 caracteres
-            if (nombre.length() < 3) {
-                if (tilNombre != null) { 
-                    tilNombre.setError("El nombre debe tener al menos 3 caracteres"); 
-                    tilNombre.setErrorEnabled(true); 
+            // 2️⃣ Nombre mínimo 3 caracteres
+            if (!ValidationUtils.hasMinLength(nombre, 3)) {
+                if (tilNombre != null) {
+                    tilNombre.setError(ValidationUtils.getErrorMinLength(3));
+                    tilNombre.setErrorEnabled(true);
                 }
                 if (etNombre != null) etNombre.requestFocus();
                 return;
             }
 
-            // Limpiar errores antes de guardar
+            // 3️⃣ Nombre solo letras
+            if (!ValidationUtils.isValidName(nombre)) {
+                if (tilNombre != null) {
+                    tilNombre.setError(ValidationUtils.getErrorInvalidName());
+                    tilNombre.setErrorEnabled(true);
+                }
+                if (etNombre != null) etNombre.requestFocus();
+                return;
+            }
+
+            // 4️⃣ Nombre máximo 100 caracteres
+            if (!ValidationUtils.hasMaxLength(nombre, 100)) {
+                if (tilNombre != null) {
+                    tilNombre.setError(ValidationUtils.getErrorMaxLength(100));
+                    tilNombre.setErrorEnabled(true);
+                }
+                if (etNombre != null) etNombre.requestFocus();
+                return;
+            }
+
+            // 5️⃣ Validar caracteres seguros
+            if (!ValidationUtils.isSafeText(nombre) ||
+                    !ValidationUtils.isSafeText(docente) ||
+                    !ValidationUtils.isSafeText(carrera)) {
+                if (tilNombre != null) {
+                    tilNombre.setError(ValidationUtils.getErrorUnsafeCharacters());
+                    tilNombre.setErrorEnabled(true);
+                }
+                return;
+            }
+
+            // ✅ Limpiar errores antes de guardar
             if (tilNombre != null) {
                 tilNombre.setError(null);
                 tilNombre.setErrorEnabled(false);
@@ -97,7 +130,6 @@ public class OferenteDialog extends DialogFragment {
             o.setDocenteResponsable(docente);
             o.setCarrera(carrera);
 
-            // ✅ nuevos por defecto activos
             if (original == null) {
                 o.setActivo(true);
             }
@@ -109,9 +141,7 @@ public class OferenteDialog extends DialogFragment {
         return d;
     }
 
-    private String safeText(TextInputEditText et) {
-        return et != null && et.getText() != null ? et.getText().toString().trim() : "";
-    }
+
 
     private static class SimpleWatcher implements android.text.TextWatcher {
         private final Runnable onAfter;
@@ -120,4 +150,10 @@ public class OferenteDialog extends DialogFragment {
         @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
         @Override public void afterTextChanged(Editable s) { onAfter.run(); }
     }
+
+    private String safeText(TextInputEditText et) {
+        return et != null && et.getText() != null ? et.getText().toString().trim() : "";
+    }
+
+
 }

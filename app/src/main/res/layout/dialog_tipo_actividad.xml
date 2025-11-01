@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@color/card_surface"
-        android:paddingBottom="12dp">
+        android:paddingBottom="0dp">
 
         <!-- Header con gradiente -->
         <FrameLayout
@@ -48,67 +48,89 @@
             </LinearLayout>
         </FrameLayout>
 
-        <!-- Contenido -->
+        <!-- Contenido del formulario -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="16dp"
             android:orientation="vertical">
 
-            <!-- Campo: Nombre -->
+            <!-- ✅ Campo: Nombre con contador -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilNombreTipo"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="Nombre *"
                 app:startIconDrawable="@android:drawable/ic_menu_edit"
-                app:endIconMode="clear_text">
+                app:startIconTint="@color/primary"
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="50"
+                app:helperText="Nombre del tipo de actividad"
+                app:helperTextTextColor="@color/textSecondary">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etNombreTipo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@android:color/black"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:maxLength="100"
                     android:inputType="textCapSentences"
                     android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Campo: Descripción -->
+            <!-- ✅ Campo: Descripción con contador -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilDescripcionTipo"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:hint="Descripción"
+                android:hint="Descripción (opcional)"
                 app:startIconDrawable="@android:drawable/ic_menu_info_details"
-                app:endIconMode="clear_text">
+                app:startIconTint="@color/primary"
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="500"
+                app:helperText="Describe las características de este tipo"
+                app:helperTextTextColor="@color/textSecondary">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etDescripcionTipo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@android:color/black"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:maxLength="500"
                     android:inputType="textCapSentences|textMultiLine"
-                    android:maxLines="3"
-                    android:minLines="2" />
+                    android:maxLines="5"
+                    android:minLines="2"
+                    android:gravity="top" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Switch: Activo -->
+            <!-- ✅ Switch: Activo con diseño mejorado -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:padding="8dp"
+                android:padding="12dp"
                 android:background="@drawable/bg_chip_light">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@android:drawable/checkbox_on_background"
+                    app:tint="@color/primary"/>
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:layout_marginStart="12dp"
                     android:text="Tipo de actividad activo"
                     android:textSize="15sp"
                     android:textStyle="bold"
@@ -134,20 +156,21 @@
                 android:lineSpacingExtra="2dp" />
         </LinearLayout>
 
-        <!-- Divider -->
+        <!-- Línea separadora -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="@color/cardStroke"
-            android:layout_marginTop="4dp"/>
+            android:background="@color/cardStroke"/>
 
-        <!-- Botones -->
+        <!-- Botones fijos en la parte inferior -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="12dp"
+            android:padding="20dp"
             android:orientation="horizontal"
-            android:gravity="end">
+            android:gravity="end"
+            android:background="@color/card_surface"
+            android:elevation="4dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancelar"
@@ -155,7 +178,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Cancelar"
-                android:textAllCaps="false"/>
+                android:textAllCaps="false"
+                android:minWidth="100dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnGuardar"
@@ -164,7 +188,8 @@
                 android:layout_height="wrap_content"
                 android:text="Guardar"
                 android:textAllCaps="false"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="12dp"
+                android:minWidth="100dp"
                 app:backgroundTint="@color/primary"/>
         </LinearLayout>
     </LinearLayout>
