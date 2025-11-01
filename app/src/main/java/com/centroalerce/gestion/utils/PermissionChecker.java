@@ -48,11 +48,20 @@ public class PermissionChecker {
             case MARK_COMPLETED:
                 return role.canMarkCompleted();
 
+            case CREATE_ACTIVITY:
+                return role.canCreateActivity();
+
             case VIEW_MAINTAINERS:
                 return role.canViewMaintainers();
 
             case MANAGE_MAINTAINERS:
                 return role.canManageMaintainers();
+
+            case MANAGE_USERS:
+                return role.isAdmin();
+
+            case REGISTER_TO_ACTIVITY:
+                return role.canInteractWithActivities();
 
             default:
                 return false;

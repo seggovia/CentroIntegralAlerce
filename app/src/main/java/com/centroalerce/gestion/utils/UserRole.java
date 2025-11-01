@@ -87,6 +87,14 @@ public enum UserRole {
         return this == USUARIO || this == ADMINISTRADOR;
     }
 
+    /**
+     * @return true si puede crear actividades
+     * Solo USUARIO y ADMINISTRADOR
+     */
+    public boolean canCreateActivity() {
+        return this == USUARIO || this == ADMINISTRADOR;
+    }
+
     // ========== PERMISOS DE MANTENEDORES ==========
 
     /**

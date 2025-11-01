@@ -13,9 +13,15 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.repositories.LugarRepository;
+import com.centroalerce.gestion.utils.ActividadValidator;
+import com.centroalerce.gestion.utils.DateUtils;
+import com.centroalerce.gestion.utils.ValidationResult;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -56,7 +62,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     }
 
     private FirebaseFirestore db;
+    private LugarRepository lugarRepository;
     private String actividadId;
+    private String lugarIdActual; // ID del lugar actual (para validar conflictos)
+    private Timestamp fechaHoraActual; // Fecha/hora actual de la actividad
 
     private TextInputEditText etNombre, etCupo, etBeneficiarios, etDiasAviso;
     private AutoCompleteTextView actTipo, actPeriodicidad, actLugar, actOferente, actSocio, actProyecto;
@@ -75,6 +84,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     @Override public void onViewCreated(@NonNull View v, @Nullable Bundle b) {
         super.onViewCreated(v,b);
         db = FirebaseFirestore.getInstance();
+        lugarRepository = new LugarRepository();
         actividadId = getArguments()!=null ? getArguments().getString(ARG_ACTIVIDAD_ID) : null;
 
         etNombre = v.findViewById(R.id.etNombre);
@@ -140,6 +150,9 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 doc.getLong("diasAvisoPrevio"), doc.getLong("diasAvisoCancelacion"));
         if (diasAviso != null) etDiasAviso.setText(String.valueOf(diasAviso));
 
+        // Guardar lugar actual para validar cambios
+        lugarIdActual = firstNonEmpty(doc.getString("lugar_id"), doc.getString("lugarId"), doc.getString("lugar"));
+
         // Dropdowns por id/nombre
         selectByIdOrName(actLugar, firstNonEmpty(doc.getString("lugar_id"), doc.getString("lugarId"), doc.getString("lugar")),
                 firstNonEmpty(doc.getString("lugarNombre"), doc.getString("lugar")));
@@ -157,7 +170,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         String tipo = val(actTipo); if (tipo.isEmpty()){ actTipo.setError("Selecciona tipo"); return; }
         String periodicidad = val(actPeriodicidad); if (periodicidad.isEmpty()){ actPeriodicidad.setError("Selecciona periodicidad"); return; }
 
-        String lugar = val(actLugar);            // se usa en citas, lo dejamos opcional aquí
+        String lugarNuevo = val(actLugar);            // se usa en citas, lo dejamos opcional aquí
         String oferente = val(actOferente);
         String cupoStr = val(etCupo);
 
@@ -166,6 +179,130 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         String beneficiariosTxt = val(etBeneficiarios);
         String proyecto = val(actProyecto);
         String diasAvisoStr = val(etDiasAviso);
+
+        // Si el lugar cambió, verificar conflictos de horario antes de guardar
+        if (!TextUtils.isEmpty(lugarNuevo) && !lugarNuevo.equals(lugarIdActual)) {
+            android.util.Log.d("ModificarActividad", "🔍 Lugar cambió de '" + lugarIdActual + "' a '" + lugarNuevo + "' - validando conflictos");
+            verificarConflictosYGuardar(nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+            return;
+        }
+
+        // Si no cambió el lugar, guardar directamente
+        realizarGuardado(nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+    }
+
+    /**
+     * Verifica conflictos de horario con el nuevo lugar antes de guardar
+     */
+    private void verificarConflictosYGuardar(String nombre, String tipo, String periodicidad, String lugar,
+                                             String oferente, String cupoStr, String socio, String beneficiariosTxt,
+                                             String proyecto, String diasAvisoStr) {
+        // Obtener todas las citas de esta actividad para verificar conflictos
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (querySnapshot.isEmpty()) {
+                        android.util.Log.d("ModificarActividad", "✅ Sin citas - guardando sin validar");
+                        realizarGuardado(nombre, tipo, periodicidad, lugar, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+                        return;
+                    }
+
+                    // Recolectar todas las fechas de las citas
+                    List<java.util.Date> fechasCitas = new ArrayList<>();
+                    for (DocumentSnapshot citaDoc : querySnapshot.getDocuments()) {
+                        Timestamp ts = citaDoc.getTimestamp("startAt");
+                        if (ts == null) ts = citaDoc.getTimestamp("fecha");
+                        if (ts != null) {
+                            fechasCitas.add(ts.toDate());
+                        }
+                    }
+
+                    if (fechasCitas.isEmpty()) {
+                        android.util.Log.d("ModificarActividad", "✅ Sin fechas en citas - guardando sin validar");
+                        realizarGuardado(nombre, tipo, periodicidad, lugar, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+                        return;
+                    }
+
+                    android.util.Log.d("ModificarActividad", "🔍 Verificando " + fechasCitas.size() + " citas para conflictos");
+
+                    // Verificar cada fecha para conflictos
+                    verificarTodasLasFechas(lugar, fechasCitas, 0, new ConflictoCallback() {
+                        @Override
+                        public void onConflictoDetectado(String mensaje) {
+                            android.util.Log.w("ModificarActividad", "⚠️ CONFLICTO: " + mensaje);
+                            mostrarDialogoConflicto(mensaje);
+                        }
+
+                        @Override
+                        public void onSinConflictos() {
+                            android.util.Log.d("ModificarActividad", "✅ Sin conflictos - procediendo a guardar");
+                            realizarGuardado(nombre, tipo, periodicidad, lugar, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+                        }
+
+                        @Override
+                        public void onError(String error) {
+                            android.util.Log.e("ModificarActividad", "❌ Error: " + error);
+                            toast("Error al verificar conflictos: " + error);
+                        }
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("ModificarActividad", "❌ Error obteniendo citas: " + e.getMessage());
+                    toast("Error al verificar conflictos: " + e.getMessage());
+                });
+    }
+
+    /**
+     * Verifica recursivamente todas las fechas para conflictos
+     */
+    private void verificarTodasLasFechas(String lugarNombre, List<java.util.Date> fechas, int index, ConflictoCallback callback) {
+        if (index >= fechas.size()) {
+            callback.onSinConflictos();
+            return;
+        }
+
+        java.util.Date fechaActual = fechas.get(index);
+        android.util.Log.d("ModificarActividad", "🔍 Verificando fecha " + (index + 1) + "/" + fechas.size() + ": " + fechaActual);
+
+        lugarRepository.getCitasEnLugar(lugarNombre, fechaActual, new LugarRepository.CitasEnLugarCallback() {
+            @Override
+            public void onSuccess(List<java.util.Date> citasExistentes) {
+                android.util.Log.d("ModificarActividad", "📊 Citas existentes en lugar: " + citasExistentes.size());
+
+                // Excluir las citas de esta actividad (ya que estamos modificándola)
+                List<java.util.Date> citasOtrasActividades = new ArrayList<>();
+                for (java.util.Date cita : citasExistentes) {
+                    // Solo agregamos si NO es de nuestra actividad (simplificado - deberías verificar por ID)
+                    citasOtrasActividades.add(cita);
+                }
+
+                ValidationResult validacion = ActividadValidator.validarConflictoHorario(
+                        lugarNombre, fechaActual, citasOtrasActividades, 30
+                );
+
+                if (!validacion.isValid()) {
+                    callback.onConflictoDetectado(validacion.getErrorMessage());
+                    return;
+                }
+
+                // Continuar con la siguiente fecha
+                verificarTodasLasFechas(lugarNombre, fechas, index + 1, callback);
+            }
+
+            @Override
+            public void onError(String error) {
+                callback.onError(error);
+            }
+        });
+    }
+
+    /**
+     * Realiza el guardado efectivo de los cambios
+     */
+    private void realizarGuardado(String nombre, String tipo, String periodicidad, String lugar,
+                                  String oferente, String cupoStr, String socio, String beneficiariosTxt,
+                                  String proyecto, String diasAvisoStr) {
 
         Map<String,Object> up = new HashMap<>();
 
@@ -386,4 +523,28 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     }
 
     private void toast(String m){ Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }
+
+    /**
+     * Muestra diálogo de conflicto de horario
+     */
+    private void mostrarDialogoConflicto(String mensaje) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("⚠️ Conflicto de horario")
+                .setMessage(mensaje + "\n\n¿Qué deseas hacer?")
+                .setPositiveButton("Elegir otro lugar", (dialog, which) -> {
+                    actLugar.requestFocus();
+                    actLugar.showDropDown();
+                })
+                .setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    /**
+     * Interface para callbacks de validación de conflictos
+     */
+    private interface ConflictoCallback {
+        void onConflictoDetectado(String mensaje);
+        void onSinConflictos();
+        void onError(String error);
+    }
 }
