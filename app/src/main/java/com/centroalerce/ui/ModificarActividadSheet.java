@@ -444,10 +444,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                     toast("Error al verificar conflictos: " + e.getMessage());
                 });
     }
-
-    /**
-     * Verifica recursivamente todas las fechas para conflictos
-     */
     /**
      * Verifica recursivamente todas las fechas para conflictos
      */
@@ -858,9 +854,6 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     /**
      * Renderiza los archivos adjuntos con botón para ver/descargar/eliminar
      */
-    /**
-     * Renderiza los archivos adjuntos con botón para ver/descargar/eliminar
-     */
     private void renderizarArchivosAdjuntos(List<Map<String, Object>> adjuntos) {
         if (llAdjuntos == null) return;
 
@@ -871,7 +864,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             return;
         }
 
-        // ✅ Crear botón CON EL ESTILO ORIGINAL (sin color azul)
+        //  Crear botón CON EL ESTILO ORIGINAL
         MaterialButton btnVerArchivos = new MaterialButton(requireContext());
         btnVerArchivos.setText(adjuntos.size() + " archivo(s) adjunto(s) - Ver/Descargar/Eliminar");
         btnVerArchivos.setIcon(requireContext().getDrawable(android.R.drawable.ic_menu_view));
