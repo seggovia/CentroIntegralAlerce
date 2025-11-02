@@ -176,36 +176,91 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         Runnable emitAttach     = () -> emitActionToParent("attach", actividadId, citaId);
         Runnable emitCancel     = () -> emitActionToParent("cancel", actividadId, citaId);
 
+        // ========== LISTENERS DE BOTONES - REEMPLAZAR TODA ESTA SECCIÓN ==========
+
         if (btnModificar != null) {
-            View.OnClickListener l = v -> { emitEdit.run();
+            View.OnClickListener l = v -> {
+                // Validar estado antes de acción
+                if (!shouldEnableButton(id("btnModificar"))) {
+                    toast("No se puede modificar una actividad " + estadoActual);
+                    return;
+                }
+
+                emitEdit.run();
                 ModificarActividadSheet.newInstance(actividadId)
-                        .show(getParentFragmentManager(), "ModificarActividadSheet"); };
+                        .show(getParentFragmentManager(), "ModificarActividadSheet");
+            };
             rememberClickListener(btnModificar, l);
             btnModificar.setOnClickListener(l);
         }
+
         if (btnCancelar != null) {
-            View.OnClickListener l = v -> { emitCancel.run();
+            View.OnClickListener l = v -> {
+                // Validar estado antes de acción
+                if (!shouldEnableButton(id("btnCancelar"))) {
+                    toast("Esta actividad ya está cancelada");
+                    return;
+                }
+
+                emitCancel.run();
                 CancelarActividadSheet.newInstance(actividadId, citaId)
-                        .show(getParentFragmentManager(), "CancelarActividadSheet"); };
+                        .show(getParentFragmentManager(), "CancelarActividadSheet");
+            };
             rememberClickListener(btnCancelar, l);
             btnCancelar.setOnClickListener(l);
         }
+
         if (btnReagendar != null) {
-            View.OnClickListener l = v -> { emitReschedule.run();
+            View.OnClickListener l = v -> {
+                // Validar estado antes de acción
+                if (!shouldEnableButton(id("btnReagendar"))) {
+                    String mensaje = "completada".equals(estadoActual) || "completed".equals(estadoActual)
+                            ? "No se puede reagendar una cita completada"
+                            : "No se puede reagendar una cita " + estadoActual;
+                    toast(mensaje);
+                    return;
+                }
+
+                emitReschedule.run();
                 ReagendarActividadSheet.newInstance(actividadId, citaId)
-                        .show(getParentFragmentManager(), "ReagendarActividadSheet"); };
+                        .show(getParentFragmentManager(), "ReagendarActividadSheet");
+            };
             rememberClickListener(btnReagendar, l);
             btnReagendar.setOnClickListener(l);
         }
+
         if (btnAdjuntar != null) {
-            View.OnClickListener l = v -> { emitAttach.run();
+            View.OnClickListener l = v -> {
+                // Validar estado antes de acción
+                if (!shouldEnableButton(id("btnAdjuntar"))) {
+                    toast("No se pueden adjuntar archivos a una actividad cancelada");
+                    return;
+                }
+
+                emitAttach.run();
                 AdjuntarComunicacionSheet.newInstance(actividadId)
-                        .show(getParentFragmentManager(), "AdjuntarComunicacionSheet"); };
+                        .show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
+            };
             rememberClickListener(btnAdjuntar, l);
             btnAdjuntar.setOnClickListener(l);
         }
+
         if (btnCompletar != null) {
             View.OnClickListener l = v -> {
+                // Validar estado antes de acción
+                if (!shouldEnableButton(id("btnCompletar"))) {
+                    String mensaje;
+                    if ("completada".equals(estadoActual) || "completed".equals(estadoActual)) {
+                        mensaje = "Esta cita ya está completada";
+                    } else if ("cancelada".equals(estadoActual) || "canceled".equals(estadoActual)) {
+                        mensaje = "No se puede completar una cita cancelada";
+                    } else {
+                        mensaje = "No se puede completar una cita en estado: " + estadoActual;
+                    }
+                    toast(mensaje);
+                    return;
+                }
+
                 emitActionToParent("completar", actividadId, citaId);
                 completarCita(actividadId, citaId);
             };
@@ -213,12 +268,14 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             btnCompletar.setOnClickListener(l);
         }
 
-        // 5) Ahora sí, aplicar guardias sobre listeners ya puestos
+// NO MODIFICAR: wrapClickWithGuard ya existentes
         wrapClickWithGuard(btnModificar);
         wrapClickWithGuard(btnReagendar);
         wrapClickWithGuard(btnAdjuntar);
         wrapClickWithGuard(btnCancelar);
         wrapClickWithGuard(btnCompletar);
+
+// ========== FIN SECCIÓN LISTENERS ==========
 
         // 6) Insets spacer
         ViewCompat.setOnApplyWindowInsetsListener(root, (v,insets)->{
@@ -475,9 +532,25 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         updateButtonStates();
     }
 
+    /**
+     * Completa una cita marcándola como finalizada
+     * VERSIÓN CORREGIDA - desuscribe listeners antes de cerrar
+     */
     private void completarCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) {
             toast("Faltan datos para completar la cita");
+            return;
+        }
+
+        // Validación adicional de estado
+        String estado = estadoActual != null ? estadoActual.toLowerCase() : "";
+        if ("cancelada".equals(estado) || "canceled".equals(estado)) {
+            toast("No se puede completar una cita cancelada");
+            return;
+        }
+
+        if ("completada".equals(estado) || "completed".equals(estado) || "finalizada".equals(estado)) {
+            toast("Esta cita ya está completada");
             return;
         }
 
@@ -486,27 +559,97 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .setMessage("¿Confirmas que esta cita fue completada exitosamente?")
                 .setNegativeButton("Cancelar", null)
                 .setPositiveButton("Sí, completar", (d, which) -> {
-                    DocumentReference citaES = act(actividadId, false).collection("citas").document(citaId);
-                    DocumentReference citaEN = act(actividadId, true).collection("citas").document(citaId);
+                    // ✅ DESUSCRIBIR LISTENERS ANTES DE ACTUALIZAR
+                    if (actReg != null) {
+                        actReg.remove();
+                        actReg = null;
+                    }
+                    if (citaReg != null) {
+                        citaReg.remove();
+                        citaReg = null;
+                    }
 
-                    citaES.get().addOnSuccessListener(doc -> {
-                        DocumentReference ref = (doc != null && doc.exists()) ? citaES : citaEN;
+                    // Buscar en ambas colecciones de forma segura
+                    completarCitaEnColeccion(actividadId, citaId, true, success -> {
+                        if (success) {
+                            toast("Cita marcada como completada ✅");
+                            estadoActual = "completada"; // Actualizar estado local
+                            notifyChanged();
 
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("estado", "completada");
-                        updates.put("fechaModificacion", Timestamp.now());
-
-                        ref.update(updates)
-                                .addOnSuccessListener(u -> {
+                            // ✅ CERRAR CON DELAY para dar tiempo a la notificación
+                            new android.os.Handler(android.os.Looper.getMainLooper())
+                                    .postDelayed(this::dismiss, 300);
+                        } else {
+                            // Intentar en la colección alternativa
+                            completarCitaEnColeccion(actividadId, citaId, false, success2 -> {
+                                if (success2) {
                                     toast("Cita marcada como completada ✅");
+                                    estadoActual = "completada";
                                     notifyChanged();
-                                    dismiss();
-                                })
-                                .addOnFailureListener(e -> toast("Error: " + e.getMessage()));
-                    }).addOnFailureListener(e -> toast("Error: " + e.getMessage()));
+
+                                    // ✅ CERRAR CON DELAY
+                                    new android.os.Handler(android.os.Looper.getMainLooper())
+                                            .postDelayed(this::dismiss, 300);
+                                } else {
+                                    toast("Error: No se pudo encontrar la cita");
+                                }
+                            });
+                        }
+                    });
                 })
                 .show();
     }
+    private void completarCitaEnColeccion(String actividadId, String citaId, boolean preferEN,
+                                          CompletarCallback callback) {
+        DocumentReference citaRef = act(actividadId, preferEN)
+                .collection("citas")
+                .document(citaId);
+
+        citaRef.get()
+                .addOnSuccessListener(doc -> {
+                    if (doc == null || !doc.exists()) {
+                        callback.onResult(false);
+                        return;
+                    }
+
+                    // Validar estado antes de actualizar
+                    String estadoActual = doc.getString("estado");
+                    if ("completada".equalsIgnoreCase(estadoActual) ||
+                            "completed".equalsIgnoreCase(estadoActual) ||
+                            "finalizada".equalsIgnoreCase(estadoActual)) {
+                        // Ya está completada, no hacer nada pero reportar éxito
+                        callback.onResult(true);
+                        return;
+                    }
+
+                    if ("cancelada".equalsIgnoreCase(estadoActual) ||
+                            "canceled".equalsIgnoreCase(estadoActual)) {
+                        callback.onResult(false);
+                        return;
+                    }
+
+                    // Actualizar a completada
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("estado", "completada");
+                    updates.put("fechaModificacion", Timestamp.now());
+
+                    citaRef.update(updates)
+                            .addOnSuccessListener(u -> callback.onResult(true))
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Error actualizando cita: " + e.getMessage());
+                                callback.onResult(false);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error obteniendo cita: " + e.getMessage());
+                    callback.onResult(false);
+                });
+    }
+    private interface CompletarCallback {
+        void onResult(boolean success);
+    }
+
+
 
     private void notifyChanged(){
         Bundle b = new Bundle();
@@ -1010,25 +1153,68 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     /**
      * Determina si un botón debe estar habilitado según el estado actual
-     * @param buttonId ID del recurso del botón (id("btnModificar"), etc.)
+     * @param buttonId ID del recurso del botón
      * @return true si el botón debe estar habilitado
      */
     private boolean shouldEnableButton(int buttonId) {
-        // Validaciones base - será extendido en siguientes commits
+        String estado = estadoActual != null ? estadoActual.toLowerCase() : "programada";
 
-        // Si la actividad está cancelada, solo permitir ver detalles
-        if (actividadCancelada) {
-            return false; // Por defecto, ningún botón habilitado si actividad cancelada
+        int btnModificarId = id("btnModificar");
+        int btnReagendarId = id("btnReagendar");
+        int btnAdjuntarId = id("btnAdjuntar");
+        int btnCancelarId = id("btnCancelar");
+        int btnCompletarId = id("btnCompletar");
+
+        // ✅ ESTADOS FINALES: completada, cancelada
+        boolean esEstadoFinal =
+                "completada".equals(estado) ||
+                        "completed".equals(estado) ||
+                        "finalizada".equals(estado) ||
+                        "cancelada".equals(estado) ||
+                        "canceled".equals(estado);
+
+        // Botón MODIFICAR
+        if (buttonId == btnModificarId) {
+            // ✅ MODIFICAR solo permitido en estados NO finales
+            // (Permite editar datos mientras la cita está activa)
+            return !esEstadoFinal;
         }
 
-        // Si la cita está cancelada
-        if (citaCancelada) {
-            return false; // No permitir acciones en citas canceladas
+        // Botón REAGENDAR
+        if (buttonId == btnReagendarId) {
+            // ❌ NO se puede reagendar citas completadas o canceladas
+            return !esEstadoFinal;
         }
 
-        // Por defecto, habilitar (se refinará en próximo commit)
-        return true;
+        // Botón ADJUNTAR
+        if (buttonId == btnAdjuntarId) {
+            // ❌ NO se pueden adjuntar archivos a citas completadas o canceladas
+            return !esEstadoFinal;
+        }
+
+        // Botón CANCELAR
+        if (buttonId == btnCancelarId) {
+            // ❌ Solo se puede cancelar si NO está cancelada ni completada
+            return !("cancelada".equals(estado) ||
+                    "canceled".equals(estado) ||
+                    "completada".equals(estado) ||
+                    "completed".equals(estado) ||
+                    "finalizada".equals(estado));
+        }
+
+        // Botón COMPLETAR
+        if (buttonId == btnCompletarId) {
+            // ✅ Solo se puede completar citas programadas o reagendadas
+            return ("programada".equals(estado) ||
+                    "scheduled".equals(estado) ||
+                    "reagendada".equals(estado) ||
+                    "rescheduled".equals(estado));
+        }
+
+        // Por defecto, deshabilitar
+        return false;
     }
+
 
     /**
      * Actualiza el estado de todos los botones según el estado actual
@@ -1065,6 +1251,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             btnCompletar.setAlpha(enabled ? 1f : 0.5f);
         }
     }
+
 
     private String getArg(String key) { return (getArguments() != null) ? getArguments().getString(key, "") : ""; }
     private int dp(int v){ return Math.round(v * getResources().getDisplayMetrics().density); }
