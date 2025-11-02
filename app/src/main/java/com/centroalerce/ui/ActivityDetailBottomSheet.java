@@ -472,6 +472,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (chLugar != null && !TextUtils.isEmpty(actividadLugarFallback)) {
             chLugar.setText(actividadLugarFallback);
         }
+        updateButtonStates();
     }
 
     private void completarCita(String actividadId, String citaId) {
@@ -587,6 +588,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         setLabeled(tvFechaReagendo,     "Fecha de reagendo: ",  nonEmpty(formatTs(doc.getTimestamp("fecha_reagendo")), "—"));
         setLabeled(tvMotivoCancelacion, "Motivo de cancelación: ", nonEmpty(doc.getString("motivo_cancelacion"), "—"));
         setLabeled(tvFechaCancelacion,  "Fecha de cancelación: ",  nonEmpty(formatTs(doc.getTimestamp("fecha_cancelacion")), "—"));
+        updateButtonStates();
     }
 
     // ---------- Adjuntos ----------
@@ -1004,6 +1006,66 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         int idx = clean.lastIndexOf('/');
         return idx >= 0 ? clean.substring(idx + 1) : clean;
     }
+    // ========== NUEVOS MÉTODOS PARA CONTROL DE BOTONES ==========
+
+    /**
+     * Determina si un botón debe estar habilitado según el estado actual
+     * @param buttonId ID del recurso del botón (id("btnModificar"), etc.)
+     * @return true si el botón debe estar habilitado
+     */
+    private boolean shouldEnableButton(int buttonId) {
+        // Validaciones base - será extendido en siguientes commits
+
+        // Si la actividad está cancelada, solo permitir ver detalles
+        if (actividadCancelada) {
+            return false; // Por defecto, ningún botón habilitado si actividad cancelada
+        }
+
+        // Si la cita está cancelada
+        if (citaCancelada) {
+            return false; // No permitir acciones en citas canceladas
+        }
+
+        // Por defecto, habilitar (se refinará en próximo commit)
+        return true;
+    }
+
+    /**
+     * Actualiza el estado de todos los botones según el estado actual
+     * Debe llamarse cada vez que cambie el estado de la actividad/cita
+     */
+    private void updateButtonStates() {
+        if (btnModificar != null) {
+            boolean enabled = shouldEnableButton(id("btnModificar"));
+            btnModificar.setEnabled(enabled);
+            btnModificar.setAlpha(enabled ? 1f : 0.5f);
+        }
+
+        if (btnReagendar != null) {
+            boolean enabled = shouldEnableButton(id("btnReagendar"));
+            btnReagendar.setEnabled(enabled);
+            btnReagendar.setAlpha(enabled ? 1f : 0.5f);
+        }
+
+        if (btnAdjuntar != null) {
+            boolean enabled = shouldEnableButton(id("btnAdjuntar"));
+            btnAdjuntar.setEnabled(enabled);
+            btnAdjuntar.setAlpha(enabled ? 1f : 0.5f);
+        }
+
+        if (btnCancelar != null) {
+            boolean enabled = shouldEnableButton(id("btnCancelar"));
+            btnCancelar.setEnabled(enabled);
+            btnCancelar.setAlpha(enabled ? 1f : 0.5f);
+        }
+
+        if (btnCompletar != null) {
+            boolean enabled = shouldEnableButton(id("btnCompletar"));
+            btnCompletar.setEnabled(enabled);
+            btnCompletar.setAlpha(enabled ? 1f : 0.5f);
+        }
+    }
+
     private String getArg(String key) { return (getArguments() != null) ? getArguments().getString(key, "") : ""; }
     private int dp(int v){ return Math.round(v * getResources().getDisplayMetrics().density); }
     private void toast(String m){ Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }
