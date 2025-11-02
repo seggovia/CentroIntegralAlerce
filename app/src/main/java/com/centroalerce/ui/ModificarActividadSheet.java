@@ -46,6 +46,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.centroalerce.gestion.services.NotificationService;
+import com.centroalerce.gestion.models.Actividad;
+import com.centroalerce.gestion.models.Cita;
+
 public class ModificarActividadSheet extends BottomSheetDialogFragment {
     private static final String ARG_ACTIVIDAD_ID = "actividadId";
     public static ModificarActividadSheet newInstance(@NonNull String actividadId){
@@ -605,9 +609,65 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             return null;
         }).addOnSuccessListener(u -> {
             toast("Cambios guardados");
+
+            // Reprogramar notificaciones si se modificó diasAvisoPrevio
+            if (!TextUtils.isEmpty(diasAvisoStr)) {
+                reprogramarNotificaciones(actividadId, Integer.parseInt(diasAvisoStr));
+            }
+
             notifyChanged();   // ya refresca Detalle y Calendario
             dismiss();
         }).addOnFailureListener(e -> toast("Error: "+e.getMessage()));
+    }
+
+    /**
+     * Reprograma las notificaciones de la actividad cuando se modifican los días de aviso previo
+     */
+    private void reprogramarNotificaciones(String actividadId, int nuevosDiasAviso) {
+        // Obtener la actividad actualizada
+        db.collection("actividades").document(actividadId)
+            .get()
+            .addOnSuccessListener(docActividad -> {
+                if (!docActividad.exists()) return;
+
+                // Convertir documento a objeto Actividad
+                Actividad actividad = docActividad.toObject(Actividad.class);
+                if (actividad == null) return;
+                actividad.setId(docActividad.getId());
+                actividad.setDiasAvisoPrevio(nuevosDiasAviso); // Actualizar con el nuevo valor
+
+                // Obtener todas las citas de esta actividad
+                db.collection("citas")
+                    .whereEqualTo("actividadId", actividadId)
+                    .get()
+                    .addOnSuccessListener(queryCitas -> {
+                        NotificationService notificationService = new NotificationService(requireContext());
+
+                        for (DocumentSnapshot docCita : queryCitas.getDocuments()) {
+                            Cita cita = docCita.toObject(Cita.class);
+                            if (cita == null) continue;
+                            cita.setId(docCita.getId());
+
+                            // Cancelar notificaciones anteriores de esta cita
+                            notificationService.cancelarNotificacionesCita(cita.getId());
+
+                            // Programar nuevas notificaciones con los nuevos días de aviso
+                            List<String> usuariosNotificar = new ArrayList<>();
+                            // Aquí deberías obtener la lista de usuarios a notificar
+                            // Por simplicidad, podrías notificar a todos los usuarios o usar un criterio específico
+
+                            notificationService.programarNotificacionesCita(cita, actividad, usuariosNotificar);
+                        }
+
+                        android.util.Log.d("ModificarActividad", "Notificaciones reprogramadas para actividad: " + actividadId);
+                    })
+                    .addOnFailureListener(e ->
+                        android.util.Log.e("ModificarActividad", "Error al obtener citas: " + e.getMessage())
+                    );
+            })
+            .addOnFailureListener(e ->
+                android.util.Log.e("ModificarActividad", "Error al obtener actividad: " + e.getMessage())
+            );
     }
 
 

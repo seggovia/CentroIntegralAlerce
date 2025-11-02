@@ -185,13 +185,15 @@ public class NotificationService {
 
         Calendar calendar = Calendar.getInstance();
         calendar.setTime(fechaActividad.toDate());
+
+        // Restar los días de aviso previo configurados por el usuario
         calendar.add(Calendar.DAY_OF_MONTH, -diasAvisoPrevio);
 
-        // Si ya pasó, ajusta para 1 minuto después de "ahora" (solo para pruebas)
+        // Si la fecha calculada ya pasó, no programar notificación
         Date ahora = new Date();
         if (!calendar.getTime().after(ahora)) {
-            calendar.setTime(ahora);
-            calendar.add(Calendar.MINUTE, 1); // ⚠️ dispara en 1 min
+            Log.w(TAG, "Fecha de notificación ya pasó. No se programará notificación para esta actividad.");
+            return null; // No programar notificaciones para fechas pasadas
         }
 
         return new Timestamp(calendar.getTime());
