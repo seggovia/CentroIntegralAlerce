@@ -128,9 +128,9 @@ public class MainActivity extends AppCompatActivity {
 
             bottomNav.setVisibility(hideBottomNav ? View.GONE : View.VISIBLE);
 
-            // ✅ LÓGICA MEJORADA: Mostrar FAB SOLO en CalendarFragment
+            // ✅ LÓGICA MEJORADA: Mostrar FAB en CalendarFragment y ActivitiesListFragment
             // pero SOLO si el usuario tiene permisos (TU CÓDIGO + CÓDIGO DE TU COMPAÑERO)
-            if (id == R.id.calendarFragment) {
+            if (id == R.id.calendarFragment || id == R.id.activitiesListFragment) {
                 // Verificar permisos antes de mostrar
                 if (currentUserRole != null && currentUserRole.canInteractWithActivities()) {
                     fabGlobal.show(); // ✅ Usuario/Admin pueden crear
@@ -138,7 +138,7 @@ public class MainActivity extends AppCompatActivity {
                     fabGlobal.hide(); // ❌ Visualizador no puede crear
                 }
             } else {
-                fabGlobal.hide(); // Ocultar en otros fragments (incluyendo activitiesListFragment)
+                fabGlobal.hide(); // Ocultar en otros fragments
             }
         });
     }
@@ -160,11 +160,11 @@ public class MainActivity extends AppCompatActivity {
             // Configurar el menú según el rol
             configureMenuByRole(role);
 
-            // Actualizar visibilidad del FAB si ya estamos en CalendarFragment
+            // Actualizar visibilidad del FAB si ya estamos en CalendarFragment o ActivitiesListFragment
             runOnUiThread(() -> {
                 if (navControllerReady && navController.getCurrentDestination() != null) {
                     int currentDestination = navController.getCurrentDestination().getId();
-                    if (currentDestination == R.id.calendarFragment) {
+                    if (currentDestination == R.id.calendarFragment || currentDestination == R.id.activitiesListFragment) {
                         if (role.canInteractWithActivities()) {
                             fabGlobal.show();
                         } else {
@@ -289,7 +289,7 @@ public class MainActivity extends AppCompatActivity {
                 // Verificar que navController esté listo
                 if (navControllerReady && navController.getCurrentDestination() != null) {
                     int currentDestId = navController.getCurrentDestination().getId();
-                    if (currentDestId == R.id.calendarFragment) {
+                    if (currentDestId == R.id.calendarFragment || currentDestId == R.id.activitiesListFragment) {
                         if (role.canInteractWithActivities()) {
                             fabGlobal.show();
                         } else {

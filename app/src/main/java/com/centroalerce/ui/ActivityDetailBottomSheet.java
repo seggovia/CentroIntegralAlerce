@@ -850,8 +850,9 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             case "rescheduled":
                 bg = 0xFFF59E0B; text = "Reagendada"; break;
             case "finalizada":
+            case "completada":
             case "completed":
-                bg = 0xFF10B981; text = "Finalizada"; break;
+                bg = 0xFF10B981; text = "Completada"; break;
             default:
                 bg = 0xFF6366F1; text = "Programada"; break;
         }
@@ -879,7 +880,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void applyActiveStateUI() {
-        if (tvNombre != null) tvNombre.setTextColor(0xFF111827);
+        if (tvNombre != null) tvNombre.setTextColor(0xFFFFFFFF);
         if (chFechaHora != null) { try { chFechaHora.setChipBackgroundColor(null); chFechaHora.setTextColor(0xFF000000); } catch (Exception ignored) {} }
         if (chLugar != null) { try { chLugar.setChipBackgroundColor(null); chLugar.setTextColor(0xFF000000); } catch (Exception ignored) {} }
         restyleButtonsActive();

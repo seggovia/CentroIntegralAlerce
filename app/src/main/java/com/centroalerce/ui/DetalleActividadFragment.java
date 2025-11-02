@@ -127,7 +127,7 @@ public class DetalleActividadFragment extends Fragment {
 
         // Estado (si usas un enum/clave diferente, ajusta aquí)
         String estado = firstNonEmpty(doc.getString("estado"), "Programada");
-        chEstado.setText(estado);
+        updateEstadoChip(estado);
 
         // Fecha/Hora (adapta a tu modelo real: timestamp, start_at, etc.)
         Date fecha = asDate(doc.get("fecha"), doc.get("fechaHora"), doc.get("start_at"));
@@ -236,5 +236,34 @@ public class DetalleActividadFragment extends Fragment {
         tvMensaje.setLayoutParams(params);
 
         llAdjuntos.addView(tvMensaje);
+    }
+
+    /**
+     * Actualiza el chip de estado con el color y texto apropiados
+     */
+    private void updateEstadoChip(String estadoRaw) {
+        if (chEstado == null) return;
+        String e = (estadoRaw == null) ? "" : estadoRaw.toLowerCase();
+        int bg, fg = 0xFFFFFFFF;
+        String text;
+        switch (e) {
+            case "cancelada":
+            case "canceled":
+                bg = 0xFFDC2626; text = "Cancelada"; break;
+            case "reagendada":
+            case "rescheduled":
+                bg = 0xFFF59E0B; text = "Reagendada"; break;
+            case "finalizada":
+            case "completada":
+            case "completed":
+                bg = 0xFF10B981; text = "Completada"; break;
+            default:
+                bg = 0xFF6366F1; text = "Programada"; break;
+        }
+        chEstado.setText(text);
+        try {
+            chEstado.setChipBackgroundColor(android.content.res.ColorStateList.valueOf(bg));
+        } catch (Exception ignored) {}
+        chEstado.setTextColor(fg);
     }
 }
