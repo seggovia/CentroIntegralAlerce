@@ -16,6 +16,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
+import androidx.navigation.NavOptions;
 import com.centroalerce.gestion.R;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
@@ -84,7 +85,61 @@ public class LoginFragment extends Fragment {
             tvContacto.setOnClickListener(x -> openContactSupport(v));
         }
 
+        // Iniciar animaciones de entrada
+        startEntranceAnimations(v);
+
         return v;
+    }
+
+    /**
+     * Animaciones profesionales de entrada para la pantalla de login
+     */
+    private void startEntranceAnimations(View root) {
+        // Obtener referencias a los elementos
+        View logo = root.findViewById(R.id.ivLogo);
+        View title = root.findViewById(R.id.tvTitle);
+        View subtitle1 = root.findViewById(R.id.tvSubtitle1);
+        View subtitle2 = root.findViewById(R.id.tvSubtitle2);
+        View emailLayout = root.findViewById(R.id.tilEmail);
+        View passLayout = root.findViewById(R.id.tilPassword);
+        View forgotLink = root.findViewById(R.id.tvForgot);
+        View loginButton = root.findViewById(R.id.btnLogin);
+        View footer = root.findViewById(R.id.llFooter);
+
+        // Hacer todos los elementos invisibles inicialmente
+        View[] views = {logo, title, subtitle1, subtitle2, emailLayout, passLayout, forgotLink, loginButton, footer};
+        for (View v : views) {
+            if (v != null) {
+                v.setAlpha(0f);
+                v.setTranslationY(30);
+            }
+        }
+
+        // Animar cada elemento con delay escalonado
+        animateView(logo, 0, 100);
+        animateView(title, 150, 100);
+        animateView(subtitle1, 200, 100);
+        animateView(subtitle2, 250, 100);
+        animateView(emailLayout, 350, 100);
+        animateView(passLayout, 400, 100);
+        animateView(forgotLink, 450, 100);
+        animateView(loginButton, 500, 100);
+        animateView(footer, 600, 100);
+    }
+
+    /**
+     * Anima un view con fade in y slide up
+     */
+    private void animateView(View view, long delay, long duration) {
+        if (view == null) return;
+
+        view.animate()
+                .alpha(1f)
+                .translationY(0)
+                .setDuration(duration + 400) // Duración total: 500ms
+                .setStartDelay(delay)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f))
+                .start();
     }
 
     private boolean isEmpty(TextInputEditText e){
@@ -295,7 +350,12 @@ public class LoginFragment extends Fragment {
                                                 showLoading(false);
                                                 btnLogin.setText("Iniciar sesión");
                                                 Toast.makeText(getContext(), "Bienvenido ✅", Toast.LENGTH_SHORT).show();
-                                                Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+
+                                                NavOptions navOptions = new NavOptions.Builder()
+                                                        .setEnterAnim(R.anim.fade_in)
+                                                        .setExitAnim(R.anim.fade_out)
+                                                        .build();
+                                                Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment, null, navOptions);
                                             })
                                             .addOnFailureListener(e -> {
                                                 // Si falla la actualización, igual permitir continuar
@@ -304,7 +364,12 @@ public class LoginFragment extends Fragment {
                                                 Toast.makeText(getContext(),
                                                         "Sesión iniciada (error al actualizar perfil)",
                                                         Toast.LENGTH_SHORT).show();
-                                                Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment);
+
+                                                NavOptions navOptions = new NavOptions.Builder()
+                                                        .setEnterAnim(R.anim.fade_in)
+                                                        .setExitAnim(R.anim.fade_out)
+                                                        .build();
+                                                Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment, null, navOptions);
                                             });
                                 })
                                 .addOnFailureListener(e -> {

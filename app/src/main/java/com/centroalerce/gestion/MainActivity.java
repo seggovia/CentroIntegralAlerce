@@ -172,7 +172,8 @@ public class MainActivity extends AppCompatActivity {
 
             // Pantallas donde se oculta el BottomNav
             boolean hideBottomNav =
-                    id == R.id.loginFragment ||
+                    id == R.id.splashFragment ||
+                            id == R.id.loginFragment ||
                             id == R.id.signupFragment ||
                             id == R.id.contactSupportFragment ||
                             id == R.id.forgotPasswordFragment ||

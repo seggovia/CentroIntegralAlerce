@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_login_alerce">
+
+    <!-- Logo del centro -->
+    <ImageView
+        android:id="@+id/ivLogoSplash"
+        android:layout_width="220dp"
+        android:layout_height="220dp"
+        android:src="@drawable/alerce"
+        android:scaleType="centerCrop"
+        android:background="@drawable/bg_logo_circle"
+        android:clipToOutline="true"
+        android:outlineProvider="background"
+        android:elevation="8dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0.4"/>
+
+    <!-- Título principal -->
+    <TextView
+        android:id="@+id/tvTitleSplash"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="Centro Integral Alerce"
+        android:textStyle="bold"
+        android:textSize="32sp"
+        android:letterSpacing="0.01"
+        android:gravity="center"
+        android:textColor="@color/textPrimary"
+        app:layout_constraintTop_toBottomOf="@id/ivLogoSplash"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Subtítulo -->
+    <TextView
+        android:id="@+id/tvSubtitleSplash"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Puerto Montt"
+        android:textColor="@color/textSecondary"
+        android:textSize="18sp"
+        android:letterSpacing="0.05"
+        app:layout_constraintTop_toBottomOf="@id/tvTitleSplash"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- ProgressBar sutil -->
+    <ProgressBar
+        android:id="@+id/progressBarSplash"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginBottom="48dp"
+        android:indeterminateTint="@color/primary"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

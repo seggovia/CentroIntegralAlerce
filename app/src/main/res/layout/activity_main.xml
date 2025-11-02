@@ -49,8 +49,8 @@
         app:pressedTranslationZ="16dp"
         app:rippleColor="@color/ripple"
         app:borderWidth="0dp"
-        app:fabSize="normal"
-        app:maxImageSize="28dp"/>
+        app:fabSize="mini"
+        app:maxImageSize="26dp"/>
 
     <!-- 🆕 FAB GLOBAL - Botón "+" en esquina -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
