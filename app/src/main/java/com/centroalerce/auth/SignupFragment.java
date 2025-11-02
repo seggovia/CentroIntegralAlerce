@@ -294,7 +294,18 @@ public class SignupFragment extends Fragment {
                     FirebaseFirestore.getInstance().collection("usuarios").document(user.getUid())
                             .set(perfil)
                             .addOnSuccessListener(v -> {
-                                user.sendEmailVerification()
+                                // Configurar ActionCodeSettings para usar tu página personalizada
+                                com.google.firebase.auth.ActionCodeSettings actionCodeSettings =
+                                        com.google.firebase.auth.ActionCodeSettings.newBuilder()
+                                                .setUrl("https://centrointegralalerce.web.app/password-reset.html")
+                                                .setHandleCodeInApp(false)
+                                                .setAndroidPackageName(
+                                                        requireContext().getPackageName(),
+                                                        false,
+                                                        null)
+                                                .build();
+
+                                user.sendEmailVerification(actionCodeSettings)
                                         .addOnSuccessListener(x -> {
                                             toast("Cuenta creada. Revisa tu correo para verificarla ✅");
                                             auth.signOut();
