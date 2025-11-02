@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(firebase deploy:*)"
+      "Bash(firebase deploy:*)",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(adb logcat:*)"
     ],
     "deny": [],
     "ask": []

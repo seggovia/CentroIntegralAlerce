@@ -17,6 +17,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.navigation.NavController;
+import androidx.navigation.NavOptions;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.NavigationUI;
 
@@ -49,6 +50,9 @@ public class MainActivity extends AppCompatActivity {
     // Control de navegación para evitar clicks múltiples durante animaciones
     private boolean isNavigating = false;
     private static final long NAVIGATION_DELAY = 220; // Duración de la animación nativa + margen
+
+    // Flag para evitar loops infinitos al sincronizar el bottom nav
+    private boolean isUpdatingBottomNav = false;
 
     // 🆕 Sistema de notificaciones (CÓDIGO DE TU COMPAÑERO)
     private final ActivityResultLauncher<String> requestNotifPermission =
@@ -86,18 +90,37 @@ public class MainActivity extends AppCompatActivity {
 
         // 2) Conectar BottomNavigationView con NavController
         bottomNav = findViewById(R.id.bottom_nav);
-        NavigationUI.setupWithNavController(bottomNav, navController);
 
         // Evitar re-navegar al re-seleccionar el mismo tab
         bottomNav.setOnItemReselectedListener(item -> { /* no-op */ });
 
         // Interceptar clicks en el calendario (item central invisible - manejado por FAB)
         bottomNav.setOnItemSelectedListener(item -> {
-            if (item.getItemId() == R.id.calendarFragment) {
+            // Si estamos actualizando programáticamente, ignorar
+            if (isUpdatingBottomNav) {
+                return true;
+            }
+
+            int itemId = item.getItemId();
+
+            if (itemId == R.id.calendarFragment) {
                 return false; // Ignorar clicks en el item de calendario (lo maneja el FAB)
             }
-            // Permitir navegación normal para otros items
-            return NavigationUI.onNavDestinationSelected(item, navController);
+
+            // Navegar con animaciones profesionales
+            NavOptions navOptions = new NavOptions.Builder()
+                    .setEnterAnim(R.anim.fade_in)
+                    .setExitAnim(R.anim.fade_out)
+                    .setPopEnterAnim(R.anim.fade_in)
+                    .setPopExitAnim(R.anim.fade_out)
+                    .build();
+
+            try {
+                navController.navigate(itemId, null, navOptions);
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
         });
 
         // 3) Obtener referencia a los FABs
@@ -108,7 +131,14 @@ public class MainActivity extends AppCompatActivity {
         fabGlobal.setOnClickListener(v -> {
             // Solo usuarios comunes y admins pueden crear actividades
             if (currentUserRole != null && currentUserRole.canInteractWithActivities()) {
-                navController.navigate(R.id.activityFormFragment);
+                // Navegar con animaciones slide desde la izquierda
+                NavOptions navOptions = new NavOptions.Builder()
+                        .setEnterAnim(R.anim.slide_in_left)
+                        .setExitAnim(R.anim.slide_out_right)
+                        .setPopEnterAnim(R.anim.slide_in_right)
+                        .setPopExitAnim(R.anim.slide_out_left)
+                        .build();
+                navController.navigate(R.id.activityFormFragment, null, navOptions);
             } else {
                 Toast.makeText(this, "No tienes permisos para crear actividades", Toast.LENGTH_SHORT).show();
             }
@@ -116,7 +146,14 @@ public class MainActivity extends AppCompatActivity {
 
         // 5) Configurar click del FAB circular del calendario
         fabCalendar.setOnClickListener(v -> {
-            navController.navigate(R.id.calendarFragment);
+            // Navegar con animaciones fade
+            NavOptions navOptions = new NavOptions.Builder()
+                    .setEnterAnim(R.anim.fade_in)
+                    .setExitAnim(R.anim.fade_out)
+                    .setPopEnterAnim(R.anim.fade_in)
+                    .setPopExitAnim(R.anim.fade_out)
+                    .build();
+            navController.navigate(R.id.calendarFragment, null, navOptions);
         });
 
         // ✅ Inicializar sistema de roles ANTES de los listeners (TU CÓDIGO)
@@ -126,6 +163,12 @@ public class MainActivity extends AppCompatActivity {
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
             int id = destination.getId();
 
+            // Sincronizar el estado del BottomNavigationView con el destino actual
+            if (id == R.id.activitiesListFragment || id == R.id.calendarFragment || id == R.id.settingsFragment) {
+                isUpdatingBottomNav = true;
+                bottomNav.setSelectedItemId(id);
+                isUpdatingBottomNav = false;
+            }
 
             // Pantallas donde se oculta el BottomNav
             boolean hideBottomNav =
