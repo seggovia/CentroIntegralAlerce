@@ -35,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
 
     private FloatingActionButton fabGlobal;
+    private FloatingActionButton fabCalendar;
     private NavController navController;
     private BottomNavigationView bottomNav;
 
@@ -44,6 +45,10 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseAuth auth;
     private UserRole currentUserRole;
     private boolean navControllerReady = false;
+
+    // Control de navegación para evitar clicks múltiples durante animaciones
+    private boolean isNavigating = false;
+    private static final long NAVIGATION_DELAY = 220; // Duración de la animación nativa + margen
 
     // 🆕 Sistema de notificaciones (CÓDIGO DE TU COMPAÑERO)
     private final ActivityResultLauncher<String> requestNotifPermission =
@@ -86,10 +91,20 @@ public class MainActivity extends AppCompatActivity {
         // Evitar re-navegar al re-seleccionar el mismo tab
         bottomNav.setOnItemReselectedListener(item -> { /* no-op */ });
 
-        // 3) Obtener referencia al FAB global
-        fabGlobal = findViewById(R.id.fabAddGlobal);
+        // Interceptar clicks en el calendario (item central invisible - manejado por FAB)
+        bottomNav.setOnItemSelectedListener(item -> {
+            if (item.getItemId() == R.id.calendarFragment) {
+                return false; // Ignorar clicks en el item de calendario (lo maneja el FAB)
+            }
+            // Permitir navegación normal para otros items
+            return NavigationUI.onNavDestinationSelected(item, navController);
+        });
 
-        // 4) ✅ Configurar click del FAB CON VALIDACIÓN DE PERMISOS (TU CÓDIGO)
+        // 3) Obtener referencia a los FABs
+        fabGlobal = findViewById(R.id.fabAddGlobal);
+        fabCalendar = findViewById(R.id.fabCalendar);
+
+        // 4) ✅ Configurar click del FAB "+" CON VALIDACIÓN DE PERMISOS
         fabGlobal.setOnClickListener(v -> {
             // Solo usuarios comunes y admins pueden crear actividades
             if (currentUserRole != null && currentUserRole.canInteractWithActivities()) {
@@ -99,12 +114,18 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // 5) Configurar click del FAB circular del calendario
+        fabCalendar.setOnClickListener(v -> {
+            navController.navigate(R.id.calendarFragment);
+        });
+
         // ✅ Inicializar sistema de roles ANTES de los listeners (TU CÓDIGO)
         initializeRoleSystem();
 
         // 5) Mostrar/ocultar BottomNav y FAB según destino
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
             int id = destination.getId();
+
 
             // Pantallas donde se oculta el BottomNav
             boolean hideBottomNav =
@@ -128,8 +149,11 @@ public class MainActivity extends AppCompatActivity {
 
             bottomNav.setVisibility(hideBottomNav ? View.GONE : View.VISIBLE);
 
-            // ✅ LÓGICA MEJORADA: Mostrar FAB en CalendarFragment y ActivitiesListFragment
-            // pero SOLO si el usuario tiene permisos (TU CÓDIGO + CÓDIGO DE TU COMPAÑERO)
+            // Mostrar/ocultar FAB del calendario (solo visible cuando el BottomNav está visible)
+            fabCalendar.setVisibility(hideBottomNav ? View.GONE : View.VISIBLE);
+
+            // ✅ LÓGICA MEJORADA: Mostrar FAB "+" en CalendarFragment y ActivitiesListFragment
+            // pero SOLO si el usuario tiene permisos
             if (id == R.id.calendarFragment || id == R.id.activitiesListFragment) {
                 // Verificar permisos antes de mostrar
                 if (currentUserRole != null && currentUserRole.canInteractWithActivities()) {
@@ -299,6 +323,27 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }
+    }
+
+    /**
+     * Determina si debemos animar hacia la derecha basado en el orden de las pestañas
+     * Orden: Actividades (izq) -> Calendario (centro) -> Configuración (der)
+     */
+    private boolean shouldMoveRight(int currentDestId, int newDestId) {
+        // Orden de los items en el bottom nav
+        int currentOrder = getDestinationOrder(currentDestId);
+        int newOrder = getDestinationOrder(newDestId);
+        return newOrder > currentOrder;
+    }
+
+    /**
+     * Obtiene el orden de la vista en el bottom navigation
+     */
+    private int getDestinationOrder(int destId) {
+        if (destId == R.id.activitiesListFragment) return 0;
+        if (destId == R.id.calendarFragment) return 1;
+        if (destId == R.id.settingsFragment) return 2;
+        return 1; // Default al centro
     }
 
     @Override

@@ -139,6 +139,12 @@
         <item name="android:textColor">@color/textSecondary</item>
     </style>
 
+    <!-- Bottom Navigation Text -->
+    <style name="Text.BottomNav" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">@color/textSecondary</item>
+    </style>
+
     <!-- ============================================ -->
     <!-- FAB -->
     <!-- ============================================ -->
@@ -182,14 +188,17 @@
     </style>
 
     <!-- ============================================ -->
-    <!-- BOTTOM NAVIGATION ACTIVE INDICATOR -->
+    <!-- BOTTOM NAVIGATION ACTIVE INDICATOR - Punto verde -->
     <!-- ============================================ -->
     <style name="BottomNav.ActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
-        <item name="android:color">@color/primary_light</item>
-        <item name="shapeAppearance">@style/ShapeAppearance.BottomNav.Pill</item>
+        <item name="android:color">@color/primary</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.BottomNav.Dot</item>
+        <item name="android:width">8dp</item>
+        <item name="android:height">8dp</item>
+        <item name="marginHorizontal">0dp</item>
     </style>
 
-    <style name="ShapeAppearance.BottomNav.Pill" parent="ShapeAppearance.Material3.Corner.Full">
+    <style name="ShapeAppearance.BottomNav.Dot" parent="ShapeAppearance.Material3.Corner.Full">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">50%</item>
     </style>
