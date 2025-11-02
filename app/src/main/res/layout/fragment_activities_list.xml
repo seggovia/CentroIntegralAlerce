@@ -39,7 +39,7 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- Barra de búsqueda -->
+    <!-- Barra de búsqueda con filtro de ordenamiento -->
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -77,6 +77,18 @@
                 android:textSize="15sp"
                 android:importantForAutofill="no"
                 android:inputType="text"/>
+
+            <!-- Botón de ordenamiento -->
+            <ImageView
+                android:id="@+id/btnOrdenar"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@android:drawable/ic_menu_sort_by_size"
+                android:padding="8dp"
+                android:layout_marginEnd="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Ordenar actividades"
+                app:tint="@color/primary"/>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

@@ -7,6 +7,7 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.*;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -39,6 +40,7 @@ public class ActivitiesListFragment extends Fragment {
     private LinearLayout layoutEmpty;
     private EditText etBuscar;
     private ChipGroup chipGroupFiltros;
+    private ImageView btnOrdenar;
 
     private ActivityAdapter adapter;
     private FirebaseFirestore db;
@@ -55,6 +57,7 @@ public class ActivitiesListFragment extends Fragment {
 
     private String currentFilter = "todas";
     private String searchQuery = "";
+    private String currentSort = "recientes"; // "recientes" o "antiguos"
 
     // Cache de metadatos de la actividad padre
     private final Map<String, String> activityTipoMap  = new HashMap<>();
@@ -70,6 +73,7 @@ public class ActivitiesListFragment extends Fragment {
         layoutEmpty = v.findViewById(R.id.layoutEmpty);
         etBuscar = v.findViewById(R.id.etBuscar);
         chipGroupFiltros = v.findViewById(R.id.chipGroupFiltros);
+        btnOrdenar = v.findViewById(R.id.btnOrdenar);
 
         rvActivities.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new ActivityAdapter(filteredActivities, this::onActivityClick);
@@ -82,6 +86,7 @@ public class ActivitiesListFragment extends Fragment {
 
         setupSearchBar();
         setupFilters();
+        setupSortButton();
 
         // Escuchar cambios cuando se guarda/modifica/cancela una actividad desde otra pantalla
         getParentFragmentManager().setFragmentResultListener(
@@ -333,6 +338,37 @@ public class ActivitiesListFragment extends Fragment {
         });
     }
 
+    private void setupSortButton() {
+        btnOrdenar.setOnClickListener(v -> {
+            // Crear menú popup
+            android.widget.PopupMenu popup = new android.widget.PopupMenu(requireContext(), btnOrdenar);
+            popup.getMenuInflater().inflate(R.menu.menu_ordenar_actividades, popup.getMenu());
+
+            // Marcar la opción actual
+            if (currentSort.equals("recientes")) {
+                popup.getMenu().findItem(R.id.menu_mas_recientes).setChecked(true);
+            } else {
+                popup.getMenu().findItem(R.id.menu_menos_recientes).setChecked(true);
+            }
+
+            popup.setOnMenuItemClickListener(item -> {
+                int itemId = item.getItemId();
+                if (itemId == R.id.menu_mas_recientes) {
+                    currentSort = "recientes";
+                    applyFilters();
+                    return true;
+                } else if (itemId == R.id.menu_menos_recientes) {
+                    currentSort = "antiguos";
+                    applyFilters();
+                    return true;
+                }
+                return false;
+            });
+
+            popup.show();
+        });
+    }
+
     private void applyFilters() {
         filteredActivities.clear();
 
@@ -393,7 +429,26 @@ public class ActivitiesListFragment extends Fragment {
             filteredActivities.add(item);
         }
 
-        Log.d(TAG, "📊 Filtros aplicados: " + filteredActivities.size() + " de " + allActivities.size() + " actividades");
+        // Ordenar según la opción seleccionada
+        if (currentSort.equals("recientes")) {
+            // Más recientes primero (descendente por fecha)
+            filteredActivities.sort((a, b) -> {
+                if (a.startAt == null && b.startAt == null) return 0;
+                if (a.startAt == null) return 1;
+                if (b.startAt == null) return -1;
+                return b.startAt.compareTo(a.startAt); // Invertido para descendente
+            });
+        } else {
+            // Menos recientes primero (ascendente por fecha)
+            filteredActivities.sort((a, b) -> {
+                if (a.startAt == null && b.startAt == null) return 0;
+                if (a.startAt == null) return 1;
+                if (b.startAt == null) return -1;
+                return a.startAt.compareTo(b.startAt); // Normal para ascendente
+            });
+        }
+
+        Log.d(TAG, "📊 Filtros aplicados: " + filteredActivities.size() + " de " + allActivities.size() + " actividades (Orden: " + currentSort + ")");
         adapter.notifyDataSetChanged();
 
         if (filteredActivities.isEmpty()) showEmptyState();
