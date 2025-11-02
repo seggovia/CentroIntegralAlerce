@@ -169,6 +169,9 @@ public class BeneficiariosFragment extends Fragment {
             if (editar.caracterizacion != null && !editar.caracterizacion.isEmpty()) {
                 etTags.setText(TextUtils.join(", ", editar.caracterizacion));
             }
+        } else {
+            // Por defecto, nuevo beneficiario debe estar activo
+            swActivo.setChecked(true);
         }
 
         // ✅ Limpiar errores al escribir
