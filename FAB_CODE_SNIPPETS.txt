@@ -1,0 +1,146 @@
+FAB VISIBILITY CONTROL - KEY CODE SNIPPETS
+
+=== SNIPPET 1: FAB INITIALIZATION (MainActivity.java - Lines 127-128) ===
+
+fabGlobal = findViewById(R.id.fabAddGlobal);
+fabCalendar = findViewById(R.id.fabCalendar);
+
+This gets the references to the floating action buttons from the layout.
+
+
+=== SNIPPET 2: MAIN FAB VISIBILITY LOGIC (MainActivity.java - Lines 199-210) ===
+
+if (id == R.id.calendarFragment || id == R.id.activitiesListFragment) {
+    if (currentUserRole != null && currentUserRole.canInteractWithActivities()) {
+        fabGlobal.show();  // User/Admin can create
+    } else {
+        fabGlobal.hide();  // Viewer cannot create
+    }
+} else {
+    fabGlobal.hide();  // Hide in other fragments
+}
+
+PROBLEM: This listener fires when navigation changes, but currentUserRole 
+might still be VISUALIZADOR because the async Firebase load hasn't completed.
+
+
+=== SNIPPET 3: ROLE INITIALIZATION (MainActivity.java - Lines 219-244) ===
+
+private void initializeRoleSystem() {
+    roleManager = RoleManager.getInstance();
+    permissionChecker = new PermissionChecker();
+
+    roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
+        currentUserRole = role;
+        Log.d(TAG, "✅ User role loaded: " + role.getValue());
+        
+        // Update FAB visibility if already in Calendar or Activities List
+        runOnUiThread(() -> {
+            if (navControllerReady && navController.getCurrentDestination() != null) {
+                int currentDestination = navController.getCurrentDestination().getId();
+                if (currentDestination == R.id.calendarFragment || 
+                    currentDestination == R.id.activitiesListFragment) {
+                    if (role.canInteractWithActivities()) {
+                        fabGlobal.show();
+                    } else {
+                        fabGlobal.hide();
+                    }
+                }
+            }
+        });
+    });
+}
+
+NOTE: This callback fires AFTER Firebase load, but AFTER the 
+OnDestinationChangedListener has already fired.
+
+
+=== SNIPPET 4: ASYNC ROLE LOADING (RoleManager.java - Lines 53-89) ===
+
+public void loadUserRole(@NonNull OnRoleLoadedListener listener) {
+    FirebaseUser currentUser = auth.getCurrentUser();
+    
+    if (currentUser == null) {
+        currentUserRole = UserRole.VISUALIZADOR;
+        listener.onRoleLoaded(currentUserRole);
+        return;
+    }
+
+    String uid = currentUser.getUid();
+    
+    // THIS IS ASYNCHRONOUS - Takes time to complete
+    db.collection("usuarios")
+            .document(uid)
+            .get()
+            .addOnSuccessListener(document -> {
+                if (document.exists()) {
+                    String rolString = document.getString("rol");
+                    currentUserRole = UserRole.fromString(rolString);
+                    listener.onRoleLoaded(currentUserRole);
+                } else {
+                    currentUserRole = UserRole.VISUALIZADOR;
+                    listener.onRoleLoaded(currentUserRole);
+                }
+            });
+}
+
+KEY ISSUE: .get() is asynchronous. The callback executes much later,
+long after OnDestinationChangedListener has already fired.
+
+
+=== SNIPPET 5: USER ROLE ENUM (UserRole.java - Lines 122-124) ===
+
+public boolean canInteractWithActivities() {
+    return this == USUARIO || this == ADMINISTRADOR;
+}
+
+Only USUARIO and ADMINISTRADOR return true. VISUALIZADOR returns false.
+
+
+=== SNIPPET 6: LOGOUT AND ROLE CLEANUP (SettingsFragment.java - Lines 238-253) ===
+
+private void cerrarSesion() {
+    // Clear role from memory
+    roleManager.clearRole();
+    
+    // Sign out from Firebase
+    auth.signOut();
+    
+    Log.d("SettingsFragment", "✅ Session closed");
+    Toast.makeText(getContext(), "Sesión cerrada exitosamente", LENGTH_SHORT).show();
+    
+    // Navigate to login
+    NavHostFragment.findNavController(this)
+            .navigate(R.id.action_settingsFragment_to_loginFragment);
+}
+
+This properly clears the role when logging out.
+
+
+=== SNIPPET 7: ROLE CLEAR (RoleManager.java - Lines 184-189) ===
+
+public void clearRole() {
+    currentUserRole = UserRole.VISUALIZADOR;
+    currentUserId = null;
+    unsubscribeFromRoleChanges();
+    Log.d(TAG, "Role cleared");
+}
+
+This resets the cached role to VISUALIZADOR on logout.
+
+
+=== SUMMARY OF THE PROBLEM ===
+
+1. fabGlobal initialized with reference from layout
+2. OnDestinationChangedListener registered to monitor navigation
+3. initializeRoleSystem() starts ASYNC Firebase load
+4. User navigates to CalendarFragment
+5. Listener fires IMMEDIATELY - but currentUserRole still VISUALIZADOR
+6. FAB is hidden
+7. Firebase response arrives LATER - updates role
+8. But listener already fired, no re-check occurs
+9. FAB stays hidden
+
+The issue: The listener depends on currentUserRole, but that value 
+isn't available until AFTER the listener fires on first navigation.
+

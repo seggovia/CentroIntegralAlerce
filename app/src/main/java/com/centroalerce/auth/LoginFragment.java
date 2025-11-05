@@ -19,6 +19,7 @@ import androidx.navigation.Navigation;
 import androidx.navigation.NavOptions;
 import com.centroalerce.gestion.R;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 
 public class LoginFragment extends Fragment {
@@ -349,7 +350,6 @@ public class LoginFragment extends Fragment {
                                             .addOnSuccessListener(aVoid -> {
                                                 showLoading(false);
                                                 btnLogin.setText("Iniciar sesión");
-                                                Toast.makeText(getContext(), "Bienvenido ✅", Toast.LENGTH_SHORT).show();
 
                                                 NavOptions navOptions = new NavOptions.Builder()
                                                         .setEnterAnim(R.anim.fade_in)
@@ -361,9 +361,6 @@ public class LoginFragment extends Fragment {
                                                 // Si falla la actualización, igual permitir continuar
                                                 showLoading(false);
                                                 btnLogin.setText("Iniciar sesión");
-                                                Toast.makeText(getContext(),
-                                                        "Sesión iniciada (error al actualizar perfil)",
-                                                        Toast.LENGTH_SHORT).show();
 
                                                 NavOptions navOptions = new NavOptions.Builder()
                                                         .setEnterAnim(R.anim.fade_in)

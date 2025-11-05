@@ -20,6 +20,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.functions.FirebaseFunctions;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +29,7 @@ public class RegistroUsuariosFragment extends Fragment {
 
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
+    private FirebaseFunctions functions;
     
     private com.google.android.material.textfield.TextInputLayout tilEmail;
     private com.google.android.material.textfield.TextInputLayout tilPassword;
@@ -51,6 +53,7 @@ public class RegistroUsuariosFragment extends Fragment {
 
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+        functions = FirebaseFunctions.getInstance("us-central1");
 
         // Ejecutar limpieza automática de datos inconsistentes
         limpiarDatosAutomaticamente();
@@ -83,6 +86,24 @@ public class RegistroUsuariosFragment extends Fragment {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (tilPassword != null) { tilPassword.setError(null); tilPassword.setErrorEnabled(false); }
+
+                // También validar la confirmación si ya tiene texto
+                String confirmPassword = etConfirmPassword.getText().toString();
+                if (!confirmPassword.isEmpty() && !s.toString().equals(confirmPassword)) {
+                    if (tilConfirmPassword != null) {
+                        tilConfirmPassword.setError("Las contraseñas no coinciden");
+                        tilConfirmPassword.setErrorEnabled(true);
+                    } else {
+                        etConfirmPassword.setError("Las contraseñas no coinciden");
+                    }
+                } else if (!confirmPassword.isEmpty()) {
+                    if (tilConfirmPassword != null) {
+                        tilConfirmPassword.setError(null);
+                        tilConfirmPassword.setErrorEnabled(false);
+                    } else {
+                        etConfirmPassword.setError(null);
+                    }
+                }
             }
             @Override public void afterTextChanged(android.text.Editable s) {}
         });
@@ -90,7 +111,25 @@ public class RegistroUsuariosFragment extends Fragment {
         etConfirmPassword.addTextChangedListener(new android.text.TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (tilConfirmPassword != null) { tilConfirmPassword.setError(null); tilConfirmPassword.setErrorEnabled(false); }
+                // Validar en tiempo real si las contraseñas coinciden
+                String password = etPassword.getText().toString();
+                String confirmPassword = s.toString();
+
+                if (!confirmPassword.isEmpty() && !password.equals(confirmPassword)) {
+                    if (tilConfirmPassword != null) {
+                        tilConfirmPassword.setError("Las contraseñas no coinciden");
+                        tilConfirmPassword.setErrorEnabled(true);
+                    } else {
+                        etConfirmPassword.setError("Las contraseñas no coinciden");
+                    }
+                } else {
+                    if (tilConfirmPassword != null) {
+                        tilConfirmPassword.setError(null);
+                        tilConfirmPassword.setErrorEnabled(false);
+                    } else {
+                        etConfirmPassword.setError(null);
+                    }
+                }
             }
             @Override public void afterTextChanged(android.text.Editable s) {}
         });
@@ -263,7 +302,11 @@ public class RegistroUsuariosFragment extends Fragment {
                                                 etEmail.setError("Este correo ya está registrado y activo");
                                             }
                                             etEmail.requestFocus();
-                                            Toast.makeText(getContext(), "Este correo ya está registrado en el sistema", Toast.LENGTH_LONG).show();
+                                            com.google.android.material.snackbar.Snackbar.make(
+                                                requireView(),
+                                                "Este correo ya está registrado en el sistema",
+                                                com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                                            ).show();
                                         }
                                     } else {
                                         // Existe en Auth pero no en Firestore
@@ -286,41 +329,98 @@ public class RegistroUsuariosFragment extends Fragment {
     }
 
     private void crearUsuarioEnFirebase(String email, String password, String rol) {
-        // Crear usuario en Firebase Auth
-        mAuth.createUserWithEmailAndPassword(email, password)
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        FirebaseUser user = mAuth.getCurrentUser();
-                        if (user != null) {
-                            // Actualizar perfil del usuario
-                            UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
-                                    .setDisplayName(email)
-                                    .build();
+        // Verificar estado de autenticación ANTES de llamar a la función
+        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
 
-                            user.updateProfile(profileUpdates)
-                                    .addOnCompleteListener(profileTask -> {
-                                        if (profileTask.isSuccessful()) {
-                                            // Guardar información adicional en Firestore
-                                            guardarUsuarioEnFirestore(user.getUid(), email, rol);
-                                        } else {
-                                            mostrarError("Error al actualizar perfil: " + profileTask.getException().getMessage());
-                                        }
-                                    });
-                        }
-                    } else {
-                        // Rehabilitar botón cuando hay error
-                        btnRegistrar.setEnabled(true);
-                        btnRegistrar.setText("Registrar Usuario");
+        if (currentUser == null) {
+            com.google.android.material.snackbar.Snackbar.make(
+                requireView(),
+                "Error: No hay usuario autenticado",
+                com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+            ).show();
+            android.util.Log.e("RegistroUsuarios", "getCurrentUser() retornó null");
+            btnRegistrar.setEnabled(true);
+            btnRegistrar.setText("Registrar Usuario");
+            return;
+        }
 
-                        String msg = task.getException() != null ? task.getException().getMessage() : "";
-                        if (msg != null && msg.toLowerCase().contains("already in use")) {
-                            // El correo existe en Firebase Auth pero fue eliminado de Firestore
-                            // Mostrar diálogo de confirmación para eliminarlo completamente
-                            mostrarDialogoEliminarCuentaAuth(email, password, rol);
-                        } else {
-                            mostrarError("Error al crear usuario: " + msg);
-                        }
-                    }
+        android.util.Log.d("RegistroUsuarios", "Usuario autenticado: " + currentUser.getEmail() + " (UID: " + currentUser.getUid() + ")");
+
+        // Cambiar botón a estado de carga
+        btnRegistrar.setEnabled(false);
+        btnRegistrar.setText("Registrando...");
+
+        // Forzar refresh del token antes de llamar a la Cloud Function
+        currentUser.getIdToken(true)
+                .addOnSuccessListener(getTokenResult -> {
+                    android.util.Log.d("RegistroUsuarios", "Token refreshed exitosamente");
+
+                    // Usar Cloud Function para crear usuario sin cerrar sesión del administrador
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("email", email);
+                    data.put("password", password);
+                    data.put("rol", rol);
+
+                    functions.getHttpsCallable("createUser")
+                            .call(data)
+                            .addOnSuccessListener(result -> {
+                                // Limpiar campos
+                                etEmail.setText("");
+                                etPassword.setText("");
+                                etConfirmPassword.setText("");
+                                actvRol.setText("", false);
+
+                                // Rehabilitar botón
+                                btnRegistrar.setEnabled(true);
+                                btnRegistrar.setText("Registrar Usuario");
+
+                                // Mostrar Snackbar de éxito
+                                com.google.android.material.snackbar.Snackbar snackbar = com.google.android.material.snackbar.Snackbar.make(
+                                    requireView(),
+                                    "✓ Usuario registrado correctamente",
+                                    com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                                );
+                                snackbar.setBackgroundTint(getResources().getColor(android.R.color.holo_green_dark));
+                                snackbar.setTextColor(getResources().getColor(android.R.color.white));
+                                snackbar.show();
+
+                                // Volver a la pantalla anterior
+                                requireActivity().onBackPressed();
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.e("RegistroUsuarios", "Error al crear usuario", e);
+
+                                // Rehabilitar botón cuando hay error
+                                btnRegistrar.setEnabled(true);
+                                btnRegistrar.setText("Registrar Usuario");
+
+                                String msg = e.getMessage();
+                                if (msg != null && msg.toLowerCase().contains("already in use")) {
+                                    // El correo ya está en uso - mostrar error en el campo
+                                    if (tilEmail != null) {
+                                        tilEmail.setError("Este correo ya está registrado");
+                                        tilEmail.setErrorEnabled(true);
+                                    } else {
+                                        etEmail.setError("Este correo ya está registrado");
+                                    }
+                                    etEmail.requestFocus();
+                                } else {
+                                    mostrarError("Error al crear usuario: " + msg);
+                                }
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("RegistroUsuarios", "Error al refrescar token", e);
+
+                    // Rehabilitar botón
+                    btnRegistrar.setEnabled(true);
+                    btnRegistrar.setText("Registrar Usuario");
+
+                    com.google.android.material.snackbar.Snackbar.make(
+                        requireView(),
+                        "Error de autenticación. Intenta cerrar sesión y volver a iniciar.",
+                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                    ).show();
                 });
     }
 
@@ -336,11 +436,18 @@ public class RegistroUsuariosFragment extends Fragment {
                 .document(uid)
                 .set(usuario)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Usuario registrado exitosamente", Toast.LENGTH_LONG).show();
-                    
+                    com.google.android.material.snackbar.Snackbar snackbar = com.google.android.material.snackbar.Snackbar.make(
+                        requireView(),
+                        "✓ Usuario registrado correctamente",
+                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                    );
+                    snackbar.setBackgroundTint(getResources().getColor(android.R.color.holo_green_dark));
+                    snackbar.setTextColor(getResources().getColor(android.R.color.white));
+                    snackbar.show();
+
                     // Limpiar formulario
                     limpiarFormulario();
-                    
+
                     // Volver a la pantalla anterior
                     androidx.navigation.fragment.NavHostFragment.findNavController(this).popBackStack();
                 })
@@ -360,7 +467,14 @@ public class RegistroUsuariosFragment extends Fragment {
                 .document(uid)
                 .update(updates)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Usuario reactivado exitosamente", Toast.LENGTH_LONG).show();
+                    com.google.android.material.snackbar.Snackbar snackbar = com.google.android.material.snackbar.Snackbar.make(
+                        requireView(),
+                        "✓ Usuario reactivado correctamente",
+                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                    );
+                    snackbar.setBackgroundTint(getResources().getColor(android.R.color.holo_green_dark));
+                    snackbar.setTextColor(getResources().getColor(android.R.color.white));
+                    snackbar.show();
 
                     // Limpiar formulario
                     limpiarFormulario();
@@ -385,8 +499,12 @@ public class RegistroUsuariosFragment extends Fragment {
         if (tilEmail != null) { tilEmail.setError(mensaje); tilEmail.setErrorEnabled(true); }
         else etEmail.setError(mensaje);
 
-        // Mostrar Toast con el mensaje de error
-        Toast.makeText(getContext(), mensaje, Toast.LENGTH_LONG).show();
+        // Mostrar Snackbar con el mensaje de error
+        com.google.android.material.snackbar.Snackbar.make(
+            requireView(),
+            mensaje,
+            com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+        ).show();
 
         // Rehabilitar botón
         btnRegistrar.setEnabled(true);
@@ -446,7 +564,6 @@ public class RegistroUsuariosFragment extends Fragment {
                                         if (deleteTask.isSuccessful()) {
                                             // Cuenta eliminada, ahora crear una nueva
                                             btnRegistrar.setText("Creando cuenta nueva...");
-                                            Toast.makeText(getContext(), "Cuenta anterior eliminada, creando nueva...", Toast.LENGTH_SHORT).show();
                                             crearUsuarioEnFirebase(email, password, rol);
                                         } else {
                                             btnRegistrar.setEnabled(true);
@@ -469,10 +586,12 @@ public class RegistroUsuariosFragment extends Fragment {
                             tilPassword.setErrorEnabled(true);
                         }
 
-                        Toast.makeText(getContext(),
+                        com.google.android.material.snackbar.Snackbar.make(
+                                requireView(),
                                 "Error: La contraseña no coincide con la cuenta existente en el sistema. " +
                                 "Contacta al administrador del sistema para eliminar la cuenta manualmente.",
-                                Toast.LENGTH_LONG).show();
+                                com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                        ).show();
                     }
                 });
     }

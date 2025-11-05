@@ -22,6 +22,8 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.functions.FirebaseFunctions;
+import com.google.firebase.functions.HttpsCallableResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +31,7 @@ import java.util.List;
 public class GestionUsuariosFragment extends Fragment {
 
     private FirebaseFirestore db;
+    private FirebaseFunctions functions;
     private RecyclerView recyclerViewUsuarios;
     private MaterialButton btnVolver;
     private FloatingActionButton fabRegistrarUsuario;
@@ -69,6 +72,7 @@ public class GestionUsuariosFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         db = FirebaseFirestore.getInstance();
+        functions = FirebaseFunctions.getInstance("us-central1");
         
         // Inicializar vistas
         recyclerViewUsuarios = view.findViewById(R.id.recyclerViewUsuarios);
@@ -294,9 +298,6 @@ public class GestionUsuariosFragment extends Fragment {
     }
 
     private void cargarUsuarios() {
-        // Mostrar indicador de carga
-        Toast.makeText(getContext(), "Cargando usuarios...", Toast.LENGTH_SHORT).show();
-
         // Cargar todos los usuarios (filtraremos los inactivos después)
         db.collection("usuarios")
                 .get()
@@ -352,8 +353,6 @@ public class GestionUsuariosFragment extends Fragment {
 
                     // Ordenar por email después de cargar
                     todosLosUsuarios.sort((u1, u2) -> u1.email.compareToIgnoreCase(u2.email));
-
-                    Toast.makeText(getContext(), "Usuarios cargados: " + todosLosUsuarios.size(), Toast.LENGTH_SHORT).show();
 
                     // Aplicar filtros por defecto y cargar página actual
                     aplicarFiltros();
@@ -533,12 +532,18 @@ public class GestionUsuariosFragment extends Fragment {
         btnCancelarEliminar.setOnClickListener(v -> dialog.dismiss());
 
         btnConfirmarEliminar.setOnClickListener(v -> {
-            // Eliminar la cuenta del administrador actual
-            db.collection("usuarios").document(usuario.uid)
-                    .delete()
-                    .addOnSuccessListener(aVoid -> {
+            // Mostrar loading
+            Toast.makeText(getContext(), "Eliminando usuario...", Toast.LENGTH_SHORT).show();
+
+            // Llamar a la Cloud Function para eliminar de Auth y Firestore
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("uid", usuario.uid);
+
+            functions.getHttpsCallable("deleteUser")
+                    .call(data)
+                    .addOnSuccessListener(result -> {
                         Toast.makeText(getContext(),
-                            "Tu cuenta ha sido eliminada del sistema. Cerrando sesión...",
+                            "Tu cuenta ha sido eliminada completamente. Cerrando sesión...",
                             Toast.LENGTH_LONG).show();
                         dialog.dismiss();
 
@@ -578,20 +583,88 @@ public class GestionUsuariosFragment extends Fragment {
         btnCancelarEliminar.setOnClickListener(v -> dialog.dismiss());
 
         btnConfirmarEliminar.setOnClickListener(v -> {
-            // Eliminar completamente de Firestore
-            // Nota: No podemos eliminar de Firebase Auth desde el cliente sin credenciales
-            // El administrador deberá eliminar manualmente desde la consola de Firebase si es necesario
-            db.collection("usuarios").document(usuario.uid)
-                    .delete()
-                    .addOnSuccessListener(aVoid -> {
-                        Toast.makeText(getContext(),
-                            "Usuario eliminado de la base de datos.\nNota: Deberás eliminar la cuenta de Firebase Auth manualmente si es necesario.",
-                            Toast.LENGTH_LONG).show();
-                        dialog.dismiss();
-                        cargarUsuarios(); // Recargar la lista
+            // Verificar estado de autenticación ANTES de llamar a la función
+            com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+
+            if (currentUser == null) {
+                com.google.android.material.snackbar.Snackbar.make(
+                    requireView(),
+                    "Error: No hay usuario autenticado",
+                    com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                ).show();
+                android.util.Log.e("GestionUsuarios", "getCurrentUser() retornó null");
+                return;
+            }
+
+            android.util.Log.d("GestionUsuarios", "Usuario autenticado: " + currentUser.getEmail() + " (UID: " + currentUser.getUid() + ")");
+
+            // Cambiar texto del botón y deshabilitar
+            btnConfirmarEliminar.setEnabled(false);
+            btnConfirmarEliminar.setText("Eliminando...");
+            btnCancelarEliminar.setEnabled(false);
+
+            // Forzar refresh del token antes de llamar a la Cloud Function
+            currentUser.getIdToken(true)
+                    .addOnSuccessListener(getTokenResult -> {
+                        android.util.Log.d("GestionUsuarios", "Token refreshed exitosamente");
+
+                        // Llamar a la Cloud Function para eliminar de Auth y Firestore
+                        java.util.Map<String, Object> data = new java.util.HashMap<>();
+                        data.put("uid", usuario.uid);
+
+                        functions.getHttpsCallable("deleteUser")
+                                .call(data)
+                                .addOnSuccessListener(result -> {
+                                    dialog.dismiss();
+
+                                    // Mostrar Snackbar personalizado con mensaje de éxito
+                                    com.google.android.material.snackbar.Snackbar snackbar = com.google.android.material.snackbar.Snackbar.make(
+                                        requireView(),
+                                        "✓ Usuario eliminado correctamente",
+                                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                                    );
+                                    snackbar.setBackgroundTint(getResources().getColor(android.R.color.holo_green_dark));
+                                    snackbar.setTextColor(getResources().getColor(android.R.color.white));
+                                    snackbar.show();
+
+                                    cargarUsuarios(); // Recargar la lista
+                                })
+                                .addOnFailureListener(e -> {
+                                    android.util.Log.e("GestionUsuarios", "Error al eliminar usuario", e);
+                                    android.util.Log.e("GestionUsuarios", "Error class: " + e.getClass().getName());
+                                    android.util.Log.e("GestionUsuarios", "Error message: " + e.getMessage());
+                                    if (e instanceof com.google.firebase.functions.FirebaseFunctionsException) {
+                                        com.google.firebase.functions.FirebaseFunctionsException ffe =
+                                            (com.google.firebase.functions.FirebaseFunctionsException) e;
+                                        android.util.Log.e("GestionUsuarios", "Function error code: " + ffe.getCode());
+                                        android.util.Log.e("GestionUsuarios", "Function error details: " + ffe.getDetails());
+                                    }
+
+                                    // Restaurar botones
+                                    btnConfirmarEliminar.setEnabled(true);
+                                    btnConfirmarEliminar.setText("Eliminar");
+                                    btnCancelarEliminar.setEnabled(true);
+
+                                    com.google.android.material.snackbar.Snackbar.make(
+                                        requireView(),
+                                        "Error al eliminar usuario: " + e.getMessage(),
+                                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                                    ).show();
+                                });
                     })
                     .addOnFailureListener(e -> {
-                        Toast.makeText(getContext(), "Error al eliminar usuario: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        android.util.Log.e("GestionUsuarios", "Error al refrescar token", e);
+
+                        // Restaurar botones
+                        btnConfirmarEliminar.setEnabled(true);
+                        btnConfirmarEliminar.setText("Eliminar");
+                        btnCancelarEliminar.setEnabled(true);
+
+                        com.google.android.material.snackbar.Snackbar.make(
+                            requireView(),
+                            "Error de autenticación. Intenta cerrar sesión y volver a iniciar.",
+                            com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                        ).show();
                     });
         });
         

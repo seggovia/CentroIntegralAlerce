@@ -26,6 +26,10 @@ import com.centroalerce.gestion.utils.RoleManager;
 import com.centroalerce.gestion.utils.UserRole;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.appcheck.FirebaseAppCheck;
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory;
+import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
@@ -66,6 +70,23 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // ✅ Inicializar Firebase App Check - TEMPORALMENTE DESACTIVADO PARA DEBUG
+        FirebaseApp.initializeApp(this);
+        // FirebaseAppCheck firebaseAppCheck = FirebaseAppCheck.getInstance();
+
+        // Usar Debug provider en desarrollo (BuildConfig.DEBUG)
+        // Cambiar a Play Integrity para producción
+        // if (BuildConfig.DEBUG) {
+        //     firebaseAppCheck.installAppCheckProviderFactory(
+        //             DebugAppCheckProviderFactory.getInstance());
+        //     Log.d(TAG, "✅ App Check inicializado con DEBUG provider");
+        // } else {
+        //     firebaseAppCheck.installAppCheckProviderFactory(
+        //             PlayIntegrityAppCheckProviderFactory.getInstance());
+        //     Log.d(TAG, "✅ App Check inicializado con Play Integrity");
+        // }
+        Log.d(TAG, "⚠️ App Check DESACTIVADO temporalmente para debug");
 
         // ✅ Inicializar Firebase Auth (TU CÓDIGO)
         auth = FirebaseAuth.getInstance();
@@ -199,10 +220,16 @@ public class MainActivity extends AppCompatActivity {
             // ✅ LÓGICA MEJORADA: Mostrar FAB "+" en CalendarFragment y ActivitiesListFragment
             // pero SOLO si el usuario tiene permisos
             if (id == R.id.calendarFragment || id == R.id.activitiesListFragment) {
-                // Verificar permisos antes de mostrar
-                if (currentUserRole != null && currentUserRole.canInteractWithActivities()) {
+                // Mostrar por defecto mientras se carga el rol, solo ocultar si es VISUALIZADOR
+                if (currentUserRole == null) {
+                    // Rol aún no cargado, mostrar FAB por defecto (optimista)
+                    Log.d(TAG, "⚠️ FAB: Rol null, mostrando optimistamente");
+                    fabGlobal.show();
+                } else if (currentUserRole.canInteractWithActivities()) {
+                    Log.d(TAG, "✅ FAB: Mostrando (rol: " + currentUserRole.getValue() + ")");
                     fabGlobal.show(); // ✅ Usuario/Admin pueden crear
                 } else {
+                    Log.d(TAG, "❌ FAB: Ocultando (rol: " + currentUserRole.getValue() + ")");
                     fabGlobal.hide(); // ❌ Visualizador no puede crear
                 }
             } else {
@@ -217,30 +244,48 @@ public class MainActivity extends AppCompatActivity {
      * ✅ Inicializa el sistema de roles
      */
     private void initializeRoleSystem() {
+        Log.d(TAG, "🔧 initializeRoleSystem() llamado");
         roleManager = RoleManager.getInstance();
         permissionChecker = new PermissionChecker();
 
-        // Cargar el rol del usuario actual
-        roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
-            currentUserRole = role;
-            Log.d(TAG, "✅ Rol del usuario cargado: " + role.getValue());
+        // Usar listener en tiempo real en lugar de get() único
+        // Esto asegura que obtenemos actualizaciones cuando el rol está disponible
+        Log.d(TAG, "📞 Suscribiéndose a cambios de rol en tiempo real...");
+        roleManager.subscribeToRoleChanges(new RoleManager.OnRoleLoadedListener() {
+            @Override
+            public void onRoleLoaded(UserRole role) {
+                Log.d(TAG, "🎯 LISTENER EJECUTADO en MainActivity! (desde subscribeToRoleChanges)");
+                currentUserRole = role;
+                Log.d(TAG, "✅ Rol del usuario cargado en MainActivity: " + role.getValue());
 
-            // Configurar el menú según el rol
-            configureMenuByRole(role);
+                // Configurar el menú según el rol
+                configureMenuByRole(role);
 
-            // Actualizar visibilidad del FAB si ya estamos en CalendarFragment o ActivitiesListFragment
-            runOnUiThread(() -> {
-                if (navControllerReady && navController.getCurrentDestination() != null) {
-                    int currentDestination = navController.getCurrentDestination().getId();
-                    if (currentDestination == R.id.calendarFragment || currentDestination == R.id.activitiesListFragment) {
-                        if (role.canInteractWithActivities()) {
-                            fabGlobal.show();
+                // Actualizar visibilidad del FAB si ya estamos en CalendarFragment o ActivitiesListFragment
+                runOnUiThread(() -> {
+                    Log.d(TAG, "🔄 Actualizando FAB después de cargar rol: " + role.getValue());
+                    Log.d(TAG, "   navControllerReady: " + navControllerReady);
+
+                    if (navControllerReady && navController != null && navController.getCurrentDestination() != null) {
+                        int currentDestination = navController.getCurrentDestination().getId();
+                        Log.d(TAG, "   currentDestination: " + currentDestination);
+
+                        if (currentDestination == R.id.calendarFragment || currentDestination == R.id.activitiesListFragment) {
+                            if (role.canInteractWithActivities()) {
+                                Log.d(TAG, "   ✅ Mostrando FAB (puede interactuar)");
+                                fabGlobal.show();
+                            } else {
+                                Log.d(TAG, "   ❌ Ocultando FAB (no puede interactuar)");
+                                fabGlobal.hide();
+                            }
                         } else {
-                            fabGlobal.hide();
+                            Log.d(TAG, "   ℹ️ No estamos en Calendar/Activities, ignorando");
                         }
+                    } else {
+                        Log.w(TAG, "   ⚠️ NavController no listo o destino null");
                     }
-                }
-            });
+                });
+            }
         });
     }
 
@@ -348,24 +393,45 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
-        // ✅ Recargar el rol por si cambió (TU CÓDIGO)
+        // ✅ Detectar si cambió el usuario y reinicializar sistema de roles
         if (roleManager != null) {
-            roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
-                currentUserRole = role;
-                configureMenuByRole(role);
+            com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            String currentUid = roleManager.getCurrentUserId();
 
-                // Verificar que navController esté listo
-                if (navControllerReady && navController.getCurrentDestination() != null) {
-                    int currentDestId = navController.getCurrentDestination().getId();
-                    if (currentDestId == R.id.calendarFragment || currentDestId == R.id.activitiesListFragment) {
-                        if (role.canInteractWithActivities()) {
-                            fabGlobal.show();
-                        } else {
-                            fabGlobal.hide();
+            // Si hay un usuario autenticado y es diferente al que tenemos en caché
+            if (currentUser != null && (currentUid == null || !currentUser.getUid().equals(currentUid))) {
+                Log.d(TAG, "🔄 Usuario cambió (anterior: " + currentUid + ", nuevo: " + currentUser.getUid() + ")");
+                Log.d(TAG, "🔄 Reinicializando sistema de roles...");
+
+                // Limpiar el rol anterior
+                roleManager.clearRole();
+
+                // Reinicializar para el nuevo usuario
+                initializeRoleSystem();
+            } else if (currentUser == null && currentUid != null) {
+                // Se cerró sesión, limpiar rol
+                Log.d(TAG, "🔄 Sesión cerrada, limpiando roles...");
+                roleManager.clearRole();
+                currentUserRole = null;
+            } else {
+                // Usuario no cambió, solo recargar rol por si cambió
+                roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
+                    currentUserRole = role;
+                    configureMenuByRole(role);
+
+                    // Verificar que navController esté listo
+                    if (navControllerReady && navController.getCurrentDestination() != null) {
+                        int currentDestId = navController.getCurrentDestination().getId();
+                        if (currentDestId == R.id.calendarFragment || currentDestId == R.id.activitiesListFragment) {
+                            if (role.canInteractWithActivities()) {
+                                fabGlobal.show();
+                            } else {
+                                fabGlobal.hide();
+                            }
                         }
                     }
-                }
-            });
+                });
+            }
         }
     }
 

@@ -5,7 +5,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -18,6 +17,7 @@ import com.centroalerce.gestion.utils.PermissionChecker;
 import com.centroalerce.gestion.utils.RoleManager;
 import com.centroalerce.gestion.utils.UserRole;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
@@ -244,10 +244,7 @@ public class SettingsFragment extends Fragment {
 
         android.util.Log.d("SettingsFragment", "✅ Sesión cerrada");
 
-        // Mostrar mensaje
-        Toast.makeText(getContext(), "Sesión cerrada exitosamente", Toast.LENGTH_SHORT).show();
-
-        // Navegar al login (el popUpTo en nav_graph limpia el back stack automáticamente)
+        // Navegar al login primero
         NavHostFragment.findNavController(this)
                 .navigate(R.id.action_settingsFragment_to_loginFragment);
     }
