@@ -46,7 +46,6 @@ public class LoginFragment extends Fragment {
         btnLogin.setEnabled(true); // Siempre habilitado, las validaciones se hacen al hacer clic
         progressBar = v.findViewById(R.id.progressBarLogin);
         TextView tvForgot = v.findViewById(R.id.tvForgot);
-        TextView tvContacto = v.findViewById(R.id.tvContacto);
 
         // Botón "Crear cuenta"
         MaterialButton btnSignup = v.findViewById(R.id.btnSignup);
@@ -81,11 +80,6 @@ public class LoginFragment extends Fragment {
                 Navigation.findNavController(v).navigate(R.id.action_loginFragment_to_forgotPasswordFragment)
         );
 
-        // Navegar a contacto/soporte
-        if (tvContacto != null) {
-            tvContacto.setOnClickListener(x -> openContactSupport(v));
-        }
-
         // Iniciar animaciones de entrada
         startEntranceAnimations(v);
 
@@ -105,10 +99,9 @@ public class LoginFragment extends Fragment {
         View passLayout = root.findViewById(R.id.tilPassword);
         View forgotLink = root.findViewById(R.id.tvForgot);
         View loginButton = root.findViewById(R.id.btnLogin);
-        View footer = root.findViewById(R.id.llFooter);
 
         // Hacer todos los elementos invisibles inicialmente
-        View[] views = {logo, title, subtitle1, subtitle2, emailLayout, passLayout, forgotLink, loginButton, footer};
+        View[] views = {logo, title, subtitle1, subtitle2, emailLayout, passLayout, forgotLink, loginButton};
         for (View v : views) {
             if (v != null) {
                 v.setAlpha(0f);
@@ -125,7 +118,6 @@ public class LoginFragment extends Fragment {
         animateView(passLayout, 400, 100);
         animateView(forgotLink, 450, 100);
         animateView(loginButton, 500, 100);
-        animateView(footer, 600, 100);
     }
 
     /**
@@ -387,9 +379,5 @@ public class LoginFragment extends Fragment {
         if (progressBar != null) {
             progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
         }
-    }
-
-    private void openContactSupport(View root){
-        Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_contactSupportFragment);
     }
 }

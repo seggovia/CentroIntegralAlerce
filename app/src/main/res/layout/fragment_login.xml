@@ -151,35 +151,5 @@
             android:layout_height="0dp"
             android:layout_weight="1"/>
 
-        <!-- Footer: Contacto soporte -->
-        <LinearLayout
-            android:id="@+id/llFooter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="24dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="¿Problemas para ingresar? "
-                android:textColor="@color/textSecondary"
-                android:textSize="14sp"/>
-
-            <TextView
-                android:id="@+id/tvContacto"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Contactar soporte"
-                android:textColor="@color/primary"
-                android:textStyle="bold"
-                android:textSize="14sp"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground"
-                android:padding="4dp"/>
-        </LinearLayout>
-
     </LinearLayout>
 </ScrollView>
