@@ -20,6 +20,7 @@ import com.centroalerce.gestion.repositories.NotificacionRepository;
 import com.centroalerce.gestion.utils.Constantes;
 import com.google.firebase.Timestamp;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -103,11 +104,17 @@ public class NotificationService {
 
         Log.d(TAG, "Programando notificaciones para cita: " + cita.getId());
 
-        // Calcular fecha de notificación basada en diasAvisoPrevio
-        Timestamp fechaNotificacion = calcularFechaNotificacion(cita.getFecha(), actividad.getDiasAvisoPrevio());
+        // Calcular y crear múltiples notificaciones en el rango de días de aviso previo
+        List<Timestamp> fechasNotificacion = calcularFechasNotificacionRango(
+            cita.getFecha(),
+            actividad.getDiasAvisoPrevio()
+        );
 
-        if (fechaNotificacion != null) {
-            crearNotificacionRecordatorio(cita, actividad, fechaNotificacion, usuariosNotificar);
+        // Crear una notificación para cada día en el rango
+        for (int i = 0; i < fechasNotificacion.size(); i++) {
+            Timestamp fechaNotificacion = fechasNotificacion.get(i);
+            int diasRestantes = fechasNotificacion.size() - i - 1;
+            crearNotificacionRecordatorio(cita, actividad, fechaNotificacion, usuariosNotificar, diasRestantes);
         }
     }
 
@@ -115,18 +122,22 @@ public class NotificationService {
      * Programa notificación para actividad periódica
      */
     private void programarNotificacionPeriodica(Actividad actividad, List<String> usuariosNotificar) {
-        Timestamp fechaNotificacion = calcularFechaNotificacion(
+        List<Timestamp> fechasNotificacion = calcularFechasNotificacionRango(
                 actividad.getFechaInicio(),
                 actividad.getDiasAvisoPrevio()
         );
 
-        if (fechaNotificacion != null) {
+        // Crear una notificación para cada día en el rango
+        for (int i = 0; i < fechasNotificacion.size(); i++) {
+            Timestamp fechaNotificacion = fechasNotificacion.get(i);
+            int diasRestantes = fechasNotificacion.size() - i - 1;
+
             // Crear notificación para actividad periódica
             Notificacion notificacion = new Notificacion();
             notificacion.setTipo(Constantes.NOTIF_RECORDATORIO);
             notificacion.setActividadNombre(actividad.getNombre());
             notificacion.setFecha(fechaNotificacion);
-            notificacion.setMensaje(generarMensajeRecordatorio(actividad, fechaNotificacion));
+            notificacion.setMensaje(generarMensajeRecordatorio(actividad, actividad.getFechaInicio(), diasRestantes));
             notificacion.setLeida(false);
             notificacion.setFechaCreacion(Timestamp.now());
             notificacion.setUsuariosNotificados(usuariosNotificar);
@@ -150,13 +161,14 @@ public class NotificationService {
      * Crea notificación de recordatorio para una cita
      */
     private void crearNotificacionRecordatorio(Cita cita, Actividad actividad,
-                                               Timestamp fechaNotificacion, List<String> usuariosNotificar) {
+                                               Timestamp fechaNotificacion, List<String> usuariosNotificar,
+                                               int diasRestantes) {
         Notificacion notificacion = new Notificacion();
         notificacion.setTipo(Constantes.NOTIF_RECORDATORIO);
         notificacion.setCitaId(cita.getId());
         notificacion.setActividadNombre(actividad.getNombre());
         notificacion.setFecha(fechaNotificacion);
-        notificacion.setMensaje(generarMensajeRecordatorio(actividad, fechaNotificacion));
+        notificacion.setMensaje(generarMensajeRecordatorio(actividad, cita.getFecha(), diasRestantes));
         notificacion.setLeida(false);
         notificacion.setFechaCreacion(Timestamp.now());
         notificacion.setUsuariosNotificados(usuariosNotificar);
@@ -176,38 +188,105 @@ public class NotificationService {
     }
 
     /**
-     * Calcula la fecha de notificación basada en la fecha de la actividad y días de aviso previo
+     * Calcula múltiples fechas de notificación en el rango de días de aviso previo.
+     *
+     * LÓGICA:
+     * - Si la actividad está a más de 'diasAvisoPrevio' días: crea notificaciones desde diasAvisoPrevio días antes hasta el día 0
+     * - Si la actividad está más cerca: crea notificaciones desde HOY hasta el día de la actividad
+     *
+     * Ejemplos:
+     * 1) diasAvisoPrevio=5, actividad en 10 días → notificaciones: -5, -4, -3, -2, -1, 0 (6 notificaciones)
+     * 2) diasAvisoPrevio=5, actividad en 2 días  → notificaciones: hoy, -1, 0 (3 notificaciones)
+     * 3) diasAvisoPrevio=9, actividad en 2 días  → notificaciones: hoy, -1, 0 (3 notificaciones)
      */
-    private Timestamp calcularFechaNotificacion(Timestamp fechaActividad, int diasAvisoPrevio) {
+    private List<Timestamp> calcularFechasNotificacionRango(Timestamp fechaActividad, int diasAvisoPrevio) {
+        List<Timestamp> fechas = new ArrayList<>();
+
         if (fechaActividad == null || diasAvisoPrevio < 0) {
-            return null;
+            return fechas;
         }
 
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(fechaActividad.toDate());
-
-        // Restar los días de aviso previo configurados por el usuario
-        calendar.add(Calendar.DAY_OF_MONTH, -diasAvisoPrevio);
-
-        // Si la fecha calculada ya pasó, no programar notificación
         Date ahora = new Date();
-        if (!calendar.getTime().after(ahora)) {
-            Log.w(TAG, "Fecha de notificación ya pasó. No se programará notificación para esta actividad.");
-            return null; // No programar notificaciones para fechas pasadas
+        Calendar calActividad = Calendar.getInstance();
+        calActividad.setTime(fechaActividad.toDate());
+
+        Calendar calHoy = Calendar.getInstance();
+        calHoy.setTime(ahora);
+
+        // Calcular días reales que faltan
+        long diffMillis = calActividad.getTimeInMillis() - calHoy.getTimeInMillis();
+        int diasRestantesReales = (int) Math.ceil(diffMillis / (1000.0 * 60 * 60 * 24));
+
+        // Determinar desde cuántos días antes empezar a notificar
+        int diasDesdeIniciar = Math.min(diasAvisoPrevio, diasRestantesReales);
+
+        Log.d(TAG, String.format("Actividad en %d días reales. Configurado: %d días aviso. Se notificará desde: %d días antes",
+                diasRestantesReales, diasAvisoPrevio, diasDesdeIniciar));
+
+        // Generar notificaciones desde 'diasDesdeIniciar' hasta el día 0 (día de la actividad)
+        for (int i = diasDesdeIniciar; i >= 0; i--) {
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(fechaActividad.toDate());
+            calendar.add(Calendar.DAY_OF_MONTH, -i);
+
+            // Solo agregar si la fecha no ha pasado (validación adicional)
+            if (calendar.getTime().after(ahora) || esMismoDia(calendar.getTime(), ahora)) {
+                fechas.add(new Timestamp(calendar.getTime()));
+                Log.d(TAG, String.format("Notificación programada para %d días antes (%s)",
+                        i, new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()).format(calendar.getTime())));
+            } else {
+                Log.d(TAG, "Notificación para " + i + " días antes ya pasó, se omite");
+            }
         }
 
-        return new Timestamp(calendar.getTime());
+        Log.d(TAG, "✅ Total programadas: " + fechas.size() + " notificaciones");
+        return fechas;
     }
 
     /**
-     * Genera el mensaje de recordatorio personalizado
+     * Verifica si dos fechas son el mismo día (sin considerar hora)
      */
-    private String generarMensajeRecordatorio(Actividad actividad, Timestamp fechaNotificacion) {
-        return String.format(
-                "Recordatorio: La actividad '%s' está programada para %s. ¡No olvides asistir!",
-                actividad.getNombre(),
-                formatFecha(fechaNotificacion)
-        );
+    private boolean esMismoDia(Date fecha1, Date fecha2) {
+        Calendar cal1 = Calendar.getInstance();
+        Calendar cal2 = Calendar.getInstance();
+        cal1.setTime(fecha1);
+        cal2.setTime(fecha2);
+
+        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+                cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR);
+    }
+
+    /**
+     * Genera el mensaje de recordatorio personalizado con días restantes
+     */
+    private String generarMensajeRecordatorio(Actividad actividad, Timestamp fechaActividad, int diasRestantes) {
+        String mensaje;
+
+        if (diasRestantes == 0) {
+            // El mismo día de la actividad
+            mensaje = String.format(
+                    "¡HOY! La actividad '%s' está programada para hoy a las %s. ¡No olvides asistir!",
+                    actividad.getNombre(),
+                    formatHora(fechaActividad)
+            );
+        } else if (diasRestantes == 1) {
+            // Un día antes
+            mensaje = String.format(
+                    "Recordatorio: La actividad '%s' es MAÑANA (%s). ¡No olvides asistir!",
+                    actividad.getNombre(),
+                    formatFecha(fechaActividad)
+            );
+        } else {
+            // Varios días antes
+            mensaje = String.format(
+                    "Recordatorio: La actividad '%s' está programada para %s (en %d días). ¡No olvides asistir!",
+                    actividad.getNombre(),
+                    formatFecha(fechaActividad),
+                    diasRestantes
+            );
+        }
+
+        return mensaje;
     }
 
     /**
@@ -223,6 +302,21 @@ public class NotificationService {
                 calendar.get(Calendar.DAY_OF_MONTH),
                 calendar.get(Calendar.MONTH) + 1,
                 calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.HOUR_OF_DAY),
+                calendar.get(Calendar.MINUTE)
+        );
+    }
+
+    /**
+     * Formatea solo la hora de un timestamp
+     */
+    private String formatHora(Timestamp timestamp) {
+        if (timestamp == null) return "";
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(timestamp.toDate());
+
+        return String.format("%02d:%02d",
                 calendar.get(Calendar.HOUR_OF_DAY),
                 calendar.get(Calendar.MINUTE)
         );

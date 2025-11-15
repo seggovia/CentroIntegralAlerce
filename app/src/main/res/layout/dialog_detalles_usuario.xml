@@ -80,53 +80,7 @@
                 android:orientation="vertical"
                 android:padding="20dp">
 
-                <!-- Nombre -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="20dp">
-
-                    <ImageView
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:src="@android:drawable/ic_menu_myplaces"
-                        android:background="@drawable/bg_icon_circle"
-                        android:padding="10dp"
-                        android:layout_marginEnd="16dp"/>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Email"
-                            android:textSize="12sp"
-                            android:textColor="@color/textSecondary"
-                            android:textStyle="bold"
-                            android:textAllCaps="true"
-                            android:letterSpacing="0.1"/>
-
-                        <TextView
-                            android:id="@+id/textDetalleEmail"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:text="Usuario Ejemplo"
-                            android:textSize="18sp"
-                            android:textColor="@color/textPrimary"
-                            android:textStyle="bold"/>
-
-                    </LinearLayout>
-
-                </LinearLayout>
-
-                <!-- Email -->
+                <!-- Correo electrónico -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

@@ -1106,6 +1106,29 @@ public class ActivityFormFragment extends Fragment {
             // Mantener valor por defecto
         }
 
+        // Validar y mostrar información sobre días de aviso previo
+        if (!modoPeriodica && diasAvisoPrevio > 0) {
+            Timestamp startAtPuntual = toStartAtTimestamp(fecha, hora);
+            if (startAtPuntual != null) {
+                long diff = startAtPuntual.toDate().getTime() - System.currentTimeMillis();
+                int diasRestantes = (int) (diff / (1000 * 60 * 60 * 24));
+
+                if (diasRestantes < diasAvisoPrevio) {
+                    // Mostrar advertencia informativa (no bloquea el guardado)
+                    int notificacionesQueSeCrearan = Math.max(0, diasRestantes + 1);
+                    String mensaje = String.format(
+                        "Nota: Se crearán %d notificaciones (actividad en %d días, configuraste %d días de aviso).",
+                        notificacionesQueSeCrearan,
+                        diasRestantes,
+                        diasAvisoPrevio
+                    );
+                    android.util.Log.i("NOTIFICACIONES", mensaje);
+                    // Opcional: mostrar un toast discreto
+                    // Toast.makeText(requireContext(), mensaje, Toast.LENGTH_LONG).show();
+                }
+            }
+        }
+
         if (TextUtils.isEmpty(tipoActividad)) {
             mostrarDialogoError("Campo obligatorio", "Debes seleccionar un tipo de actividad", root);
             btnGuardar.setEnabled(true);
