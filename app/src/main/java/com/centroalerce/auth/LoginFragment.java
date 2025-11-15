@@ -47,14 +47,6 @@ public class LoginFragment extends Fragment {
         progressBar = v.findViewById(R.id.progressBarLogin);
         TextView tvForgot = v.findViewById(R.id.tvForgot);
 
-        // Botón "Crear cuenta"
-        MaterialButton btnSignup = v.findViewById(R.id.btnSignup);
-        if (btnSignup != null) {
-            btnSignup.setOnClickListener(x ->
-                    Navigation.findNavController(v).navigate(R.id.action_loginFragment_to_signupFragment)
-            );
-        }
-
         // TextWatcher: limpiar errores mientras escribe
         // Las validaciones se harán al hacer clic
         TextWatcher watcher = new TextWatcher() {

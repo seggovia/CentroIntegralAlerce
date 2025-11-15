@@ -11,7 +11,7 @@
         android:id="@+id/ivLogoSplash"
         android:layout_width="220dp"
         android:layout_height="220dp"
-        android:src="@drawable/alerce"
+        android:src="@drawable/ic_centro_alerce"
         android:scaleType="centerCrop"
         android:background="@drawable/bg_logo_circle"
         android:clipToOutline="true"

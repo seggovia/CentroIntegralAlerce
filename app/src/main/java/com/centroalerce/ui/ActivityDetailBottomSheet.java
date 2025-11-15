@@ -1007,19 +1007,15 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void applyCanceledStateUI() {
+        // Mantener colores normales, solo deshabilitar botones
         if (tvNombre != null) {
-            tvNombre.setTextColor(0xFFB91C1C);
-            CharSequence cur = tvNombre.getText();
-            String s = (cur == null) ? "" : cur.toString();
-            if (!s.toUpperCase().contains("CANCELADA")) tvNombre.setText(s + "  (CANCELADA)");
+            tvNombre.setTextColor(0xFFFFFFFF); // Color blanco normal
         }
         if (chFechaHora != null) {
-            chFechaHora.setTextColor(0xFFFFFFFF);
-            try { chFechaHora.setChipBackgroundColor(ColorStateList.valueOf(0xFFDC2626)); } catch (Exception ignored) {}
+            try { chFechaHora.setChipBackgroundColor(null); chFechaHora.setTextColor(0xFF000000); } catch (Exception ignored) {}
         }
         if (chLugar != null) {
-            chLugar.setTextColor(0xFFFFFFFF);
-            try { chLugar.setChipBackgroundColor(ColorStateList.valueOf(0xFFEF4444)); } catch (Exception ignored) {}
+            try { chLugar.setChipBackgroundColor(null); chLugar.setTextColor(0xFF000000); } catch (Exception ignored) {}
         }
         restyleButtonsCanceled();
     }

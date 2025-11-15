@@ -144,7 +144,7 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancelarActividad"
                 style="@style/Button.Primary.Alerce"
-                android:text="Cancelar actividad"
+                android:text="Cancelar"
                 android:layout_width="0dp"
                 android:layout_height="56dp"
                 android:layout_weight="1"
