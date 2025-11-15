@@ -77,7 +77,14 @@ public class AuthRepository {
 
     // Recuperar contraseña
     public void resetPassword(String email, AuthCallback callback) {
-        auth.sendPasswordResetEmail(email)
+        // Configurar ActionCodeSettings para redirigir a nuestra página personalizada
+        com.google.firebase.auth.ActionCodeSettings actionCodeSettings =
+            com.google.firebase.auth.ActionCodeSettings.newBuilder()
+                .setUrl("https://centrointegralalerce.web.app/password-reset.html")
+                .setHandleCodeInApp(false)
+                .build();
+
+        auth.sendPasswordResetEmail(email, actionCodeSettings)
                 .addOnSuccessListener(aVoid -> callback.onSuccess("Email enviado"))
                 .addOnFailureListener(e -> callback.onError(e.getMessage()));
     }

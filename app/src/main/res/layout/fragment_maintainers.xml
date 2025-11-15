@@ -4,13 +4,12 @@
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
-
+    android:background="@drawable/bg_mantenedores_soft">
     <!-- Header -->
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="140dp"
-        android:background="@drawable/bg_header_gradient">
+        android:layout_height="160dp"
+        android:background="@drawable/bg_header_alerce">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -43,15 +42,17 @@
     <!-- Lista de mantenedores -->
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:padding="16dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="16dp"
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Tipos de actividad -->
+            <!-- ✅ 1. TIPOS DE ACTIVIDAD (ID CORREGIDO) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnTipos"
                 android:layout_width="match_parent"
@@ -61,7 +62,7 @@
                 android:focusable="true"
                 android:foreground="?android:attr/selectableItemBackground"
                 app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
+                app:cardElevation="3dp"
                 app:strokeColor="@color/cardStroke"
                 app:strokeWidth="1dp"
                 app:cardBackgroundColor="@color/card_surface">
@@ -70,24 +71,45 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:padding="16dp"
+                    android:padding="18dp"
                     android:gravity="center_vertical">
 
-                    <ImageView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:src="@android:drawable/ic_menu_sort_by_size"
-                        app:tint="@color/primary"/>
+                    <FrameLayout
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:background="@drawable/bg_icon_circle">
 
-                    <TextView
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:src="@android:drawable/ic_menu_sort_by_size"
+                            app:tint="@color/primary"/>
+                    </FrameLayout>
+
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="16dp"
-                        android:text="Tipos de actividad"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Tipos de actividad"
+                            android:textStyle="bold"
+                            android:textSize="17sp"
+                            android:textColor="@color/textPrimary"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Categorías de actividades"
+                            android:textSize="13sp"
+                            android:textColor="@color/textSecondary"/>
+                    </LinearLayout>
 
                     <ImageView
                         android:layout_width="20dp"
@@ -97,7 +119,7 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Lugares -->
+            <!-- ✅ 2. LUGARES (ID CORREGIDO) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnLugares"
                 android:layout_width="match_parent"
@@ -107,7 +129,7 @@
                 android:focusable="true"
                 android:foreground="?android:attr/selectableItemBackground"
                 app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
+                app:cardElevation="3dp"
                 app:strokeColor="@color/cardStroke"
                 app:strokeWidth="1dp"
                 app:cardBackgroundColor="@color/card_surface">
@@ -116,24 +138,45 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:padding="16dp"
+                    android:padding="18dp"
                     android:gravity="center_vertical">
 
-                    <ImageView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:src="@android:drawable/ic_menu_mylocation"
-                        app:tint="@color/primary"/>
+                    <FrameLayout
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:background="@drawable/bg_icon_circle">
 
-                    <TextView
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:src="@android:drawable/ic_dialog_map"
+                            app:tint="@color/primary"/>
+                    </FrameLayout>
+
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="16dp"
-                        android:text="Lugares"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Lugares"
+                            android:textStyle="bold"
+                            android:textSize="17sp"
+                            android:textColor="@color/textPrimary"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Espacios físicos disponibles"
+                            android:textSize="13sp"
+                            android:textColor="@color/textSecondary"/>
+                    </LinearLayout>
 
                     <ImageView
                         android:layout_width="20dp"
@@ -143,7 +186,7 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Oferentes -->
+            <!-- ✅ 3. OFERENTES (ID CORREGIDO) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnOferentes"
                 android:layout_width="match_parent"
@@ -153,7 +196,7 @@
                 android:focusable="true"
                 android:foreground="?android:attr/selectableItemBackground"
                 app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
+                app:cardElevation="3dp"
                 app:strokeColor="@color/cardStroke"
                 app:strokeWidth="1dp"
                 app:cardBackgroundColor="@color/card_surface">
@@ -162,24 +205,45 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:padding="16dp"
+                    android:padding="18dp"
                     android:gravity="center_vertical">
 
-                    <ImageView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:src="@android:drawable/ic_menu_recent_history"
-                        app:tint="@color/primary"/>
+                    <FrameLayout
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:background="@drawable/bg_icon_circle">
 
-                    <TextView
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:src="@android:drawable/ic_menu_share"
+                            app:tint="@color/primary"/>
+                    </FrameLayout>
+
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="16dp"
-                        android:text="Oferentes"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Oferentes"
+                            android:textStyle="bold"
+                            android:textSize="17sp"
+                            android:textColor="@color/textPrimary"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Responsables de actividades"
+                            android:textSize="13sp"
+                            android:textColor="@color/textSecondary"/>
+                    </LinearLayout>
 
                     <ImageView
                         android:layout_width="20dp"
@@ -189,7 +253,7 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Socios comunitarios -->
+            <!-- ✅ 4. SOCIOS COMUNITARIOS (ID CORREGIDO) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnSocios"
                 android:layout_width="match_parent"
@@ -199,7 +263,7 @@
                 android:focusable="true"
                 android:foreground="?android:attr/selectableItemBackground"
                 app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
+                app:cardElevation="3dp"
                 app:strokeColor="@color/cardStroke"
                 app:strokeWidth="1dp"
                 app:cardBackgroundColor="@color/card_surface">
@@ -208,24 +272,45 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:padding="16dp"
+                    android:padding="18dp"
                     android:gravity="center_vertical">
 
-                    <ImageView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:src="@android:drawable/ic_menu_share"
-                        app:tint="@color/primary"/>
+                    <FrameLayout
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:background="@drawable/bg_icon_circle">
 
-                    <TextView
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:src="@android:drawable/ic_menu_myplaces"
+                            app:tint="@color/primary"/>
+                    </FrameLayout>
+
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="16dp"
-                        android:text="Socios comunitarios"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Socios comunitarios"
+                            android:textStyle="bold"
+                            android:textSize="17sp"
+                            android:textColor="@color/textPrimary"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Organizaciones colaboradoras"
+                            android:textSize="13sp"
+                            android:textColor="@color/textSecondary"/>
+                    </LinearLayout>
 
                     <ImageView
                         android:layout_width="20dp"
@@ -235,7 +320,7 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 🔥 Beneficiarios -->
+            <!-- ✅ 5. BENEFICIARIOS (ID CORREGIDO) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnBeneficiarios"
                 android:layout_width="match_parent"
@@ -245,7 +330,7 @@
                 android:focusable="true"
                 android:foreground="?android:attr/selectableItemBackground"
                 app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
+                app:cardElevation="3dp"
                 app:strokeColor="@color/cardStroke"
                 app:strokeWidth="1dp"
                 app:cardBackgroundColor="@color/card_surface">
@@ -254,24 +339,45 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:padding="16dp"
+                    android:padding="18dp"
                     android:gravity="center_vertical">
 
-                    <ImageView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:src="@android:drawable/ic_menu_myplaces"
-                        app:tint="@color/primary"/>
+                    <FrameLayout
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:background="@drawable/bg_icon_circle">
 
-                    <TextView
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:src="@android:drawable/ic_menu_myplaces"
+                            app:tint="@color/primary"/>
+                    </FrameLayout>
+
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="16dp"
-                        android:text="Beneficiarios"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Beneficiarios"
+                            android:textStyle="bold"
+                            android:textSize="17sp"
+                            android:textColor="@color/textPrimary"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Personas beneficiadas"
+                            android:textSize="13sp"
+                            android:textColor="@color/textSecondary"/>
+                    </LinearLayout>
 
                     <ImageView
                         android:layout_width="20dp"
@@ -281,16 +387,17 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Proyectos -->
+            <!-- ✅ 6. PROYECTOS (ID CORREGIDO) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnProyectos"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:foreground="?android:attr/selectableItemBackground"
                 app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
+                app:cardElevation="3dp"
                 app:strokeColor="@color/cardStroke"
                 app:strokeWidth="1dp"
                 app:cardBackgroundColor="@color/card_surface">
@@ -299,24 +406,45 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:padding="16dp"
+                    android:padding="18dp"
                     android:gravity="center_vertical">
 
-                    <ImageView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:src="@android:drawable/ic_menu_compass"
-                        app:tint="@color/primary"/>
+                    <FrameLayout
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:background="@drawable/bg_icon_circle">
 
-                    <TextView
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:src="@android:drawable/ic_menu_compass"
+                            app:tint="@color/primary"/>
+                    </FrameLayout>
+
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="16dp"
-                        android:text="Proyectos"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:textColor="@color/textPrimary"/>
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Proyectos"
+                            android:textStyle="bold"
+                            android:textSize="17sp"
+                            android:textColor="@color/textPrimary"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Proyectos del centro"
+                            android:textSize="13sp"
+                            android:textColor="@color/textSecondary"/>
+                    </LinearLayout>
 
                     <ImageView
                         android:layout_width="20dp"
@@ -326,7 +454,10 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Espaciador -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="80dp"/>
         </LinearLayout>
     </ScrollView>
-
 </LinearLayout>

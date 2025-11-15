@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(firebase deploy:*)",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(adb logcat:*)",
+      "Bash(mkdir:*)",
+      "Bash(firebase functions:log:*)",
+      "Bash(./gradlew signingReport:*)",
+      "Bash(firebase apps:sdkconfig:*)",
+      "Bash(npm install)",
+      "Bash(adb install:*)",
+      "Bash(gcloud functions describe:*)",
+      "Bash(where adb 2)",
+      "Bash(nul)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

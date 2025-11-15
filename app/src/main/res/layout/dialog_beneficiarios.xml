@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- res/layout/dialog_beneficiarios.xml -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
@@ -14,7 +13,7 @@
         android:orientation="vertical"
         android:paddingBottom="0dp">
 
-        <!-- Header con mismo degradado -->
+        <!-- Header con gradiente -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="120dp"
@@ -34,7 +33,7 @@
                     android:text="Beneficiario"
                     android:textStyle="bold"
                     android:textSize="22sp"
-                    android:textColor="@android:color/white" />
+                    android:textColor="@android:color/white"/>
 
                 <TextView
                     android:id="@+id/tvSubtitulo"
@@ -44,149 +43,199 @@
                     android:text="Datos del beneficiario"
                     android:textSize="13sp"
                     android:alpha="0.9"
-                    android:textColor="@android:color/white" />
+                    android:textColor="@android:color/white"/>
             </LinearLayout>
         </FrameLayout>
 
-        <!-- 🔽 NUEVO: cuerpo dentro de NestedScrollView para permitir scroll -->
+        <!-- Contenido scrollable -->
         <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
+            android:maxHeight="400dp"
             android:fillViewport="true"
             android:overScrollMode="ifContentScrolls"
             android:scrollbars="none">
 
-        <LinearLayout
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="16dp"
                 android:orientation="vertical">
 
-                <!-- Nombre (obligatorio) -->
+                <!-- ✅ Nombre (obligatorio) con contador -->
                 <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    style="@style/TextInputLayout.Alerce"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Nombre *"
-                    app:boxStrokeColor="@color/primary">
+                    android:hint="Nombre completo *"
+                    app:startIconDrawable="@android:drawable/ic_menu_myplaces"
+                    app:startIconTint="@color/primary"
+                    app:endIconMode="clear_text"
+                    app:counterEnabled="true"
+                    app:counterMaxLength="50"
+                    app:helperText="Nombres y apellidos completos"
+                    app:helperTextTextColor="@color/textSecondary">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etNombreBenef"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="@color/textPrimary"
-                        android:inputType="textCapWords" />
+                        android:textSize="16sp"
+                        android:maxLength="100"
+                        android:inputType="textCapWords"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- RUT (opcional) -->
+                <!-- ✅ RUT (opcional) con icono y formato -->
                 <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    style="@style/TextInputLayout.Alerce"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:hint="RUT (opcional)"
-                    app:boxStrokeColor="@color/primary">
+                    app:startIconDrawable="@android:drawable/ic_menu_info_details"
+                    app:startIconTint="@color/primary"
+                    app:endIconMode="clear_text"
+                    app:helperText="Formato: 12.345.678-9"
+                    app:helperTextTextColor="@color/textSecondary">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etRutBenef"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="@color/textPrimary"
-                        android:inputType="text" />
+                        android:textSize="16sp"
+                        android:maxLength="12"
+                        android:inputType="text"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- Teléfono (opcional) -->
+                <!-- ✅ Teléfono (opcional) con formato -->
                 <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    style="@style/TextInputLayout.Alerce"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:hint="Teléfono (opcional)"
-                    app:boxStrokeColor="@color/primary">
+                    app:startIconDrawable="@android:drawable/stat_sys_phone_call"
+                    app:startIconTint="@color/primary"
+                    app:endIconMode="clear_text"
+                    app:helperText="Ej: +56 9 1234 5678 o 912345678"
+                    app:helperTextTextColor="@color/textSecondary">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etTelefonoBenef"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="@color/textPrimary"
-                        android:inputType="phone" />
+                        android:textSize="16sp"
+                        android:maxLength="15"
+                        android:inputType="phone"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- Email (opcional) -->
+                <!-- ✅ Email (opcional) con validación visual -->
                 <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    style="@style/TextInputLayout.Alerce"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:hint="Email (opcional)"
-                    app:boxStrokeColor="@color/primary">
+                    app:startIconDrawable="@android:drawable/ic_dialog_email"
+                    app:startIconTint="@color/primary"
+                    app:endIconMode="clear_text">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etEmailBenef"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="@color/textPrimary"
-                        android:inputType="textEmailAddress" />
+                        android:textSize="16sp"
+                        android:maxLength="150"
+                        android:inputType="textEmailAddress"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <!-- Socio comunitario (dropdown opcional) -->
                 <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    style="@style/TextInputLayout.Alerce"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:hint="Socio comunitario (opcional)"
-                    app:endIconMode="dropdown_menu"
-                    app:boxStrokeColor="@color/primary">
+                    app:startIconDrawable="@android:drawable/ic_menu_share"
+                    app:startIconTint="@color/primary"
+                    app:endIconMode="dropdown_menu">
 
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView
                         android:id="@+id/acSocioBenef"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/textPrimary"/>
+                        android:textColor="@color/textPrimary"
+                        android:textSize="16sp"
+                        android:inputType="none"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- Activo -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginTop="12dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Activo"
-                        android:textColor="@color/textPrimary"
-                        android:textSize="14sp"/>
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/swActivoBenef"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true"/>
-                </LinearLayout>
-
-                <!-- (Opcional) Caracterización / Tags -->
+                <!-- ✅ Caracterización / Tags con contador -->
                 <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    style="@style/TextInputLayout.Alerce"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:hint="Caracterización (tags separados por coma)"
-                    app:boxStrokeColor="@color/primary">
+                    app:startIconDrawable="@android:drawable/ic_menu_edit"
+                    app:startIconTint="@color/primary"
+                    app:endIconMode="clear_text"
+                    app:counterEnabled="true"
+                    app:counterMaxLength="300"
+                    app:helperText="Ej: adulto mayor, discapacidad visual, mujer jefa de hogar"
+                    app:helperTextTextColor="@color/textSecondary">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etTagsBenef"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="@color/textPrimary"
-                        android:inputType="textCapWords|textMultiLine" />
+                        android:textSize="16sp"
+                        android:minLines="2"
+                        android:maxLines="4"
+                        android:maxLength="300"
+                        android:gravity="top"
+                        android:inputType="textCapWords|textMultiLine"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- Activo con diseño mejorado -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="16dp"
+                    android:padding="12dp"
+                    android:background="@drawable/bg_chip_light">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@android:drawable/checkbox_on_background"
+                        app:tint="@color/primary"/>
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:text="Beneficiario activo"
+                        android:textColor="@color/textPrimary"
+                        android:textStyle="bold"
+                        android:textSize="15sp"/>
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/swActivoBenef"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        app:thumbTint="@android:color/white"
+                        app:trackTint="@color/primary"/>
+                </LinearLayout>
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
 
@@ -194,32 +243,37 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="@color/cardStroke" />
+            android:background="@color/cardStroke"/>
 
-        <!-- Botones -->
+        <!-- Botones fijos en la parte inferior -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="end"
-            android:padding="16dp">
+            android:padding="20dp"
+            android:background="@color/card_surface"
+            android:elevation="4dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancelar"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Button.Outlined.Alerce"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAllCaps="false"
-                android:text="@string/cancelar" />
+                android:text="@string/cancelar"
+                android:minWidth="100dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnGuardar"
-                style="@style/Widget.MaterialComponents.Button"
+                style="@style/Button.Primary.Alerce"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="12dp"
                 android:textAllCaps="false"
-                android:text="@string/guardar" />
+                android:text="@string/guardar"
+                android:minWidth="100dp"
+                app:backgroundTint="@color/primary"/>
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

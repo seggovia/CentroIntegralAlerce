@@ -2,7 +2,6 @@ package com.centroalerce.ui.mantenedores;
 
 import android.os.Bundle;
 import android.view.*;
-import android.widget.TextView;
 
 import androidx.annotation.*;
 import androidx.fragment.app.Fragment;
@@ -19,7 +18,6 @@ import java.util.*;
 
 public class OferentesFragment extends Fragment {
 
-    // ✅ Constante para la colección
     private static final String COL_OFERENTES = "oferentes";
 
     private FirebaseFirestore db;
@@ -28,13 +26,20 @@ public class OferentesFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater i, @Nullable ViewGroup c, @Nullable Bundle b){
-        return i.inflate(R.layout.fragment_lugares, c, false); // reutilizamos el layout de lista
+        return i.inflate(R.layout.fragment_oferentes, c, false);
     }
 
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle b){
         super.onViewCreated(v,b);
-        ((TextView)v.findViewById(R.id.tvTitulo)).setText("Oferentes de la actividad");
+
+        // Botón de retroceso
+        com.google.android.material.button.MaterialButton btnVolver = v.findViewById(R.id.btnVolver);
+        if (btnVolver != null) {
+            btnVolver.setOnClickListener(view -> {
+                androidx.navigation.fragment.NavHostFragment.findNavController(this).popBackStack();
+            });
+        }
 
         RecyclerView rv = v.findViewById(R.id.rvLista);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -70,7 +75,7 @@ public class OferentesFragment extends Fragment {
         new OferenteDialog(original, new OferenteDialog.OnGuardar() {
             @Override public void onGuardar(Oferente o) {
                 if (o.getId() == null || o.getId().isEmpty()) {
-                    // ✅ Aseguramos que los nuevos queden activos
+                    // Aseguramos que los nuevos queden activos
                     o.setActivo(true);
                     db.collection(COL_OFERENTES).add(o);
                 } else {

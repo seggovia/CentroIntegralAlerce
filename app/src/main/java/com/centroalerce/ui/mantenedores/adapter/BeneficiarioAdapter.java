@@ -4,10 +4,11 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.centroalerce.gestion.R;
@@ -50,18 +51,35 @@ public class BeneficiarioAdapter extends RecyclerView.Adapter<BeneficiarioAdapte
         BeneficiariosFragment.Beneficiario it = data.get(pos);
         h.tvNombre.setText(it.nombre);
 
+        // Info secundaria
         String info = "";
         if (!TextUtils.isEmpty(it.email)) info += it.email;
         if (!TextUtils.isEmpty(it.telefono)) info += (info.isEmpty() ? "" : " • ") + it.telefono;
         if (!TextUtils.isEmpty(it.socioNombre)) info += (info.isEmpty() ? "" : " • ") + it.socioNombre;
         h.tvInfo.setText(info.isEmpty() ? "—" : info);
 
+        // Chip de estado
         boolean active = it.activo == null || it.activo;
         h.chipActivo.setText(active ? "Activo" : "Inactivo");
         h.chipActivo.setOnClickListener(v -> cb.onToggleActivo(it));
 
-        h.btnEditar.setOnClickListener(v -> cb.onEdit(it));
-        h.btnEliminar.setOnClickListener(v -> cb.onDelete(it));
+        // Botón More con PopupMenu
+        h.btnMore.setOnClickListener(v -> {
+            PopupMenu popup = new PopupMenu(v.getContext(), v);
+            popup.inflate(R.menu.menu_item_mantenedor);
+            popup.setOnMenuItemClickListener(menuItem -> {
+                int id = menuItem.getItemId();
+                if (id == R.id.action_edit) {
+                    cb.onEdit(it);
+                    return true;
+                } else if (id == R.id.action_delete) {
+                    cb.onDelete(it);
+                    return true;
+                }
+                return false;
+            });
+            popup.show();
+        });
     }
 
     @Override
@@ -70,15 +88,14 @@ public class BeneficiarioAdapter extends RecyclerView.Adapter<BeneficiarioAdapte
     static class VH extends RecyclerView.ViewHolder {
         TextView tvNombre, tvInfo;
         Chip chipActivo;
-        ImageView btnEditar, btnEliminar;
+        ImageButton btnMore;
 
         VH(@NonNull View v) {
             super(v);
             tvNombre = v.findViewById(R.id.tvNombre);
             tvInfo = v.findViewById(R.id.tvInfo);
             chipActivo = v.findViewById(R.id.chipActivo);
-            btnEditar = v.findViewById(R.id.btnEditar);
-            btnEliminar = v.findViewById(R.id.btnEliminar);
+            btnMore = v.findViewById(R.id.btnMore);
         }
     }
 }

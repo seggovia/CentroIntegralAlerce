@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/bg_mantenedores_soft">
+
+    <!-- Header -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="160dp"
+        android:background="@drawable/bg_header_alerce">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_gravity="center"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Registro de Actividades"
+                android:textStyle="bold"
+                android:textSize="28sp"
+                android:textColor="@android:color/white"
+                android:letterSpacing="0.02"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Historial y estadísticas del sistema"
+                android:textSize="15sp"
+                android:alpha="0.9"
+                android:textColor="@android:color/white"/>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Estadísticas rápidas -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp">
+
+        <!-- Card: Total Actividades -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardTotalActividades"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="@color/card_surface">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/tvTotalActividades"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textStyle="bold"
+                    android:textSize="24sp"
+                    android:textColor="@color/primary"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Total Actividades"
+                    android:textSize="12sp"
+                    android:textColor="@color/textSecondary"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Card: Actividades Este Mes -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardActividadesMes"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="@color/card_surface">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/tvActividadesMes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textStyle="bold"
+                    android:textSize="24sp"
+                    android:textColor="@color/secondary"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Este Mes"
+                    android:textSize="12sp"
+                    android:textColor="@color/textSecondary"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+
+    <!-- Lista de actividades -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewActividades"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="16dp"
+        android:clipToPadding="false"
+        android:scrollbars="vertical"/>
+
+    <!-- Botón de retroceso -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnVolver"
+        style="@style/Button.Outlined.Alerce"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="Volver"
+        android:textAllCaps="false"
+        app:icon="@android:drawable/ic_menu_revert"
+        app:iconGravity="start"/>
+
+</LinearLayout>

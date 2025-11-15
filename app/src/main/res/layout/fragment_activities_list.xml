@@ -4,13 +4,12 @@
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
-
+    android:background="@drawable/bg_mantenedores_soft">
     <!-- Header -->
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="140dp"
-        android:background="@drawable/bg_header_gradient">
+        android:layout_height="160dp"
+        android:background="@drawable/bg_header_alerce">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -40,7 +39,7 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- Barra de búsqueda -->
+    <!-- Barra de búsqueda con filtro de ordenamiento -->
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -75,16 +74,30 @@
                 android:background="@android:color/transparent"
                 android:textColor="@color/textPrimary"
                 android:textColorHint="@color/textSecondary"
-                android:textSize="15sp"/>
+                android:textSize="15sp"
+                android:importantForAutofill="no"
+                android:inputType="text"/>
+
+            <!-- Botón de ordenamiento -->
+            <ImageView
+                android:id="@+id/btnOrdenar"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@android:drawable/ic_menu_sort_by_size"
+                android:padding="8dp"
+                android:layout_marginEnd="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Ordenar actividades"
+                app:tint="@color/primary"/>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Filtros: 5 chips (Todas, Programadas, Completadas, Reagendadas, Canceladas) -->
+    <!-- Filtros: 5 chips -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
-        android:layout_marginBottom="12dp"
+        android:layout_marginBottom="16dp"
         android:scrollbars="none">
 
         <com.google.android.material.chip.ChipGroup
@@ -144,9 +157,9 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:paddingHorizontal="16dp"
+        android:paddingHorizontal="8dp"
         android:paddingBottom="96dp"
-        android:clipToPadding="false" />
+        android:clipToPadding="false"/>
 
     <!-- Estado vacío -->
     <LinearLayout

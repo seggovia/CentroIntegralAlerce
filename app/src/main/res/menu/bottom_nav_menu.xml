@@ -1,22 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 1. Calendario (Pantalla Principal) -->
-    <item
-        android:id="@+id/calendarFragment"
-        android:icon="@android:drawable/ic_menu_month"
-        android:title="Calendario" />
-
-    <!-- 2. Lista de Actividades -->
+    <!-- 1. Actividades -->
     <item
         android:id="@+id/activitiesListFragment"
-        android:icon="@android:drawable/ic_menu_agenda"
+        android:icon="@drawable/ic_activities"
         android:title="Actividades" />
 
-    <!-- 3. Configuración / Administración -->
+    <!-- 2. Calendario (invisible, el FAB funciona como botón) -->
+    <item
+        android:id="@+id/calendarFragment"
+        android:title=""
+        android:enabled="false"
+        android:icon="@drawable/ic_transparent" />
+
+    <!-- 3. Configuración -->
     <item
         android:id="@+id/settingsFragment"
-        android:icon="@android:drawable/ic_menu_manage"
+        android:icon="@drawable/ic_settings"
         android:title="Configuración" />
 
 </menu>

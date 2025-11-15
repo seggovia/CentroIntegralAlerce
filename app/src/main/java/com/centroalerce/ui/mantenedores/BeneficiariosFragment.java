@@ -1,6 +1,7 @@
 package com.centroalerce.ui.mantenedores;
 
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,6 +19,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.utils.ValidationUtils;
 import com.centroalerce.ui.mantenedores.adapter.BeneficiarioAdapter;
 import com.google.android.material.button.MaterialButton;            // ← NUEVO
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -53,6 +55,14 @@ public class BeneficiariosFragment extends Fragment {
         View v = inf.inflate(R.layout.fragment_beneficiarios, c, false);
         rv = v.findViewById(R.id.rvLista);
         fab = v.findViewById(R.id.fabAgregar);
+
+        // Botón de retroceso
+        com.google.android.material.button.MaterialButton btnVolver = v.findViewById(R.id.btnVolver);
+        if (btnVolver != null) {
+            btnVolver.setOnClickListener(view -> {
+                androidx.navigation.fragment.NavHostFragment.findNavController(this).popBackStack();
+            });
+        }
 
         db = FirebaseFirestore.getInstance();
 
@@ -126,9 +136,18 @@ public class BeneficiariosFragment extends Fragment {
         SwitchMaterial     swActivo   = dlg.findViewById(R.id.swActivoBenef);
         TextInputEditText  etTags     = dlg.findViewById(R.id.etTagsBenef);
 
-        // Botones DEL LAYOUT (no usamos botones del AlertDialog)
         MaterialButton btnCancelar = dlg.findViewById(R.id.btnCancelar);
         MaterialButton btnGuardar  = dlg.findViewById(R.id.btnGuardar);
+
+        // Obtener TextInputLayouts para mostrar errores
+        com.google.android.material.textfield.TextInputLayout tilNombre =
+                (com.google.android.material.textfield.TextInputLayout) ((View) etNombre.getParent()).getParent();
+        com.google.android.material.textfield.TextInputLayout tilRut =
+                (com.google.android.material.textfield.TextInputLayout) ((View) etRut.getParent()).getParent();
+        com.google.android.material.textfield.TextInputLayout tilTel =
+                (com.google.android.material.textfield.TextInputLayout) ((View) etTel.getParent()).getParent();
+        com.google.android.material.textfield.TextInputLayout tilEmail =
+                (com.google.android.material.textfield.TextInputLayout) ((View) etEmail.getParent()).getParent();
 
         // Dropdown Socio
         if (!socioNombres.isEmpty()) {
@@ -138,7 +157,6 @@ public class BeneficiariosFragment extends Fragment {
         }
         acSocio.setThreshold(0);
         acSocio.setOnClickListener(v -> acSocio.showDropDown());
-        acSocio.setOnFocusChangeListener((v, has) -> { if (has) acSocio.showDropDown(); });
 
         // Prefill si es edición
         if (editar != null) {
@@ -151,26 +169,98 @@ public class BeneficiariosFragment extends Fragment {
             if (editar.caracterizacion != null && !editar.caracterizacion.isEmpty()) {
                 etTags.setText(TextUtils.join(", ", editar.caracterizacion));
             }
+        } else {
+            // Por defecto, nuevo beneficiario debe estar activo
+            swActivo.setChecked(true);
         }
 
+        // ✅ Limpiar errores al escribir
+        etNombre.addTextChangedListener(new SimpleWatcher(() -> tilNombre.setError(null)));
+        etRut.addTextChangedListener(new SimpleWatcher(() -> tilRut.setError(null)));
+        etTel.addTextChangedListener(new SimpleWatcher(() -> tilTel.setError(null)));
+        etEmail.addTextChangedListener(new SimpleWatcher(() -> tilEmail.setError(null)));
+
         AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setView(dlg)        // solo la vista; sin setPositive/Negative
+                .setView(dlg)
                 .create();
 
         dialog.show();
 
-        // Clicks de los botones del layout
         btnCancelar.setOnClickListener(v -> dialog.dismiss());
 
         btnGuardar.setOnClickListener(v -> {
+            // ===== VALIDACIONES =====
+            boolean isValid = true;
+
+            // 1️⃣ Nombre (obligatorio, min 3 caracteres, solo letras)
             String nombre = getText(etNombre);
-            if (TextUtils.isEmpty(nombre)) {
-                etNombre.setError("Obligatorio");
-                return;
+            if (!ValidationUtils.isNotEmpty(nombre)) {
+                tilNombre.setError(ValidationUtils.getErrorRequired());
+                tilNombre.setErrorEnabled(true);
+                etNombre.requestFocus();
+                isValid = false;
+            } else if (!ValidationUtils.hasMinLength(nombre, 3)) {
+                tilNombre.setError(ValidationUtils.getErrorMinLength(3));
+                tilNombre.setErrorEnabled(true);
+                etNombre.requestFocus();
+                isValid = false;
+            } else if (!ValidationUtils.isValidName(nombre)) {
+                tilNombre.setError(ValidationUtils.getErrorInvalidName());
+                tilNombre.setErrorEnabled(true);
+                etNombre.requestFocus();
+                isValid = false;
+            } else if (!ValidationUtils.hasMaxLength(nombre, 100)) {
+                tilNombre.setError(ValidationUtils.getErrorMaxLength(100));
+                tilNombre.setErrorEnabled(true);
+                etNombre.requestFocus();
+                isValid = false;
             }
+
+            // 2️⃣ RUT (opcional, pero si está lleno debe ser válido)
             String rut = getText(etRut);
+            if (ValidationUtils.isNotEmpty(rut)) {
+                if (!ValidationUtils.isValidRut(rut)) {
+                    tilRut.setError(ValidationUtils.getErrorInvalidRut());
+                    tilRut.setErrorEnabled(true);
+                    etRut.requestFocus();
+                    isValid = false;
+                } else {
+                    // ✅ Formatear RUT automáticamente
+                    rut = ValidationUtils.formatRut(rut);
+                    etRut.setText(rut);
+                }
+            }
+
+            // 3️⃣ Teléfono (opcional, pero si está lleno debe ser válido)
             String tel = getText(etTel);
+            if (ValidationUtils.isNotEmpty(tel)) {
+                if (!ValidationUtils.isValidPhoneChile(tel)) {
+                    tilTel.setError(ValidationUtils.getErrorInvalidPhone());
+                    tilTel.setErrorEnabled(true);
+                    etTel.requestFocus();
+                    isValid = false;
+                } else {
+                    // ✅ Formatear teléfono automáticamente
+                    tel = ValidationUtils.formatPhone(tel);
+                    etTel.setText(tel);
+                }
+            }
+
+            // 4️⃣ Email (opcional, pero si está lleno debe ser válido)
             String email = getText(etEmail);
+            if (ValidationUtils.isNotEmpty(email)) {
+                if (!ValidationUtils.isValidEmail(email)) {
+                    tilEmail.setError(ValidationUtils.getErrorInvalidEmail());
+                    tilEmail.setErrorEnabled(true);
+                    etEmail.requestFocus();
+                    isValid = false;
+                }
+            }
+
+            // Si hay errores, no continuar
+            if (!isValid) return;
+
+            // ===== GUARDAR =====
             String socioNombre = getText(acSocio);
             String socioId = socioNombreToId.get(socioNombre);
             boolean activo = swActivo.isChecked();
@@ -190,19 +280,27 @@ public class BeneficiariosFragment extends Fragment {
             if (editar == null) {
                 db.collection("beneficiarios").add(data)
                         .addOnSuccessListener(ref -> {
-                            Toast.makeText(getContext(), "Beneficiario creado", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getContext(), "✅ Beneficiario creado", Toast.LENGTH_SHORT).show();
                             dialog.dismiss();
                         })
-                        .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                        .addOnFailureListener(e -> Toast.makeText(getContext(), "❌ Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
             } else {
                 db.collection("beneficiarios").document(editar.id).update(data)
                         .addOnSuccessListener(unused -> {
-                            Toast.makeText(getContext(), "Beneficiario actualizado", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getContext(), "✅ Beneficiario actualizado", Toast.LENGTH_SHORT).show();
                             dialog.dismiss();
                         })
-                        .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                        .addOnFailureListener(e -> Toast.makeText(getContext(), "❌ Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
             }
         });
+    }
+
+    private static class SimpleWatcher implements android.text.TextWatcher {
+        private final Runnable onAfter;
+        SimpleWatcher(Runnable onAfter) { this.onAfter = onAfter; }
+        @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+        @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+        @Override public void afterTextChanged(Editable s) { onAfter.run(); }
     }
 
     private void confirmarEliminar(Beneficiario item) {

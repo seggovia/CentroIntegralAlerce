@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
+<androidx.core.widget.NestedScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/surface">
+    android:background="@drawable/bg_mantenedores_soft"
+    android:fillViewport="true">
 
     <LinearLayout
         android:orientation="vertical"
-        android:padding="20dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
@@ -17,246 +17,351 @@
             android:layout_width="40dp"
             android:layout_height="4dp"
             android:layout_gravity="center_horizontal"
+            android:layout_marginTop="12dp"
             android:layout_marginBottom="20dp"
             android:background="@drawable/bg_sheet_handle"/>
 
-        <!-- Título -->
-        <TextView
-            android:text="Modificar actividad"
-            android:textStyle="bold"
-            android:textSize="22sp"
-            android:textColor="@color/textPrimary"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"/>
+        <!-- Header con gradiente -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="120dp"
+            android:background="@drawable/bg_header_alerce">
 
-        <!-- Nombre -->
-        <com.google.android.material.textfield.TextInputLayout
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Modificar actividad"
+                    android:textStyle="bold"
+                    android:textSize="22sp"
+                    android:textColor="@android:color/white"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Edita los datos de la actividad"
+                    android:textSize="13sp"
+                    android:alpha="0.9"
+                    android:textColor="@android:color/white"/>
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Contenido del formulario -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Nombre"
-            app:boxBackgroundMode="outline"
-            app:boxStrokeColor="@color/primary"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusBottomEnd="12dp">
+            android:orientation="vertical"
+            android:padding="20dp">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etNombre"
+            <!-- Nombre -->
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/textPrimary"
-                android:inputType="textCapSentences"/>
-        </com.google.android.material.textfield.TextInputLayout>
+                android:hint="Nombre *"
+                app:startIconDrawable="@android:drawable/ic_menu_edit"
+                app:startIconTint="@color/primary"
+                app:endIconMode="clear_text">
 
-        <!-- Tipo de actividad -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Tipo de actividad"
-            app:boxBackgroundMode="outline"
-            app:boxStrokeColor="@color/primary"
-            app:endIconMode="dropdown_menu"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusBottomEnd="12dp">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etNombre"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:inputType="textCapSentences"/>
+            </com.google.android.material.textfield.TextInputLayout>
 
-            <AutoCompleteTextView
-                android:id="@+id/actTipo"
+            <!-- Tipo de actividad -->
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/textPrimary"
-                android:inputType="none"/>
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginTop="16dp"
+                android:hint="Tipo de actividad *"
+                app:startIconDrawable="@android:drawable/ic_menu_sort_by_size"
+                app:startIconTint="@color/primary"
+                app:endIconMode="dropdown_menu">
 
-        <!-- Periodicidad -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Periodicidad"
-            app:boxBackgroundMode="outline"
-            app:boxStrokeColor="@color/primary"
-            app:endIconMode="dropdown_menu"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusBottomEnd="12dp">
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/actTipo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:inputType="none"/>
+            </com.google.android.material.textfield.TextInputLayout>
 
-            <AutoCompleteTextView
-                android:id="@+id/actPeriodicidad"
+            <!-- Periodicidad -->
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/textPrimary"
-                android:inputType="none"/>
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginTop="16dp"
+                android:hint="Periodicidad *"
+                app:startIconDrawable="@android:drawable/ic_menu_recent_history"
+                app:startIconTint="@color/primary"
+                app:endIconMode="dropdown_menu">
 
-        <!-- Cupo -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Cupo (opcional)"
-            app:boxBackgroundMode="outline"
-            app:boxStrokeColor="@color/primary"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusBottomEnd="12dp">
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/actPeriodicidad"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:inputType="none"/>
+            </com.google.android.material.textfield.TextInputLayout>
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etCupo"
+            <!-- Cupo y Días de aviso -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/textPrimary"
-                android:inputType="number"/>
-        </com.google.android.material.textfield.TextInputLayout>
+                android:orientation="horizontal"
+                android:layout_marginTop="16dp">
 
-        <!-- Lugar -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Lugar"
-            app:boxBackgroundMode="outline"
-            app:boxStrokeColor="@color/primary"
-            app:endIconMode="dropdown_menu"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusBottomEnd="12dp">
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/TextInputLayout.Alerce"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Cupo"
+                    app:startIconDrawable="@android:drawable/ic_menu_myplaces"
+                    app:startIconTint="@color/primary">
 
-            <AutoCompleteTextView
-                android:id="@+id/actLugar"
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etCupo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="16sp"
+                        android:inputType="number"/>
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <Space
+                    android:layout_width="12dp"
+                    android:layout_height="wrap_content"/>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/TextInputLayout.Alerce"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Días aviso"
+                    app:helperText="Días antes"
+                    app:helperTextTextColor="@color/textSecondary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDiasAviso"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="16sp"
+                        android:inputType="number"/>
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <!-- Lugar -->
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/textPrimary"
-                android:inputType="none"/>
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginTop="16dp"
+                android:hint="Lugar"
+                app:startIconDrawable="@android:drawable/ic_dialog_map"
+                app:startIconTint="@color/primary"
+                app:endIconMode="dropdown_menu">
 
-        <!-- Oferente -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Oferente"
-            app:boxBackgroundMode="outline"
-            app:boxStrokeColor="@color/primary"
-            app:endIconMode="dropdown_menu"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusBottomEnd="12dp">
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/actLugar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:inputType="none"/>
+            </com.google.android.material.textfield.TextInputLayout>
 
-            <AutoCompleteTextView
-                android:id="@+id/actOferente"
+            <!-- Oferente -->
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/textPrimary"
-                android:inputType="none"/>
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginTop="16dp"
+                android:hint="Oferente"
+                app:startIconDrawable="@android:drawable/ic_menu_share"
+                app:startIconTint="@color/primary"
+                app:endIconMode="dropdown_menu">
 
-        <!-- SOCIO COMUNITARIO (NUEVO) -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Socio comunitario"
-            app:boxBackgroundMode="outline"
-            app:boxStrokeColor="@color/primary"
-            app:endIconMode="dropdown_menu"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusBottomEnd="12dp">
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/actOferente"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:inputType="none"/>
+            </com.google.android.material.textfield.TextInputLayout>
 
-            <AutoCompleteTextView
-                android:id="@+id/actSocio"
+            <!-- Socio comunitario -->
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/textPrimary"
-                android:inputType="none"/>
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginTop="16dp"
+                android:hint="Socio comunitario"
+                app:endIconMode="dropdown_menu">
 
-        <!-- BENEFICIARIOS (NUEVO) -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Beneficiarios (texto)"
-            app:boxBackgroundMode="outline"
-            app:boxStrokeColor="@color/primary"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusBottomEnd="12dp">
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/actSocio"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:inputType="none"/>
+            </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Beneficiarios (selector con chips) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btnBeneficiarios"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                app:cardBackgroundColor="@color/surface_overlay"
+                app:cardCornerRadius="12dp"
+                app:strokeColor="@color/cardStroke"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_menu_myplaces"
+                            app:tint="@color/primary"/>
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="12dp"
+                            android:text="Beneficiarios"
+                            android:textStyle="bold"
+                            android:textSize="14sp"
+                            android:textColor="@color/textPrimary"/>
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_menu_add"
+                            app:tint="@color/primary"/>
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvBeneficiariosHint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Seleccionar beneficiarios"
+                        android:textColor="@color/textSecondary"
+                        android:paddingTop="6dp"
+                        android:textSize="14sp"/>
+
+                    <!-- Chips con los seleccionados -->
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipsBeneficiarios"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingTop="8dp"
+                        app:singleLine="false"
+                        app:singleSelection="false"
+                        app:chipSpacingHorizontal="6dp"
+                        app:chipSpacingVertical="6dp"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Campo de beneficiarios oculto para compatibilidad -->
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etBeneficiarios"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:visibility="gone"
                 android:minLines="2"
                 android:gravity="top"
                 android:textColor="@color/textPrimary"
+                android:textSize="16sp"
                 android:inputType="textMultiLine|textCapSentences"/>
-        </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- PROYECTO (NUEVO) -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Proyecto (opcional)"
-            app:boxBackgroundMode="outline"
-            app:boxStrokeColor="@color/primary"
-            app:endIconMode="dropdown_menu"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusBottomEnd="12dp">
-
-            <AutoCompleteTextView
-                android:id="@+id/actProyecto"
+            <!-- Proyecto -->
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:hint="Proyecto (opcional)"
+                app:endIconMode="dropdown_menu">
+
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/actProyecto"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:inputType="none"/>
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Adjuntos -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Archivos adjuntos"
+                android:textStyle="bold"
+                android:textSize="16sp"
                 android:textColor="@color/textPrimary"
-                android:inputType="none"/>
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="12dp"/>
 
-        <!-- DÍAS DE AVISO PREVIO (NUEVO) -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Días de aviso previo (opcional)"
-            app:boxBackgroundMode="outline"
-            app:boxStrokeColor="@color/primary"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusBottomEnd="12dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etDiasAviso"
+            <LinearLayout
+                android:id="@+id/llAdjuntos"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/textPrimary"
-                android:inputType="number"/>
-        </com.google.android.material.textfield.TextInputLayout>
+                android:orientation="vertical"
+                android:background="@null"
+                android:clickable="false"
+                android:focusable="false"
+                android:layout_marginBottom="20dp"/>
 
-        <!-- Botón guardar -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnGuardarCambios"
-            android:text="Guardar cambios"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="24dp"
-            app:cornerRadius="28dp"
-            app:backgroundTint="@color/primary"
-            android:textColor="@android:color/white"/>
+            <!-- Botón guardar -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnGuardarCambios"
+                style="@style/Button.Primary.Alerce"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="8dp"
+                android:text="Guardar cambios"
+                app:icon="@android:drawable/ic_menu_save"
+                app:iconGravity="textStart"/>
 
+            <!-- Espaciador para navbar -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+        </LinearLayout>
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

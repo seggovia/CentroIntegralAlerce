@@ -1,0 +1,170 @@
+========================================================================
+FABADGLOBAL VISIBILITY TIMING ISSUE - VISUAL DIAGRAM
+========================================================================
+
+SCENARIO 1: FIRST LOGIN (PROBLEM)
+=========================================================================
+
+Timeline:
+---------
+T0:  MainActivity.onCreate()
+     |-- fabGlobal = findViewById(R.id.fabAddGlobal)  [FAB reference obtained]
+     |-- currentUserRole = VISUALIZADOR  [Default fallback role]
+     |-- navController.addOnDestinationChangedListener() [Listener registered]
+     |-- initializeRoleSystem()
+         |-- roleManager.loadUserRole()  [Async Firebase request STARTS]
+         |       (Firebase operation begins in background)
+     
+T1:  User navigates to CalendarFragment
+     |
+     |-- OnDestinationChangedListener fires immediately
+     |   |-- Check: id == R.id.calendarFragment? YES
+     |   |-- Check: currentUserRole.canInteractWithActivities()?
+     |       PROBLEM: currentUserRole is still VISUALIZADOR!
+     |   |-- Result: fabGlobal.hide() <<<< FAB HIDDEN
+     |
+     |-- Note: Firebase role load is STILL IN PROGRESS at this point
+
+T2:  Firebase role response arrives (e.g., role = "usuario")
+     |
+     |-- Callback in initializeRoleSystem() executes
+     |   |-- currentUserRole = USUARIO [Role updated]
+     |   |-- fabGlobal.show()  [Attempt to show FAB]
+     |
+     |-- BUT: OnDestinationChangedListener is NOT called again
+     |   |-- No navigation change = no listener trigger
+     |   |-- Even though currentUserRole updated, FAB state not re-evaluated
+
+T3:  RESULT: FAB remains HIDDEN despite role being USUARIO
+
+
+========================================================================
+SCENARIO 2: LOGOUT AND LOGIN AGAIN (WORKS)
+========================================================================
+
+Timeline:
+---------
+T0:  User clicks logout
+     |-- SettingsFragment.cerrarSesion()
+     |   |-- roleManager.clearRole()
+     |   |       currentUserRole = VISUALIZADOR
+     |   |       currentUserId = null
+     |   |-- auth.signOut()
+     |   |-- Navigate to LoginFragment
+
+T1:  User logs in again
+     |-- MainActivity NOT destroyed (might be cached)
+     |-- OR new MainActivity instance created
+     |-- onCreate() or onResume() called
+
+T2:  Navigation to CalendarFragment
+     |
+     |-- Note: If MainActivity was not destroyed, currentUserRole
+     |   might still have the old value initially
+     |   BUT: initializeRoleSystem() is called again
+     |
+     |-- initializeRoleSystem()
+         |-- roleManager.loadUserRole()  [Async Firebase request STARTS]
+         |-- Firebase role for NEW user loads
+
+T3:  OnDestinationChangedListener fires
+     |-- Depending on timing:
+     |   a) If role already cached: shows FAB correctly
+     |   b) If role still loading: same problem as first login
+     |
+     |-- BUT in practice: Works because:
+     |   - User stays visible on login screen longer
+     |   - Role loads while user is still in LoginFragment
+     |   - When navigating to Calendar, role is ready
+
+T4:  RESULT: FAB appears correctly
+
+
+========================================================================
+ROOT CAUSE FLOWCHART
+========================================================================
+
+App Startup
+    |
+    v
+onCreate()
+    |
+    +-- fabGlobal initialized
+    |   currentUserRole = VISUALIZADOR (DEFAULT)
+    |
+    +-- addOnDestinationChangedListener()
+    |   [Listener READY to fire]
+    |
+    +-- initializeRoleSystem()
+        |
+        +-- roleManager.loadUserRole()
+            |
+            +-- Firebase.get("usuarios/uid") [ASYNC - takes time]
+            |
+            +-- [Meanwhile, fragment navigation can happen]
+            |
+            v
+    User navigates to CalendarFragment
+            |
+            v
+    OnDestinationChangedListener FIRES IMMEDIATELY
+            |
+            +-- if (id == calendarFragment) YES
+            |   |
+            |   +-- Check: currentUserRole.canInteractWithActivities()?
+            |       |
+            |       +-- currentUserRole is STILL VISUALIZADOR
+            |       |   [Firebase response not received yet]
+            |       |
+            |       +-- canInteractWithActivities() returns FALSE
+            |           [VISUALIZADOR cannot interact]
+            |
+            +-- fabGlobal.hide()  <<<<< PROBLEM: FAB HIDDEN
+
+
+Later...
+    v
+Firebase response arrives
+    |
+    +-- currentUserRole = USUARIO or ADMINISTRADOR
+    |   [Role is now correct]
+    |
+    +-- fabGlobal.show() [Attempted in callback]
+    |
+    +-- BUT: No view hierarchy change
+        |
+        +-- OnDestinationChangedListener NOT triggered again
+        |
+        +-- FAB remains hidden
+
+
+========================================================================
+KEY TIMING CONSTRAINT
+========================================================================
+
+SAFE TIMING:
+    Firebase role loaded -> then -> Navigate to Calendar/Activities
+    [Role is ready before destination change]
+
+UNSAFE TIMING (Current):
+    Navigate to Calendar -> then -> Firebase role loaded
+    [Destination change happens before role is ready]
+
+The listener fires on NAVIGATION change, not on ROLE change.
+So if role loads AFTER navigation, FAB state is never re-evaluated.
+
+
+========================================================================
+WHY IT WORKS AFTER LOGOUT/LOGIN
+========================================================================
+
+1. User logs in
+2. App navigates to SplashFragment or LoginFragment
+3. User takes time to see login screen, read, click login button
+4. DURING THIS TIME: Firebase role loads in background
+5. By the time user navigates to Calendar, role is READY
+6. OnDestinationChangedListener fires with correct role
+7. fabGlobal.show() executes successfully
+
+The extra time on login screen allows the async role load to complete!
+

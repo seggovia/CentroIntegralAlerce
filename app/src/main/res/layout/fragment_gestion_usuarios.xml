@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/bg_mantenedores_soft">
+
+    <!-- Header -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="160dp"
+        android:background="@drawable/bg_header_alerce">
+
+        <!-- Botón de retroceso -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnVolver"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="16dp"
+            android:backgroundTint="@android:color/transparent"
+            android:contentDescription="Volver"
+            app:icon="@android:drawable/ic_menu_revert"
+            app:iconTint="@android:color/white"
+            app:iconSize="24dp"/>
+
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_gravity="center"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Gestión de Usuarios"
+                android:textStyle="bold"
+                android:textSize="28sp"
+                android:textColor="@android:color/white"
+                android:letterSpacing="0.02"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Administrar usuarios del sistema"
+                android:textSize="15sp"
+                android:alpha="0.9"
+                android:textColor="@android:color/white"/>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Filtros y Ordenamiento -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFiltros"
+                style="@style/Button.Outlined.Alerce"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Filtros"
+                android:textAllCaps="false"
+                app:icon="@android:drawable/ic_menu_sort_by_size"
+                app:iconGravity="start"/>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:text="Filtros y ordenamiento disponibles"
+                android:textSize="14sp"
+                android:textColor="@color/textSecondary"
+                android:textStyle="italic"/>
+        </LinearLayout>
+
+        <!-- Panel de filtros (inicialmente oculto) -->
+        <LinearLayout
+            android:id="@+id/panelFiltros"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:background="@color/card_surface"
+            android:padding="16dp"
+            android:elevation="2dp">
+
+            <!-- Filtro por rol -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                style="@style/TextInputLayout.Alerce"
+                android:hint="Filtrar por rol">
+
+                <AutoCompleteTextView
+                    android:id="@+id/actvFiltroRol"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:inputType="none"
+                    android:text="Todos"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:completionThreshold="1"
+                    android:dropDownHeight="200dp"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"/>
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Ordenamiento -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                style="@style/TextInputLayout.Alerce"
+                android:hint="Ordenar por">
+
+                <AutoCompleteTextView
+                    android:id="@+id/actvOrdenar"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:inputType="none"
+                    android:text="Email (A-Z)"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:completionThreshold="1"
+                    android:dropDownHeight="200dp"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"/>
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Botones de filtros -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="end">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnLimpiarFiltros"
+                    style="@style/Button.Outlined.Alerce"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:text="Limpiar"
+                    android:textAllCaps="false"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAplicarFiltros"
+                    style="@style/Button.Primary.Alerce"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Aplicar"
+                    android:textAllCaps="false"/>
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Título de la lista -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp"
+        android:text="Lista de usuarios"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        android:textColor="@color/textPrimary"/>
+
+    <!-- Lista de usuarios -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewUsuarios"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="16dp"
+        android:clipToPadding="false"
+        android:scrollbars="vertical"/>
+
+    <!-- FAB para registrar usuario -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabRegistrarUsuario"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_margin="16dp"
+        android:layout_marginBottom="8dp"
+        android:src="@android:drawable/ic_input_add"
+        app:backgroundTint="@color/primary"
+        app:tint="@android:color/white"
+        android:contentDescription="Registrar Usuario"/>
+
+    <!-- Controles de paginación -->
+    <LinearLayout
+        android:id="@+id/panelPaginacion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical"
+        android:background="@color/card_surface"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        android:elevation="1dp">
+
+        <!-- Botón anterior -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPaginaAnterior"
+            style="@style/Button.Outlined.Alerce"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="Anterior"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:minWidth="80dp"
+            app:icon="@android:drawable/ic_media_previous"
+            app:iconSize="16dp"
+            app:iconGravity="textStart"/>
+
+        <!-- Información de página -->
+        <TextView
+            android:id="@+id/textInfoPagina"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="16dp"
+            android:text="Página 1 de 1"
+            android:textSize="14sp"
+            android:textColor="@color/textPrimary"
+            android:gravity="center"
+            android:textStyle="bold"/>
+
+        <!-- Botón siguiente -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPaginaSiguiente"
+            style="@style/Button.Outlined.Alerce"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="Siguiente"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:minWidth="80dp"
+            app:icon="@android:drawable/ic_media_next"
+            app:iconSize="16dp"
+            app:iconGravity="textEnd"/>
+
+    </LinearLayout>
+
+    <!-- Botón de retroceso -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnVolverAbajo"
+        style="@style/Button.Outlined.Alerce"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="Volver"
+        android:textAllCaps="false"
+        app:icon="@android:drawable/ic_menu_revert"
+        app:iconGravity="start"/>
+
+</LinearLayout>

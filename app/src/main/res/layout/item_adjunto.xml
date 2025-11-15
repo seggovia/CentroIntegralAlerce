@@ -1,37 +1,137 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="8dp">
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:strokeColor="@color/cardStroke"
+    app:strokeWidth="1dp"
+    app:cardBackgroundColor="@color/card_surface">
 
-    <ImageView
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:src="@android:drawable/ic_menu_save" />
-
-    <TextView
-        android:id="@+id/tvNombreAdjunto"
-        android:layout_width="0dp"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:layout_marginStart="8dp"
-        android:text="archivo.pdf"
-        android:textColor="#111827" />
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <Button
-        android:id="@+id/btnVerAdjunto"
-        android:layout_width="wrap_content"
-        android:layout_height="36dp"
-        android:text="Ver" />
+        <!-- Header con ícono y nombre -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-    <Space
-        android:layout_width="8dp"
-        android:layout_height="wrap_content" />
+            <ImageView
+                android:id="@+id/ivIconoTipo"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:padding="8dp"
+                android:src="@android:drawable/ic_menu_gallery"
+                android:background="@drawable/bg_icon_circle"
+                app:tint="@color/primary"/>
 
-    <Button
-        android:id="@+id/btnDescargarAdjunto"
-        android:layout_width="wrap_content"
-        android:layout_height="36dp"
-        android:text="Descargar" />
-</LinearLayout>
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvNombreAdjunto"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="documento.pdf"
+                    android:textStyle="bold"
+                    android:textSize="15sp"
+                    android:textColor="@color/textPrimary"
+                    android:maxLines="1"
+                    android:ellipsize="end"/>
+
+                <TextView
+                    android:id="@+id/tvTamanio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="2.4 MB • PDF"
+                    android:textSize="12sp"
+                    android:textColor="@color/textSecondary"/>
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btnMenuAdjunto"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_more"
+                android:contentDescription="Opciones"
+                app:tint="@color/textSecondary"/>
+        </LinearLayout>
+
+        <!-- Botones de acción -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="12dp"
+            android:gravity="center">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnVerAdjunto"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="Ver"
+                android:textSize="13sp"
+                android:textColor="@color/primary"
+                app:icon="@android:drawable/ic_menu_view"
+                app:iconSize="16dp"
+                app:iconTint="@color/primary"
+                app:iconGravity="textStart"/>
+
+            <Space
+                android:layout_width="8dp"
+                android:layout_height="wrap_content"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDescargarAdjunto"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="Descargar"
+                android:textSize="13sp"
+                android:textColor="@color/primary"
+                app:strokeColor="@color/primary"
+                app:strokeWidth="1dp"
+                app:icon="@android:drawable/stat_sys_download"
+                app:iconSize="16dp"
+                app:iconTint="@color/primary"
+                app:iconGravity="textStart"/>
+
+            <Space
+                android:layout_width="8dp"
+                android:layout_height="wrap_content"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEliminarAdjunto"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="Eliminar"
+                android:textSize="13sp"
+                android:textColor="#DC2626"
+                app:strokeColor="#DC2626"
+                app:strokeWidth="1dp"
+                app:icon="@android:drawable/ic_menu_delete"
+                app:iconSize="16dp"
+                app:iconTint="#DC2626"
+                app:iconGravity="textStart"/>
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

@@ -127,7 +127,7 @@ public class DetalleActividadFragment extends Fragment {
 
         // Estado (si usas un enum/clave diferente, ajusta aquí)
         String estado = firstNonEmpty(doc.getString("estado"), "Programada");
-        chEstado.setText(estado);
+        updateEstadoChip(estado);
 
         // Fecha/Hora (adapta a tu modelo real: timestamp, start_at, etc.)
         Date fecha = asDate(doc.get("fecha"), doc.get("fechaHora"), doc.get("start_at"));
@@ -164,7 +164,8 @@ public class DetalleActividadFragment extends Fragment {
         set(tvMotivoCancelacion, "Motivo de cancelación: " + orDash(doc.getString("motivo_cancelacion")));
         set(tvFechaCancelacion,  "Fecha de cancelación: " + fmtDate(asDate(doc.get("fecha_cancelacion"))));
 
-        // TODO: si manejas adjuntos, aquí recárgalos en llAdjuntos (query a subcolección)
+        // Mostrar mensaje informativo sobre archivos adjuntos
+        mostrarMensajeArchivosAdjuntos();
     }
 
     // ========= Helpers =========
@@ -199,5 +200,70 @@ public class DetalleActividadFragment extends Fragment {
         if (xs==null) return null;
         for (Long x: xs){ if (x!=null) return x; }
         return null;
+    }
+
+    /**
+     * Muestra un mensaje informativo en amarillo sobre archivos adjuntos
+     * SIEMPRE muestra solo el mensaje, sin cargar los archivos adjuntos
+     */
+    private void mostrarMensajeArchivosAdjuntos() {
+        if (llAdjuntos == null) return;
+
+        // Limpiar cualquier contenido previo
+        llAdjuntos.removeAllViews();
+
+        // Crear TextView con mensaje informativo en amarillo
+        TextView tvMensaje = new TextView(requireContext());
+        tvMensaje.setText("ℹ️ Para ver y gestionar los archivos adjuntos, utiliza el botón 'Modificar'");
+        tvMensaje.setTextColor(0xFFF59E0B); // Amarillo/Ámbar (#F59E0B)
+        tvMensaje.setTextSize(14);
+        tvMensaje.setPadding(16, 12, 16, 12);
+
+        // Agregar bordes redondeados y fondo con borde
+        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+        shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        shape.setCornerRadius(12); // Bordes redondeados
+        shape.setColor(0xFFFEF3C7); // Fondo amarillo claro (#FEF3C7)
+        shape.setStroke(2, 0xFFF59E0B); // Borde amarillo (#F59E0B)
+        tvMensaje.setBackground(shape);
+
+        // Agregar margen vertical para separación
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, 8, 0, 8);
+        tvMensaje.setLayoutParams(params);
+
+        llAdjuntos.addView(tvMensaje);
+    }
+
+    /**
+     * Actualiza el chip de estado con el color y texto apropiados
+     */
+    private void updateEstadoChip(String estadoRaw) {
+        if (chEstado == null) return;
+        String e = (estadoRaw == null) ? "" : estadoRaw.toLowerCase();
+        int bg, fg = 0xFFFFFFFF;
+        String text;
+        switch (e) {
+            case "cancelada":
+            case "canceled":
+                bg = 0xFFDC2626; text = "Cancelada"; break;
+            case "reagendada":
+            case "rescheduled":
+                bg = 0xFFF59E0B; text = "Reagendada"; break;
+            case "finalizada":
+            case "completada":
+            case "completed":
+                bg = 0xFF10B981; text = "Completada"; break;
+            default:
+                bg = 0xFF6366F1; text = "Programada"; break;
+        }
+        chEstado.setText(text);
+        try {
+            chEstado.setChipBackgroundColor(android.content.res.ColorStateList.valueOf(bg));
+        } catch (Exception ignored) {}
+        chEstado.setTextColor(fg);
     }
 }

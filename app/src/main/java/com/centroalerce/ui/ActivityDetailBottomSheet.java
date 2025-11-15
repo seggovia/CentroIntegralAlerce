@@ -20,20 +20,21 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-// 👇 NUEVO: para aplicar insets de la barra de navegación
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
-import com.google.android.material.button.MaterialButton; // 👈 ya lo tenías
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
-// 👇 NUEVO: para escuchar updates en vivo
 import com.google.firebase.firestore.ListenerRegistration;
+
+// ✅ NUEVO: Importar UserRole
+import com.centroalerce.gestion.utils.UserRole;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -47,19 +48,24 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
-
 public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     private static final String TAG = "DetalleAdjuntos";
+    private static final String ARG_ACTIVIDAD_ID = "actividadId";
+    private static final String ARG_CITA_ID = "citaId";
+    private static final String ARG_USER_ROLE = "userRole"; // ✅ NUEVO
 
-    public static ActivityDetailBottomSheet newInstance(String actividadId, String citaId) {
+    // ✅ MODIFICADO: Agregar parámetro userRole
+    public static ActivityDetailBottomSheet newInstance(String actividadId, String citaId, UserRole userRole) {
         ActivityDetailBottomSheet f = new ActivityDetailBottomSheet();
         Bundle b = new Bundle();
-        b.putString("actividadId", actividadId);
-        b.putString("citaId", citaId);
+        b.putString(ARG_ACTIVIDAD_ID, actividadId);
+        b.putString(ARG_CITA_ID, citaId);
+        b.putString(ARG_USER_ROLE, userRole != null ? userRole.getValue() : UserRole.VISUALIZADOR.getValue()); // ✅ NUEVO
         f.setArguments(b);
         return f;
     }
+
     private MaterialButton btnCompletar;
 
     private int resId(String name, String defType) {
@@ -75,11 +81,11 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private TextView tvProyecto, tvDiasAviso, tvMotivoReagendo, tvFechaReagendo, tvMotivoCancelacion, tvFechaCancelacion;
 
     private LinearLayout llAdjuntos;
-    // 👇 NUEVO: tipar como MaterialButton para estilarlos correctamente
     private MaterialButton btnModificar, btnCancelar, btnReagendar, btnAdjuntar;
 
     // ---------- Data ----------
     private String actividadId, citaId;
+    private UserRole userRole; // ✅ NUEVO
     private FirebaseFirestore db;
 
     private boolean actividadCancelada = false;
@@ -100,9 +106,19 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     @Override
     public void onStart() {
         super.onStart();
-        if (getDialog() == null) return;
-        View sheet = getDialog().findViewById(com.google.android.material.R.id.design_bottom_sheet);
-        if (sheet != null) sheet.setBackgroundColor(android.graphics.Color.WHITE);
+        if (getDialog() == null || getDialog().getWindow() == null) return;
+
+        // Configurar fondo blanco del bottom sheet
+        try {
+            View bottomSheet = getDialog().findViewById(
+                    getResources().getIdentifier("design_bottom_sheet", "id", "com.google.android.material")
+            );
+            if (bottomSheet != null) {
+                bottomSheet.setBackgroundColor(android.graphics.Color.WHITE);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "No se pudo cambiar el fondo del bottom sheet", e);
+        }
     }
 
     @Nullable
@@ -118,38 +134,151 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     @Override
     public void onViewCreated(@NonNull View root, @Nullable Bundle s) {
-
         super.onViewCreated(root, s);
 
+        // 1) Args primero
         actividadId = getArg("actividadId");
         citaId      = getArg("citaId");
+        String roleStr = getArg("userRole");
+        if (!TextUtils.isEmpty(roleStr)) {
+            try { userRole = UserRole.fromString(roleStr); } catch (Exception ignore) {}
+        }
+        if (userRole == null) userRole = UserRole.VISUALIZADOR;
 
+        // 2) Views
         tvNombre        = root.findViewById(id("tvNombre"));
         tvTipoYPer      = root.findViewById(id("tvTipoYPeriodicidad"));
         chFechaHora     = root.findViewById(id("chFechaHora"));
         chLugar         = root.findViewById(id("chLugar"));
         chEstado        = root.findViewById(id("chEstado"));
-
         tvTipo          = root.findViewById(id("tvTipo"));
         tvPeriodicidad  = root.findViewById(id("tvPeriodicidad"));
         tvCupo          = root.findViewById(id("tvCupo"));
         tvOferente      = root.findViewById(id("tvOferente"));
         tvSocio         = root.findViewById(id("tvSocio"));
         tvBeneficiarios = root.findViewById(id("tvBeneficiarios"));
-
-        tvProyecto          = root.findViewById(id("tvProyecto"));
-        tvDiasAviso         = root.findViewById(id("tvDiasAviso"));
-
+        tvProyecto      = root.findViewById(id("tvProyecto"));
+        tvDiasAviso     = root.findViewById(id("tvDiasAviso"));
         llAdjuntos      = root.findViewById(id("llAdjuntos"));
         btnModificar    = root.findViewById(id("btnModificar"));
         btnCancelar     = root.findViewById(id("btnCancelar"));
         btnReagendar    = root.findViewById(id("btnReagendar"));
         btnAdjuntar     = root.findViewById(id("btnAdjuntar"));
-        btnCompletar    = root.findViewById(id("btnCompletar")); // 👈 NUEVO
+        btnCompletar    = root.findViewById(id("btnCompletar"));
+        View spacer     = root.findViewById(id("navBarSpacer"));
 
-        // 👇 NUEVO: reservar espacio real para la barra de navegación
-        View spacer = root.findViewById(id("navBarSpacer"));
-        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+        // 3) Setup por rol una vez que hay views
+        setupUIBasedOnRole();
+
+        // 4) Listeners con IDs ya definidos
+        Runnable emitEdit       = () -> emitActionToParent("edit", actividadId, citaId);
+        Runnable emitReschedule = () -> emitActionToParent("reschedule", actividadId, citaId);
+        Runnable emitAttach     = () -> emitActionToParent("attach", actividadId, citaId);
+        Runnable emitCancel     = () -> emitActionToParent("cancel", actividadId, citaId);
+
+        // ========== LISTENERS DE BOTONES - REEMPLAZAR TODA ESTA SECCIÓN ==========
+
+        if (btnModificar != null) {
+            View.OnClickListener l = v -> {
+                // Validar estado antes de acción
+                if (!shouldEnableButton(id("btnModificar"))) {
+                    toast("No se puede modificar una actividad " + estadoActual);
+                    return;
+                }
+
+                emitEdit.run();
+                ModificarActividadSheet.newInstance(actividadId)
+                        .show(getParentFragmentManager(), "ModificarActividadSheet");
+            };
+            rememberClickListener(btnModificar, l);
+            btnModificar.setOnClickListener(l);
+        }
+
+        if (btnCancelar != null) {
+            View.OnClickListener l = v -> {
+                // Validar estado antes de acción
+                if (!shouldEnableButton(id("btnCancelar"))) {
+                    toast("Esta actividad ya está cancelada");
+                    return;
+                }
+
+                emitCancel.run();
+                CancelarActividadSheet.newInstance(actividadId, citaId)
+                        .show(getParentFragmentManager(), "CancelarActividadSheet");
+            };
+            rememberClickListener(btnCancelar, l);
+            btnCancelar.setOnClickListener(l);
+        }
+
+        if (btnReagendar != null) {
+            View.OnClickListener l = v -> {
+                // Validar estado antes de acción
+                if (!shouldEnableButton(id("btnReagendar"))) {
+                    String mensaje = "completada".equals(estadoActual) || "completed".equals(estadoActual)
+                            ? "No se puede reagendar una cita completada"
+                            : "No se puede reagendar una cita " + estadoActual;
+                    toast(mensaje);
+                    return;
+                }
+
+                emitReschedule.run();
+                ReagendarActividadSheet.newInstance(actividadId, citaId)
+                        .show(getParentFragmentManager(), "ReagendarActividadSheet");
+            };
+            rememberClickListener(btnReagendar, l);
+            btnReagendar.setOnClickListener(l);
+        }
+
+        if (btnAdjuntar != null) {
+            View.OnClickListener l = v -> {
+                // Validar estado antes de acción
+                if (!shouldEnableButton(id("btnAdjuntar"))) {
+                    toast("No se pueden adjuntar archivos a una actividad cancelada");
+                    return;
+                }
+
+                emitAttach.run();
+                AdjuntarComunicacionSheet.newInstance(actividadId)
+                        .show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
+            };
+            rememberClickListener(btnAdjuntar, l);
+            btnAdjuntar.setOnClickListener(l);
+        }
+
+        if (btnCompletar != null) {
+            View.OnClickListener l = v -> {
+                // Validar estado antes de acción
+                if (!shouldEnableButton(id("btnCompletar"))) {
+                    String mensaje;
+                    if ("completada".equals(estadoActual) || "completed".equals(estadoActual)) {
+                        mensaje = "Esta cita ya está completada";
+                    } else if ("cancelada".equals(estadoActual) || "canceled".equals(estadoActual)) {
+                        mensaje = "No se puede completar una cita cancelada";
+                    } else {
+                        mensaje = "No se puede completar una cita en estado: " + estadoActual;
+                    }
+                    toast(mensaje);
+                    return;
+                }
+
+                emitActionToParent("completar", actividadId, citaId);
+                completarCita(actividadId, citaId);
+            };
+            rememberClickListener(btnCompletar, l);
+            btnCompletar.setOnClickListener(l);
+        }
+
+// NO MODIFICAR: wrapClickWithGuard ya existentes
+        wrapClickWithGuard(btnModificar);
+        wrapClickWithGuard(btnReagendar);
+        wrapClickWithGuard(btnAdjuntar);
+        wrapClickWithGuard(btnCancelar);
+        wrapClickWithGuard(btnCompletar);
+
+// ========== FIN SECCIÓN LISTENERS ==========
+
+        // 6) Insets spacer
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v,insets)->{
             int bottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
             if (spacer != null) {
                 ViewGroup.LayoutParams lp = spacer.getLayoutParams();
@@ -159,92 +288,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             return insets;
         });
 
-        // === NUEVO helper: emitir acción al padre, conservando IDs ===
-        Runnable emitEdit       = () -> emitActionToParent("edit", actividadId, citaId);
-        Runnable emitReschedule = () -> emitActionToParent("reschedule", actividadId, citaId);
-        Runnable emitAttach     = () -> emitActionToParent("attach", actividadId, citaId);
-        Runnable emitCancel     = () -> emitActionToParent("cancel", actividadId, citaId);
-
-        if (btnModificar != null) {
-            View.OnClickListener l = v -> {
-                emitEdit.run();
-                ModificarActividadSheet.newInstance(actividadId)
-                        .show(getParentFragmentManager(), "ModificarActividadSheet");
-            };
-            rememberClickListener(btnModificar, l);
-            btnModificar.setOnClickListener(l);
-        }
-        if (btnCancelar != null) {
-            View.OnClickListener l = v -> {
-                emitCancel.run();
-                CancelarActividadSheet.newInstance(actividadId, citaId)
-                        .show(getParentFragmentManager(), "CancelarActividadSheet");
-            };
-            rememberClickListener(btnCancelar, l);
-            btnCancelar.setOnClickListener(l);
-        }
-        if (btnReagendar != null) {
-            View.OnClickListener l = v -> {
-                emitReschedule.run();
-                ReagendarActividadSheet.newInstance(actividadId, citaId)
-                        .show(getParentFragmentManager(), "ReagendarActividadSheet");
-            };
-            rememberClickListener(btnReagendar, l);
-            btnReagendar.setOnClickListener(l);
-        }
-        if (btnAdjuntar != null) {
-            View.OnClickListener l = v -> {
-                emitAttach.run();
-                AdjuntarComunicacionSheet.newInstance(actividadId)
-                        .show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
-            };
-            rememberClickListener(btnAdjuntar, l);
-            btnAdjuntar.setOnClickListener(l);
-        }
-
-        // 👇 NUEVO: Botón Completar
-        if (btnCompletar != null) {
-            View.OnClickListener l = view -> {
-                emitActionToParent("completar", actividadId, citaId);
-                completarCita(actividadId, citaId);
-            };
-            rememberClickListener(btnCompletar, l);
-            btnCompletar.setOnClickListener(l);
-        }
-
-        // 👇 Fuerza estilos iniciales
+        // 7) UI inicial y data
         restyleButtonsActive();
-
-        // Listeners de resultados en el Parent FragmentManager
-        getParentFragmentManager().setFragmentResultListener(
-                "adjuntos_change", getViewLifecycleOwner(),
-                (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
-        );
-
-        getParentFragmentManager().setFragmentResultListener(
-                "actividad_change", getViewLifecycleOwner(),
-                (req, bundle) -> {
-                    loadActividad(actividadId);
-                    loadCita(actividadId, citaId);
-                    loadAdjuntosAll(actividadId, citaId);
-                }
-        );
-
-        // 🔊 NUEVO: también escuchar en el SupportFragmentManager de la Activity
-        requireActivity().getSupportFragmentManager().setFragmentResultListener(
-                "adjuntos_change", getViewLifecycleOwner(),
-                (req, bundle) -> loadAdjuntosAll(actividadId, citaId)
-        );
-
-        requireActivity().getSupportFragmentManager().setFragmentResultListener(
-                "actividad_change", getViewLifecycleOwner(),
-                (req, bundle) -> {
-                    loadActividad(actividadId);
-                    loadCita(actividadId, citaId);
-                    loadAdjuntosAll(actividadId, citaId);
-                }
-        );
-
         setTextOrDash(tvNombre, "Nombre actividad");
         if (tvTipoYPer != null) tvTipoYPer.setText("Tipo • Periodicidad");
         if (chFechaHora != null) chFechaHora.setText("dd/MM/yyyy • HH:mm");
@@ -253,16 +298,66 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (llAdjuntos != null) { llAdjuntos.removeAllViews(); addNoFilesRow(); }
 
         db = FirebaseFirestore.getInstance();
-
-        // 👇 NUEVO: suscripciones en vivo + carga inicial
         subscribeActividad(actividadId);
         subscribeCita(actividadId, citaId);
         loadActividad(actividadId);
         loadCita(actividadId, citaId);
-        loadAdjuntosAll(actividadId, citaId);
+        mostrarMensajeArchivosAdjuntos();
+
+        // Listeners de resultados (ambos managers)
+        getParentFragmentManager().setFragmentResultListener("actividad_change", getViewLifecycleOwner(),
+                (req,b) -> { loadActividad(actividadId); loadCita(actividadId, citaId); });
+        requireActivity().getSupportFragmentManager().setFragmentResultListener("actividad_change", getViewLifecycleOwner(),
+                (req,b) -> { loadActividad(actividadId); loadCita(actividadId, citaId); });
     }
 
-    // === NUEVO helper privado dentro de la clase ===
+
+    // ✅ NUEVO: Configurar la UI según el rol del usuario
+    private void setupUIBasedOnRole() {
+        Log.d(TAG, "🔐 Configurando UI para rol: " + userRole.getValue());
+
+        // VISUALIZADOR: Ocultar TODOS los botones de acción
+        if (userRole.isVisualizador()) {
+            Log.d(TAG, "👁️ Ocultando botones para VISUALIZADOR");
+            hideButton(btnModificar);
+            hideButton(btnReagendar);
+            hideButton(btnAdjuntar);
+            hideButton(btnCancelar);
+            hideButton(btnCompletar);
+            return;
+        }
+
+        // USUARIO o ADMINISTRADOR: Mostrar botones según permisos
+        if (!userRole.canModifyActivity()) {
+            hideButton(btnModificar);
+        }
+
+        if (!userRole.canRescheduleActivity()) {
+            hideButton(btnReagendar);
+        }
+
+        if (!userRole.canAttachFiles()) {
+            hideButton(btnAdjuntar);
+        }
+
+        if (!userRole.canCancelActivity()) {
+            hideButton(btnCancelar);
+        }
+
+        if (!userRole.canMarkCompleted()) {
+            hideButton(btnCompletar);
+        }
+
+        Log.d(TAG, "✅ UI configurada según permisos");
+    }
+
+    // ✅ NUEVO: Helper para ocultar botones
+    private void hideButton(@Nullable MaterialButton button) {
+        if (button != null) {
+            button.setVisibility(View.GONE);
+        }
+    }
+
     private void emitActionToParent(@NonNull String action, @Nullable String activityId, @Nullable String citaId) {
         Bundle b = new Bundle();
         b.putString("action", action);
@@ -271,7 +366,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         getParentFragmentManager().setFragmentResult("activity_detail_action", b);
     }
 
-    // 👇 NUEVO: liberar listeners para evitar fugas
     @Override
     public void onDestroyView() {
         if (actReg != null) { actReg.remove(); actReg = null; }
@@ -280,10 +374,10 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     }
 
     // ====== ESTILOS BOTONES (forzar visibilidad/contraste) ======
-    private static final int COLOR_PRIMARY = 0xFF6366F1; // Indigo-500 aprox
-    private static final int COLOR_ERROR   = 0xFFDC2626; // Red-600
-    private static final int COLOR_TEXT    = 0xFF111827; // Gray-900
-    private static final int COLOR_OUTLINE = 0xFF94A3B8; // Slate-400 para deshabilitado
+    private static final int COLOR_PRIMARY = 0xFF6366F1;
+    private static final int COLOR_ERROR   = 0xFFDC2626;
+    private static final int COLOR_TEXT    = 0xFF111827;
+    private static final int COLOR_OUTLINE = 0xFF94A3B8;
 
     private void styleOutlined(MaterialButton b, int color){
         if (b == null) return;
@@ -292,7 +386,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         b.setTextColor(color);
         b.setRippleColor(ColorStateList.valueOf((color & 0x00FFFFFF) | 0x33000000));
         b.setIconTint(ColorStateList.valueOf(color));
-        b.setBackgroundTintList(ColorStateList.valueOf(0x00000000)); // transparente
+        b.setBackgroundTintList(ColorStateList.valueOf(0x00000000));
     }
     private void styleFilled(MaterialButton b, int bg){
         if (b == null) return;
@@ -303,7 +397,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private void styleOutlinedDisabled(MaterialButton b){
         if (b == null) return;
         b.setEnabled(false);
-        b.setAlpha(1f); // mantenemos 1f para que se "vea"; contrastamos con gris
+        b.setAlpha(1f);
         styleOutlined(b, COLOR_OUTLINE);
     }
 
@@ -313,7 +407,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             styleOutlined(btnReagendar, COLOR_PRIMARY);
             styleFilled(btnAdjuntar,  COLOR_PRIMARY);
             styleFilled(btnCancelar,  COLOR_ERROR);
-            styleFilled(btnCompletar, 0xFF10B981); // Verde para completar
+            styleFilled(btnCompletar, 0xFF10B981);
         } catch (Exception ignored) {}
     }
 
@@ -322,20 +416,18 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             styleOutlinedDisabled(btnModificar);
             styleOutlinedDisabled(btnReagendar);
             styleOutlinedDisabled(btnAdjuntar);
-            styleOutlinedDisabled(btnCompletar); // Deshabilitar también
+            styleOutlinedDisabled(btnCompletar);
             styleFilled(btnCancelar, COLOR_ERROR);
             btnCancelar.setEnabled(true);
             btnCancelar.setAlpha(1f);
         } catch (Exception ignored) {}
     }
 
-
     // ====== FIN estilos ======
 
-    // ---------- Escuchas en vivo (NUEVO) ----------
-    private void subscribeActividad(String actividadId) { // 👈 NUEVO
+    // ---------- Escuchas en vivo ----------
+    private void subscribeActividad(String actividadId) {
         if (TextUtils.isEmpty(actividadId)) return;
-        // intentamos EN, si no existe caemos a ES
         actReg = act(actividadId, true).addSnapshotListener((doc, e) -> {
             if (e != null) { Log.w(TAG, "listen actividad EN error", e); return; }
             Log.d(TAG, "actividad EN snapshot recibido");
@@ -352,59 +444,25 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         });
     }
 
-    // ========== ActivityDetailBottomSheet.java - Método subscribeCita (COMPLETO CORREGIDO) ==========
-
     private void subscribeCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) return;
-
-        // 👇 CRÍTICO: Forzar lectura del SERVER primero, luego escuchar cambios
-        DocumentReference citaRefEN = act(actividadId, true).collection("citas").document(citaId);
-        DocumentReference citaRefES = act(actividadId, false).collection("citas").document(citaId);
-
-        // Intentar EN primero
-        citaRefEN.get(com.google.firebase.firestore.Source.SERVER) // 👈 FORZAR SERVER
-                .addOnSuccessListener(doc -> {
+        citaReg = act(actividadId, true).collection("citas").document(citaId)
+                .addSnapshotListener((doc, e) -> {
+                    if (e != null) { Log.w(TAG, "listen cita EN error", e); return; }
+                    Log.d(TAG, "cita EN snapshot recibido");
                     if (doc != null && doc.exists()) {
                         bindCitaDoc(doc);
-                        // Ahora sí, escuchar cambios en tiempo real
-                        citaReg = citaRefEN.addSnapshotListener((doc2, e) -> {
-                            if (e != null) {
-                                Log.w(TAG, "listen cita EN error", e);
-                                return;
-                            }
-                            Log.d(TAG, "cita EN snapshot recibido");
-                            if (doc2 != null && doc2.exists()) bindCitaDoc(doc2);
-                        });
                     } else {
-                        // Probar ES
-                        citaRefES.get(com.google.firebase.firestore.Source.SERVER) // 👈 FORZAR SERVER
-                                .addOnSuccessListener(docES -> {
-                                    if (docES != null && docES.exists()) {
-                                        bindCitaDoc(docES);
-                                        // Escuchar cambios
-                                        citaReg = citaRefES.addSnapshotListener((doc2, e2) -> {
-                                            if (e2 != null) {
-                                                Log.w(TAG, "listen cita ES error", e2);
-                                                return;
-                                            }
-                                            Log.d(TAG, "cita ES snapshot recibido");
-                                            if (doc2 != null && doc2.exists()) bindCitaDoc(doc2);
-                                        });
-                                    }
-                                })
-                                .addOnFailureListener(e -> Log.e(TAG, "Error cargando cita ES", e));
+                        if (citaReg != null) { citaReg.remove(); citaReg = null; }
+                        citaReg = act(actividadId, false).collection("citas").document(citaId)
+                                .addSnapshotListener((doc2, e2) -> {
+                                    if (e2 != null) { Log.w(TAG, "listen cita ES error", e2); return; }
+                                    Log.d(TAG, "cita ES snapshot recibido");
+                                    if (doc2 != null && doc2.exists()) bindCitaDoc(doc2);
+                                });
                     }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error cargando cita EN", e);
-                    // Intentar ES como fallback
-                    citaRefES.get(com.google.firebase.firestore.Source.SERVER)
-                            .addOnSuccessListener(docES -> {
-                                if (docES != null && docES.exists()) bindCitaDoc(docES);
-                            });
                 });
     }
-    // ---------- Fin escuchas en vivo ----------
 
     // ---------- Actividad ----------
     private void loadActividad(String actividadId) {
@@ -440,13 +498,10 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         String beneficiarios = joinListOrText(beneficiariosList);
 
         String proyecto = pickString(doc, "proyectoNombre", "proyecto", "projectName");
-        // Prioriza la clave real de tu colección
         Long diasAviso  = safeLong(doc.get("diasAvisoPrevio"));
-// Compat con variantes antiguas si existieran
         if (diasAviso == null) diasAviso = safeLong(doc.get("diasAviso"));
         if (diasAviso == null) diasAviso = safeLong(doc.get("dias_aviso"));
         if (diasAviso == null) diasAviso = safeLong(doc.get("diasAvisoCancelacion"));
-
 
         actividadLugarFallback = pickString(doc, "lugarNombre", "lugar");
 
@@ -471,17 +526,31 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (actividadCancelada || citaCancelada) applyCanceledStateUI();
         else applyActiveStateUI();
 
-        // 👉 NUEVO: siempre prioriza el lugar de la ACTIVIDAD si está disponible
         if (chLugar != null && !TextUtils.isEmpty(actividadLugarFallback)) {
             chLugar.setText(actividadLugarFallback);
         }
+        updateButtonStates();
     }
 
-// ========== MÉTODO COMPLETO: completarCita (SIN FieldValue) ==========
-
+    /**
+     * Completa una cita marcándola como finalizada
+     * VERSIÓN CORREGIDA - desuscribe listeners antes de cerrar
+     */
     private void completarCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) {
             toast("Faltan datos para completar la cita");
+            return;
+        }
+
+        // Validación adicional de estado
+        String estado = estadoActual != null ? estadoActual.toLowerCase() : "";
+        if ("cancelada".equals(estado) || "canceled".equals(estado)) {
+            toast("No se puede completar una cita cancelada");
+            return;
+        }
+
+        if ("completada".equals(estado) || "completed".equals(estado) || "finalizada".equals(estado)) {
+            toast("Esta cita ya está completada");
             return;
         }
 
@@ -490,87 +559,106 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .setMessage("¿Confirmas que esta cita fue completada exitosamente?")
                 .setNegativeButton("Cancelar", null)
                 .setPositiveButton("Sí, completar", (d, which) -> {
-                    DocumentReference citaES = act(actividadId, false).collection("citas").document(citaId);
-                    DocumentReference citaEN = act(actividadId, true).collection("citas").document(citaId);
+                    // ✅ DESUSCRIBIR LISTENERS ANTES DE ACTUALIZAR
+                    if (actReg != null) {
+                        actReg.remove();
+                        actReg = null;
+                    }
+                    if (citaReg != null) {
+                        citaReg.remove();
+                        citaReg = null;
+                    }
 
-                    citaES.get().addOnSuccessListener(doc -> {
-                        DocumentReference ref = (doc != null && doc.exists()) ? citaES : citaEN;
+                    // Buscar en ambas colecciones de forma segura
+                    completarCitaEnColeccion(actividadId, citaId, true, success -> {
+                        if (success) {
+                            toast("Cita marcada como completada ✅");
+                            estadoActual = "completada"; // Actualizar estado local
+                            notifyChanged();
 
-                        // 👇 LOG: Ver qué colección estamos usando
-                        android.util.Log.d("CAL", "🔧 Actualizando en: " + ref.getPath());
-
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("estado", "completada");
-                        updates.put("fechaModificacion", com.google.firebase.Timestamp.now());
-                        updates.put("_lastUpdate", System.currentTimeMillis());
-
-                        // 👇 LOG: Ver qué vamos a guardar
-                        android.util.Log.d("CAL", "📝 Updates a guardar: " + updates);
-
-                        ref.update(updates)
-                                .addOnSuccessListener(u -> {
-                                    android.util.Log.d("CAL", "✅ Update exitoso en Firestore");
-
-                                    // Verificar que se guardó correctamente
-                                    ref.get(com.google.firebase.firestore.Source.SERVER)
-                                            .addOnSuccessListener(docVerify -> {
-                                                String estadoGuardado = docVerify.getString("estado");
-                                                android.util.Log.d("CAL", "🔍 Verificación - estado guardado: " + estadoGuardado);
-                                            });
-
+                            // ✅ CERRAR CON DELAY para dar tiempo a la notificación
+                            new android.os.Handler(android.os.Looper.getMainLooper())
+                                    .postDelayed(this::dismiss, 300);
+                        } else {
+                            // Intentar en la colección alternativa
+                            completarCitaEnColeccion(actividadId, citaId, false, success2 -> {
+                                if (success2) {
                                     toast("Cita marcada como completada ✅");
+                                    estadoActual = "completada";
+                                    notifyChanged();
 
-                                    Bundle b = new Bundle();
-                                    b.putBoolean("forceRefresh", true);
-                                    b.putString("actividadId", actividadId);
-                                    b.putString("citaId", citaId);
-                                    b.putLong("timestamp", System.currentTimeMillis());
-
-                                    getParentFragmentManager().setFragmentResult("calendar_refresh", b);
-                                    getParentFragmentManager().setFragmentResult("actividad_change", b);
-                                    requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b);
-                                    requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", b);
-
-                                    // Refresh con delays
-                                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                                        android.util.Log.d("CAL", "🔄 Refresh forzado 1/3");
-                                        try {
-                                            getParentFragmentManager().setFragmentResult("calendar_refresh", b);
-                                            requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b);
-                                        } catch (Exception ignore) {}
-                                    }, 300);
-
-                                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                                        android.util.Log.d("CAL", "🔄 Refresh forzado 2/3");
-                                        try {
-                                            getParentFragmentManager().setFragmentResult("calendar_refresh", b);
-                                            requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b);
-                                        } catch (Exception ignore) {}
-                                    }, 800);
-
-                                    dismiss();
-                                })
-                                .addOnFailureListener(e -> {
-                                    android.util.Log.e("CAL", "❌ Error al guardar: " + e.getMessage());
-                                    toast("Error: " + e.getMessage());
-                                });
-                    }).addOnFailureListener(e -> {
-                        android.util.Log.e("CAL", "❌ Error al buscar documento: " + e.getMessage());
-                        toast("Error: " + e.getMessage());
+                                    // ✅ CERRAR CON DELAY
+                                    new android.os.Handler(android.os.Looper.getMainLooper())
+                                            .postDelayed(this::dismiss, 300);
+                                } else {
+                                    toast("Error: No se pudo encontrar la cita");
+                                }
+                            });
+                        }
                     });
                 })
                 .show();
     }
+    private void completarCitaEnColeccion(String actividadId, String citaId, boolean preferEN,
+                                          CompletarCallback callback) {
+        DocumentReference citaRef = act(actividadId, preferEN)
+                .collection("citas")
+                .document(citaId);
+
+        citaRef.get()
+                .addOnSuccessListener(doc -> {
+                    if (doc == null || !doc.exists()) {
+                        callback.onResult(false);
+                        return;
+                    }
+
+                    // Validar estado antes de actualizar
+                    String estadoActual = doc.getString("estado");
+                    if ("completada".equalsIgnoreCase(estadoActual) ||
+                            "completed".equalsIgnoreCase(estadoActual) ||
+                            "finalizada".equalsIgnoreCase(estadoActual)) {
+                        // Ya está completada, no hacer nada pero reportar éxito
+                        callback.onResult(true);
+                        return;
+                    }
+
+                    if ("cancelada".equalsIgnoreCase(estadoActual) ||
+                            "canceled".equalsIgnoreCase(estadoActual)) {
+                        callback.onResult(false);
+                        return;
+                    }
+
+                    // Actualizar a completada
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("estado", "completada");
+                    updates.put("fechaModificacion", Timestamp.now());
+
+                    citaRef.update(updates)
+                            .addOnSuccessListener(u -> callback.onResult(true))
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Error actualizando cita: " + e.getMessage());
+                                callback.onResult(false);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error obteniendo cita: " + e.getMessage());
+                    callback.onResult(false);
+                });
+    }
+    private interface CompletarCallback {
+        void onResult(boolean success);
+    }
+
+
+
     private void notifyChanged(){
         Bundle b = new Bundle();
         b.putString("actividadId", actividadId);
         if (!TextUtils.isEmpty(citaId)) b.putString("citaId", citaId);
 
-        // Notificar al ParentFragmentManager
         getParentFragmentManager().setFragmentResult("actividad_change", b);
         getParentFragmentManager().setFragmentResult("calendar_refresh", b);
 
-        // Notificar también al Activity (para refrescar calendario/lista)
         try {
             requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", b);
             requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b);
@@ -578,23 +666,14 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     }
 
     // ---------- Cita ----------
-    // ========== ActivityDetailBottomSheet.java - Método loadCita (COMPLETO CORREGIDO) ==========
-
     private void loadCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) return;
-
-        // 👇 FORZAR LECTURA DEL SERVIDOR
-        act(actividadId, true).collection("citas").document(citaId)
-                .get(com.google.firebase.firestore.Source.SERVER) // 👈 CRÍTICO
+        act(actividadId, true).collection("citas").document(citaId).get()
                 .addOnSuccessListener(doc -> {
-                    if (doc != null && doc.exists()) {
-                        bindCitaDoc(doc);
-                    } else {
-                        act(actividadId, false).collection("citas").document(citaId)
-                                .get(com.google.firebase.firestore.Source.SERVER) // 👈 CRÍTICO
-                                .addOnSuccessListener(this::bindCitaDoc)
-                                .addOnFailureListener(e -> toast("No se pudo cargar la cita"));
-                    }
+                    if (doc != null && doc.exists()) bindCitaDoc(doc);
+                    else act(actividadId, false).collection("citas").document(citaId).get()
+                            .addOnSuccessListener(this::bindCitaDoc)
+                            .addOnFailureListener(e -> toast("No se pudo cargar la cita"));
                 })
                 .addOnFailureListener(e -> toast("No se pudo cargar la cita"));
     }
@@ -633,7 +712,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             chFechaHora.setText(fechaStr + " • " + horaStr);
         }
 
-        // 👉 NUEVO: preferir el lugar de la ACTIVIDAD si está disponible; si no, usar el de la cita
         if (chLugar != null) {
             String prefer = !TextUtils.isEmpty(actividadLugarFallback) ? actividadLugarFallback : lugar;
             if (!TextUtils.isEmpty(prefer)) chLugar.setText(prefer);
@@ -653,12 +731,14 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         setLabeled(tvFechaReagendo,     "Fecha de reagendo: ",  nonEmpty(formatTs(doc.getTimestamp("fecha_reagendo")), "—"));
         setLabeled(tvMotivoCancelacion, "Motivo de cancelación: ", nonEmpty(doc.getString("motivo_cancelacion"), "—"));
         setLabeled(tvFechaCancelacion,  "Fecha de cancelación: ",  nonEmpty(formatTs(doc.getTimestamp("fecha_cancelacion")), "—"));
+        updateButtonStates();
     }
 
     // ---------- Adjuntos ----------
     private interface Done { void run(); }
     private void loadAdjuntosAll(String actividadId, String citaId) {
         if (llAdjuntos == null) return;
+        android.util.Log.d("DETAIL", "🚀 Iniciando carga de adjuntos - Actividad: " + actividadId + ", Cita: " + citaId);
         llAdjuntos.removeAllViews();
         addNoFilesRow();
 
@@ -763,7 +843,12 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .orderBy("creadoEn", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(q -> {
-                    if (q == null || q.isEmpty()) { onEmpty.run(); return; }
+                    android.util.Log.d("DETAIL", "📄 Query resultado para " + sub + ": " + (q != null ? q.size() : "null") + " documentos");
+                    if (q == null || q.isEmpty()) { 
+                        android.util.Log.d("DETAIL", "❌ Sin documentos en subcolección " + sub);
+                        onEmpty.run(); 
+                        return; 
+                    }
                     llAdjuntos.removeAllViews();
                     int added = 0;
                     for (DocumentSnapshot d : q.getDocuments()) {
@@ -780,6 +865,42 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private void showPlaceholderIfEmpty() {
         if (llAdjuntos == null) return;
         if (llAdjuntos.getChildCount() == 0) addNoFilesRow();
+    }
+
+    /**
+     * Muestra un mensaje informativo en amarillo sobre archivos adjuntos
+     * SIEMPRE muestra solo el mensaje, sin cargar los archivos adjuntos
+     */
+    private void mostrarMensajeArchivosAdjuntos() {
+        if (llAdjuntos == null) return;
+
+        // Limpiar cualquier contenido previo
+        llAdjuntos.removeAllViews();
+
+        // Crear TextView con mensaje informativo en amarillo
+        TextView tvMensaje = new TextView(requireContext());
+        tvMensaje.setText("ℹ️ Para ver y gestionar los archivos adjuntos, utiliza el botón 'Modificar'");
+        tvMensaje.setTextColor(0xFFF59E0B); // Amarillo/Ámbar (#F59E0B)
+        tvMensaje.setTextSize(14);
+        tvMensaje.setPadding(dp(16), dp(12), dp(16), dp(12));
+
+        // Agregar bordes redondeados y fondo con borde
+        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+        shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        shape.setCornerRadius(dp(12)); // Bordes redondeados
+        shape.setColor(0xFFFEF3C7); // Fondo amarillo claro (#FEF3C7)
+        shape.setStroke(dp(2), 0xFFF59E0B); // Borde amarillo (#F59E0B)
+        tvMensaje.setBackground(shape);
+
+        // Agregar margen vertical para separación
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, dp(8), 0, dp(8));
+        tvMensaje.setLayoutParams(params);
+
+        llAdjuntos.addView(tvMensaje);
     }
 
     // ---------- UI helpers ----------
@@ -874,8 +995,9 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             case "rescheduled":
                 bg = 0xFFF59E0B; text = "Reagendada"; break;
             case "finalizada":
+            case "completada":
             case "completed":
-                bg = 0xFF10B981; text = "Finalizada"; break;
+                bg = 0xFF10B981; text = "Completada"; break;
             default:
                 bg = 0xFF6366F1; text = "Programada"; break;
         }
@@ -899,12 +1021,11 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             chLugar.setTextColor(0xFFFFFFFF);
             try { chLugar.setChipBackgroundColor(ColorStateList.valueOf(0xFFEF4444)); } catch (Exception ignored) {}
         }
-        // En vez de bajar alpha, restilamos explícito para que "se vean" grises
         restyleButtonsCanceled();
     }
 
     private void applyActiveStateUI() {
-        if (tvNombre != null) tvNombre.setTextColor(0xFF111827);
+        if (tvNombre != null) tvNombre.setTextColor(0xFFFFFFFF);
         if (chFechaHora != null) { try { chFechaHora.setChipBackgroundColor(null); chFechaHora.setTextColor(0xFF000000); } catch (Exception ignored) {} }
         if (chLugar != null) { try { chLugar.setChipBackgroundColor(null); chLugar.setTextColor(0xFF000000); } catch (Exception ignored) {} }
         restyleButtonsActive();
@@ -919,7 +1040,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (b == null) return;
         b.setEnabled(false);
         b.setClickable(false);
-        // alpha lo maneja restyleButtonsCanceled()
     }
     private void enableButton(@Nullable View b){
         if (b == null) return;
@@ -991,7 +1111,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         LinkedHashSet<String> set = new LinkedHashSet<>();
         for (String t : tokens) {
             String s = (t == null) ? "" : t.trim();
-            if (!s.isEmpty()) set.add(s);   // 👈 aquí era "st" por error
+            if (!s.isEmpty()) set.add(s);
         }
         out.addAll(set);
         return out;
@@ -1029,6 +1149,110 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         int idx = clean.lastIndexOf('/');
         return idx >= 0 ? clean.substring(idx + 1) : clean;
     }
+    // ========== NUEVOS MÉTODOS PARA CONTROL DE BOTONES ==========
+
+    /**
+     * Determina si un botón debe estar habilitado según el estado actual
+     * @param buttonId ID del recurso del botón
+     * @return true si el botón debe estar habilitado
+     */
+    private boolean shouldEnableButton(int buttonId) {
+        String estado = estadoActual != null ? estadoActual.toLowerCase() : "programada";
+
+        int btnModificarId = id("btnModificar");
+        int btnReagendarId = id("btnReagendar");
+        int btnAdjuntarId = id("btnAdjuntar");
+        int btnCancelarId = id("btnCancelar");
+        int btnCompletarId = id("btnCompletar");
+
+        // ✅ ESTADOS FINALES: completada, cancelada
+        boolean esEstadoFinal =
+                "completada".equals(estado) ||
+                        "completed".equals(estado) ||
+                        "finalizada".equals(estado) ||
+                        "cancelada".equals(estado) ||
+                        "canceled".equals(estado);
+
+        // Botón MODIFICAR
+        if (buttonId == btnModificarId) {
+            // ✅ MODIFICAR solo permitido en estados NO finales
+            // (Permite editar datos mientras la cita está activa)
+            return !esEstadoFinal;
+        }
+
+        // Botón REAGENDAR
+        if (buttonId == btnReagendarId) {
+            // ❌ NO se puede reagendar citas completadas o canceladas
+            return !esEstadoFinal;
+        }
+
+        // Botón ADJUNTAR
+        if (buttonId == btnAdjuntarId) {
+            // ❌ NO se pueden adjuntar archivos a citas completadas o canceladas
+            return !esEstadoFinal;
+        }
+
+        // Botón CANCELAR
+        if (buttonId == btnCancelarId) {
+            // ❌ Solo se puede cancelar si NO está cancelada ni completada
+            return !("cancelada".equals(estado) ||
+                    "canceled".equals(estado) ||
+                    "completada".equals(estado) ||
+                    "completed".equals(estado) ||
+                    "finalizada".equals(estado));
+        }
+
+        // Botón COMPLETAR
+        if (buttonId == btnCompletarId) {
+            // ✅ Solo se puede completar citas programadas o reagendadas
+            return ("programada".equals(estado) ||
+                    "scheduled".equals(estado) ||
+                    "reagendada".equals(estado) ||
+                    "rescheduled".equals(estado));
+        }
+
+        // Por defecto, deshabilitar
+        return false;
+    }
+
+
+    /**
+     * Actualiza el estado de todos los botones según el estado actual
+     * Debe llamarse cada vez que cambie el estado de la actividad/cita
+     */
+    private void updateButtonStates() {
+        if (btnModificar != null) {
+            boolean enabled = shouldEnableButton(id("btnModificar"));
+            btnModificar.setEnabled(enabled);
+            btnModificar.setAlpha(enabled ? 1f : 0.5f);
+        }
+
+        if (btnReagendar != null) {
+            boolean enabled = shouldEnableButton(id("btnReagendar"));
+            btnReagendar.setEnabled(enabled);
+            btnReagendar.setAlpha(enabled ? 1f : 0.5f);
+        }
+
+        if (btnAdjuntar != null) {
+            boolean enabled = shouldEnableButton(id("btnAdjuntar"));
+            btnAdjuntar.setEnabled(enabled);
+            btnAdjuntar.setAlpha(enabled ? 1f : 0.5f);
+        }
+
+        if (btnCancelar != null) {
+            boolean enabled = shouldEnableButton(id("btnCancelar"));
+            btnCancelar.setEnabled(enabled);
+            btnCancelar.setAlpha(enabled ? 1f : 0.5f);
+        }
+
+        if (btnCompletar != null) {
+            boolean enabled = shouldEnableButton(id("btnCompletar"));
+            btnCompletar.setEnabled(enabled);
+            btnCompletar.setAlpha(enabled ? 1f : 0.5f);
+        }
+    }
+
+
     private String getArg(String key) { return (getArguments() != null) ? getArguments().getString(key, "") : ""; }
     private int dp(int v){ return Math.round(v * getResources().getDisplayMetrics().density); }
     private void toast(String m){ Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }

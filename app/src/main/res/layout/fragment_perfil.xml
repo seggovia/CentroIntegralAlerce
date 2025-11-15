@@ -3,18 +3,18 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
+    android:background="@drawable/bg_mantenedores_soft">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Header con gradiente -->
+        <!-- Header con gradiente y avatar -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:background="@drawable/bg_header_gradient">
+            android:layout_height="220dp"
+            android:background="@drawable/bg_header_alerce">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -26,8 +26,8 @@
 
                 <!-- Avatar circular -->
                 <FrameLayout
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
+                    android:layout_width="96dp"
+                    android:layout_height="96dp"
                     android:background="@drawable/bg_avatar_circle">
 
                     <TextView
@@ -37,7 +37,7 @@
                         android:gravity="center"
                         android:text="CA"
                         android:textStyle="bold"
-                        android:textSize="28sp"
+                        android:textSize="32sp"
                         android:textColor="@color/avatarText"/>
                 </FrameLayout>
 
@@ -70,7 +70,7 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- Información personal -->
+            <!-- Sección: Información personal -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -269,7 +269,7 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Acciones -->
+            <!-- Sección: Acciones -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

@@ -15,7 +15,7 @@
         app:navGraph="@navigation/nav_graph"
         app:defaultNavHost="true"/>
 
-    <!-- Bottom Navigation -->
+    <!-- Bottom Navigation MEJORADO con paleta Alerce y espacio para FAB central -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_nav"
         android:layout_width="match_parent"
@@ -23,27 +23,52 @@
         android:layout_gravity="bottom"
         android:background="@color/surface"
         android:elevation="8dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="8dp"
         app:itemIconTint="@color/bottom_nav_color"
         app:itemTextColor="@color/bottom_nav_color"
+        app:itemIconSize="22dp"
+        app:itemTextAppearanceActive="@style/Text.BottomNav"
+        app:itemTextAppearanceInactive="@style/Text.BottomNav"
         app:labelVisibilityMode="labeled"
+        app:itemRippleColor="@color/ripple"
         app:menu="@menu/bottom_nav_menu"/>
 
-    <!-- 🆕 FAB GLOBAL - controlado desde MainActivity -->
+    <!-- FAB CENTRAL DESTACADO - Calendario verde circular -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabCalendar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="40dp"
+        android:contentDescription="Ir al Calendario"
+        android:src="@drawable/ic_calendar"
+        app:tint="@android:color/white"
+        app:backgroundTint="@color/primary"
+        app:elevation="12dp"
+        app:pressedTranslationZ="16dp"
+        app:rippleColor="@color/ripple"
+        app:borderWidth="0dp"
+        app:fabSize="mini"
+        app:maxImageSize="26dp"/>
+
+    <!-- 🆕 FAB GLOBAL - Botón "+" en esquina -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAddGlobal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="24dp"
-        android:layout_marginBottom="88dp"
+        android:layout_marginBottom="104dp"
         android:contentDescription="Crear actividad"
         android:src="@android:drawable/ic_input_add"
         android:visibility="gone"
         app:tint="@android:color/white"
         app:backgroundTint="@color/primary"
-        app:elevation="16dp"
-        app:pressedTranslationZ="20dp"
-        app:rippleColor="@android:color/white"
+        app:elevation="12dp"
+        app:pressedTranslationZ="16dp"
+        app:rippleColor="@color/ripple"
+        app:borderWidth="0dp"
         app:fabSize="normal"/>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

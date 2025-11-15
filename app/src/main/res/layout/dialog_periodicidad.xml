@@ -1,141 +1,346 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="20dp">
+    android:background="@android:color/transparent"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Días de la semana"
-        android:textStyle="bold"
-        android:textSize="16sp"
-        android:layout_marginBottom="12dp"/>
-
-    <com.google.android.material.chip.ChipGroup
-        android:id="@+id/chipGroupDias"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:singleLine="false"
-        app:singleSelection="false"
-        android:layout_marginBottom="20dp">
+        android:background="@color/card_surface"
+        android:orientation="vertical"
+        android:paddingBottom="0dp">
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipLunes"
-            style="@style/Widget.Material3.Chip.Filter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Lunes"/>
+        <!-- Header con gradiente -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="120dp"
+            android:background="@drawable/bg_header_gradient">
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipMartes"
-            style="@style/Widget.Material3.Chip.Filter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Martes"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="20dp">
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipMiercoles"
-            style="@style/Widget.Material3.Chip.Filter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Miércoles"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Configurar periodicidad"
+                    android:textStyle="bold"
+                    android:textSize="22sp"
+                    android:textColor="@android:color/white"/>
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipJueves"
-            style="@style/Widget.Material3.Chip.Filter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Jueves"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Configura días y horario"
+                    android:textSize="13sp"
+                    android:alpha="0.9"
+                    android:textColor="@android:color/white"/>
+            </LinearLayout>
+        </FrameLayout>
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipViernes"
-            style="@style/Widget.Material3.Chip.Filter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Viernes"/>
+        <!-- Contenido scrollable -->
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:maxHeight="400dp"
+            android:fillViewport="true"
+            android:overScrollMode="ifContentScrolls"
+            android:scrollbars="none">
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipSabado"
-            style="@style/Widget.Material3.Chip.Filter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Sábado"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipDomingo"
-            style="@style/Widget.Material3.Chip.Filter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Domingo"/>
-    </com.google.android.material.chip.ChipGroup>
+                <!-- Tipo de periodicidad -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tipo de repetición"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="@color/textPrimary"
+                    android:layout_marginBottom="12dp"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Rango de fechas"
-        android:textStyle="bold"
-        android:textSize="16sp"
-        android:layout_marginBottom="12dp"/>
+                <com.google.android.material.button.MaterialButtonToggleGroup
+                    android:id="@+id/toggleTipoPeriodicidad"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="20dp"
+                    app:singleSelection="true"
+                    app:selectionRequired="true"
+                    app:checkedButton="@id/btnDiasSemana">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Fecha de inicio"
-        app:boxBackgroundMode="outline"
-        app:endIconMode="custom"
-        app:endIconDrawable="@android:drawable/ic_menu_month">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnDiasSemana"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Días de semana"
+                        android:textAllCaps="false"
+                        style="?attr/materialButtonOutlinedStyle"/>
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etFechaInicio"
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnDiaDelMes"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Día del mes"
+                        android:textAllCaps="false"
+                        style="?attr/materialButtonOutlinedStyle"/>
+                </com.google.android.material.button.MaterialButtonToggleGroup>
+
+                <!-- Días de la semana (visible cuando se selecciona "Días de semana") -->
+                <LinearLayout
+                    android:id="@+id/layoutDiasSemana"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Días de la semana"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:textColor="@color/textPrimary"
+                        android:layout_marginBottom="12dp"/>
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupDias"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:singleLine="false"
+                        app:singleSelection="false"
+                        android:layout_marginBottom="20dp">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipLunes"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Lunes"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipMartes"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Martes"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipMiercoles"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Miércoles"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipJueves"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Jueves"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipViernes"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Viernes"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipSabado"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Sábado"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipDomingo"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Domingo"
+                            app:chipBackgroundColor="@color/chip_bg_selector"/>
+                    </com.google.android.material.chip.ChipGroup>
+                </LinearLayout>
+
+                <!-- Día del mes (visible cuando se selecciona "Día del mes") -->
+                <LinearLayout
+                    android:id="@+id/layoutDiaDelMes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Día del mes"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:textColor="@color/textPrimary"
+                        android:layout_marginBottom="12dp"/>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/TextInputLayout.Alerce"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Día (1-31)"
+                        app:helperText="Ejemplo: 1 para el primer día de cada mes"
+                        app:helperTextTextColor="@color/textSecondary"
+                        app:startIconDrawable="@android:drawable/ic_menu_month"
+                        app:startIconTint="@color/primary"
+                        android:layout_marginBottom="20dp">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etDiaDelMes"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:textColor="@color/textPrimary"
+                            android:textSize="16sp"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
+                <!-- Rango de fechas -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Rango de fechas"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="@color/textPrimary"
+                    android:layout_marginBottom="12dp"/>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/TextInputLayout.Alerce"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Fecha de inicio"
+                    app:startIconDrawable="@android:drawable/ic_menu_month"
+                    app:startIconTint="@color/primary"
+                    app:endIconMode="custom"
+                    app:endIconDrawable="@android:drawable/ic_menu_month"
+                    app:endIconTint="@color/primary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etFechaInicio"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:focusable="false"
+                        android:clickable="true"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="16sp"/>
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/TextInputLayout.Alerce"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="Fecha de fin"
+                    app:startIconDrawable="@android:drawable/ic_menu_month"
+                    app:startIconTint="@color/primary"
+                    app:endIconMode="custom"
+                    app:endIconDrawable="@android:drawable/ic_menu_month"
+                    app:endIconTint="@color/primary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etFechaFin"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:focusable="false"
+                        android:clickable="true"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="16sp"/>
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Hora -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Hora (aplicará a todas las fechas)"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="@color/textPrimary"
+                    android:layout_marginTop="20dp"
+                    android:layout_marginBottom="12dp"/>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/TextInputLayout.Alerce"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Hora"
+                    app:startIconDrawable="@android:drawable/ic_menu_recent_history"
+                    app:startIconTint="@color/primary"
+                    app:endIconMode="custom"
+                    app:endIconDrawable="@android:drawable/ic_menu_recent_history"
+                    app:endIconTint="@color/primary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etHoraPeriodicidad"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:focusable="false"
+                        android:clickable="true"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="16sp"/>
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+        <!-- Línea separadora -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/cardStroke"/>
+
+        <!-- Botones fijos en la parte inferior -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:focusable="false"
-            android:clickable="true"/>
-    </com.google.android.material.textfield.TextInputLayout>
+            android:orientation="horizontal"
+            android:gravity="end"
+            android:padding="20dp"
+            android:background="@color/card_surface"
+            android:elevation="4dp">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:hint="Fecha de fin"
-        app:boxBackgroundMode="outline"
-        app:endIconMode="custom"
-        app:endIconDrawable="@android:drawable/ic_menu_month">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCancelar"
+                style="@style/Button.Outlined.Alerce"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAllCaps="false"
+                android:text="Cancelar"
+                android:minWidth="100dp"/>
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etFechaFin"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:focusable="false"
-            android:clickable="true"/>
-    </com.google.android.material.textfield.TextInputLayout>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Hora (aplicará a todas las fechas)"
-        android:textStyle="bold"
-        android:textSize="16sp"
-        android:layout_marginTop="20dp"
-        android:layout_marginBottom="12dp"/>
-
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Hora"
-        app:boxBackgroundMode="outline"
-        app:endIconMode="custom"
-        app:endIconDrawable="@android:drawable/ic_menu_recent_history">
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etHoraPeriodicidad"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:focusable="false"
-            android:clickable="true"/>
-    </com.google.android.material.textfield.TextInputLayout>
-
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnConfirmar"
+                style="@style/Button.Primary.Alerce"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:textAllCaps="false"
+                android:text="Confirmar"
+                android:minWidth="100dp"
+                app:backgroundTint="@color/primary"/>
+        </LinearLayout>
+    </LinearLayout>
 </LinearLayout>

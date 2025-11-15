@@ -162,7 +162,6 @@ public class CitaRepository {
     }
 
     // Completar cita (puede ser llamado manualmente o automáticamente)
-    // Completar cita (puede ser llamado manualmente o automáticamente)
     public void completarCita(String citaId, SimpleCallback callback) {
         // ✅ CORRECCIÓN: Actualizar en collectionGroup para alcanzar todas las citas
         db.collectionGroup("citas")

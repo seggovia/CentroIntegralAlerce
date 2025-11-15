@@ -2,6 +2,7 @@ package com.centroalerce.auth;
 
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,10 +19,12 @@ import androidx.navigation.Navigation;
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.viewmodels.AuthViewModel;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 public class ForgotPasswordFragment extends Fragment {
 
     private AuthViewModel authViewModel;
+    private TextInputLayout tilEmail;
     private TextInputEditText etEmail;
     private Button btnEnviar;
 
@@ -34,18 +37,21 @@ public class ForgotPasswordFragment extends Fragment {
         authViewModel = new ViewModelProvider(this).get(AuthViewModel.class);
 
         // Referencias
+        tilEmail = v.findViewById(R.id.tilEmail);
         etEmail = v.findViewById(R.id.etEmail);
         btnEnviar = v.findViewById(R.id.btnEnviar);
+        btnEnviar.setEnabled(true); // Siempre habilitado, las validaciones se hacen al hacer clic
         Button btnVolver = v.findViewById(R.id.btnVolver);
 
-        // Validación de email en tiempo real
+        // Validación de email en tiempo real para limpiar errores
         etEmail.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                btnEnviar.setEnabled(isValidEmail(s.toString()));
+                // Limpiar errores mientras escribe
+                if (tilEmail != null) tilEmail.setError(null);
             }
 
             @Override
@@ -54,10 +60,40 @@ public class ForgotPasswordFragment extends Fragment {
 
         // Botón enviar
         btnEnviar.setOnClickListener(view -> {
-            String email = etEmail.getText().toString().trim();
-            if (!email.isEmpty()) {
-                enviarRecuperacion(email);
+            if (etEmail == null || etEmail.getText() == null) {
+                Toast.makeText(getContext(), "Error: campo no inicializado", Toast.LENGTH_SHORT).show();
+                return;
             }
+            
+            String email = etEmail.getText().toString().trim();
+            
+            // Validar campo vacío
+            if (TextUtils.isEmpty(email)) {
+                if (tilEmail != null) {
+                    tilEmail.setError("El correo es requerido");
+                    tilEmail.setErrorEnabled(true);
+                }
+                if (etEmail != null) etEmail.requestFocus();
+                return;
+            }
+            
+            // Validar formato de email
+            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                if (tilEmail != null) {
+                    tilEmail.setError("El formato del correo no es válido");
+                    tilEmail.setErrorEnabled(true);
+                }
+                if (etEmail != null) etEmail.requestFocus();
+                return;
+            }
+            
+            // Limpiar errores antes de enviar
+            if (tilEmail != null) {
+                tilEmail.setError(null);
+                tilEmail.setErrorEnabled(false);
+            }
+            
+            enviarRecuperacion(email);
         });
 
         // Botón volver
@@ -100,9 +136,4 @@ public class ForgotPasswordFragment extends Fragment {
         });
     }
 
-    private boolean isValidEmail(String email) {
-        return email != null &&
-                email.contains("@") &&
-                email.length() > 5;
-    }
 }

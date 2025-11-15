@@ -1,7 +1,8 @@
 package com.centroalerce.ui;
 
-import android.content.res.ColorStateList; // 👈 NUEVO
+import android.content.res.ColorStateList;
 import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,16 +11,19 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat; // 👈 NUEVO
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.utils.PermissionChecker;
+import com.centroalerce.gestion.utils.RoleManager;
+import com.centroalerce.gestion.utils.UserRole;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-// ===== Firebase / Firestore =====
+// Firebase / Firestore
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -27,6 +31,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.Source;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -37,14 +42,19 @@ import java.util.*;
 
 public class CalendarFragment extends Fragment {
 
-    private LocalDate weekStart;      // lunes visible
-    private LocalDate selectedDay;    // día seleccionado
+    private LocalDate weekStart;
+    private LocalDate selectedDay;
     private DayAdapter dayAdapter;
     private EventAdapter eventAdapter;
     private TextView tvRangoSemana, tvTituloDia;
     private RecyclerView rvDays;
 
-    // Citas de la semana visible (día -> lista de eventos)
+    // ✅ Sistema de roles
+    private PermissionChecker permissionChecker;
+    private RoleManager roleManager;
+    private UserRole currentUserRole;
+
+    // Citas de la semana visible
     private final Map<LocalDate, List<EventItem>> weekEvents = new HashMap<>();
 
     // Firestore
@@ -53,12 +63,10 @@ public class CalendarFragment extends Fragment {
 
     // Cache de nombres y tipos de actividad
     private final Map<String, String> activityNameCache = new HashMap<>();
-    private final Map<String, String> activityTypeCache = new HashMap<>(); // 👈 NUEVO
+    private final Map<String, String> activityTypeCache = new HashMap<>();
 
-    // listeners por actividad para refrescar datos al vuelo
+    // Listeners por actividad para refrescar datos
     private final Map<String, ListenerRegistration> activityNameRegs = new HashMap<>();
-
-    // ========== MÉTODO 1: onCreateView (COMPLETO) ==========
 
     @Nullable
     @Override
@@ -70,9 +78,12 @@ public class CalendarFragment extends Fragment {
         rvDays        = v.findViewById(R.id.rvDays);
         RecyclerView rvEventos = v.findViewById(R.id.rvEventos);
 
-        // Inicial
+        // ✅ Inicializar sistema de roles
+        initializeRoleSystem();
+
+        // Configuración inicial
         LocalDate today = LocalDate.now();
-        weekStart   = today.minusDays((today.getDayOfWeek().getValue() + 6) % 7); // lunes
+        weekStart   = today.minusDays((today.getDayOfWeek().getValue() + 6) % 7);
         selectedDay = today;
 
         db = FirebaseFirestore.getInstance();
@@ -95,16 +106,19 @@ public class CalendarFragment extends Fragment {
         rvEventos.setLayoutManager(new LinearLayoutManager(getContext()));
         rvEventos.setItemAnimator(null);
 
+        // ✅ Pasar el rol al adapter
         eventAdapter = new EventAdapter(new ArrayList<>(), event -> {
             ActivityDetailBottomSheet sheet = ActivityDetailBottomSheet.newInstance(
                     event.activityId,
-                    event.citaId
+                    event.citaId,
+                    currentUserRole
             );
             sheet.show(getChildFragmentManager(), "activity_detail_sheet");
-        });
+        }, currentUserRole);
+
         rvEventos.setAdapter(eventAdapter);
 
-        // ✅ Evita que los últimos ítems del calendario queden ocultos por el FAB o el BottomSheet
+        // 🆕 Mejora de scroll
         rvEventos.setClipToPadding(false);
 
         // Espacio extra al final de la lista
@@ -116,7 +130,7 @@ public class CalendarFragment extends Fragment {
                 rvEventos.getPaddingBottom() + extraBottom
         );
 
-        // Ajuste dinámico por la barra de navegación o gestos del sistema
+        // Ajuste dinámico por la barra de navegación
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rvEventos, (view, insets) -> {
             int sysBottom = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom;
             view.setPadding(
@@ -138,32 +152,30 @@ public class CalendarFragment extends Fragment {
             fillWeek();
         });
 
-        // ✅ CORREGIDO: refrescar calendario con fuerza al guardar cambios
+        // 🆕 Refrescar calendario con fuerza
         getParentFragmentManager().setFragmentResultListener(
                 "calendar_refresh", getViewLifecycleOwner(),
                 (req, bundle) -> {
                     boolean force = bundle.getBoolean("forceRefresh", false);
                     if (force) {
-                        // Forzar recarga completa limpiando caches
                         activityNameCache.clear();
                         activityTypeCache.clear();
                         clearActivityNameListeners();
-                        weekEvents.clear(); // 👈 CRÍTICO: limpiar eventos actuales
+                        weekEvents.clear();
                     }
                     refreshFromExternalChange();
                 }
         );
 
-        // También si algún sitio solo emite "actividad_change"
         getParentFragmentManager().setFragmentResultListener(
                 "actividad_change", getViewLifecycleOwner(),
                 (req, bundle) -> {
-                    weekEvents.clear(); // 👈 CRÍTICO: forzar recarga
+                    weekEvents.clear();
                     refreshFromExternalChange();
                 }
         );
 
-        // ✅ NUEVO: escuchar también los eventos emitidos a nivel de Activity
+        // 🆕 Escuchar eventos a nivel de Activity
         requireActivity().getSupportFragmentManager().setFragmentResultListener(
                 "calendar_refresh", getViewLifecycleOwner(),
                 (req, bundle) -> {
@@ -172,7 +184,7 @@ public class CalendarFragment extends Fragment {
                         activityNameCache.clear();
                         activityTypeCache.clear();
                         clearActivityNameListeners();
-                        weekEvents.clear(); // 👈 CRÍTICO: limpiar eventos
+                        weekEvents.clear();
                     }
                     refreshFromExternalChange();
                 }
@@ -181,13 +193,29 @@ public class CalendarFragment extends Fragment {
         requireActivity().getSupportFragmentManager().setFragmentResultListener(
                 "actividad_change", getViewLifecycleOwner(),
                 (req, bundle) -> {
-                    weekEvents.clear(); // 👈 CRÍTICO: forzar recarga
+                    weekEvents.clear();
                     refreshFromExternalChange();
                 }
         );
 
         fillWeek();
         return v;
+    }
+
+    // ✅ Inicializar sistema de roles
+    private void initializeRoleSystem() {
+        permissionChecker = new PermissionChecker();
+        roleManager = RoleManager.getInstance();
+
+        roleManager.loadUserRole((RoleManager.OnRoleLoadedListener) role -> {
+            currentUserRole = role;
+
+            if (eventAdapter != null) {
+                eventAdapter.updateUserRole(role);
+            }
+
+            android.util.Log.d("CAL", "✅ Rol cargado: " + role.getValue());
+        });
     }
 
     @Override
@@ -200,27 +228,26 @@ public class CalendarFragment extends Fragment {
         clearActivityNameListeners();
     }
 
-
+    // 🆕 Refrescar con delay para sincronización
     private void refreshFromExternalChange() {
         android.util.Log.d("CAL", "🔄 refreshFromExternalChange() iniciado");
 
-        // Limpia caches y vuelve a suscribirse a la semana actual para pintar cambios al instante
         activityNameCache.clear();
         activityTypeCache.clear();
         clearActivityNameListeners();
-        weekEvents.clear(); // 👈 CRÍTICO: forzar actualización completa
+        weekEvents.clear();
 
-        // 👇 NUEVO: Detener listener anterior para evitar duplicados
+        // Detener listener anterior
         if (weekListener != null) {
             weekListener.remove();
             weekListener = null;
             android.util.Log.d("CAL", "🛑 Listener anterior detenido");
         }
 
-        // 👇 NUEVO: Esperar 300ms para que Firestore sincronice
+        // Esperar 300ms para sincronización
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
             android.util.Log.d("CAL", "⏰ Ejecutando fillWeek() después del delay");
-            fillWeek(); // Recarga completa de la semana
+            fillWeek();
             android.util.Log.d("CAL", "✅ fillWeek() completado");
         }, 300);
     }
@@ -308,13 +335,9 @@ public class CalendarFragment extends Fragment {
 
     // ==================== FIRESTORE ====================
 
-    // ========== MÉTODO 3: listenWeekFromFirestore (COMPLETO) ==========
-
-// ========== CalendarFragment.java - Método listenWeekFromFirestore (COMPLETO CON SOURCE.SERVER) ==========
-
+    // 🆕 Carga forzada del servidor + listener en tiempo real
     private void listenWeekFromFirestore(LocalDate monday, LocalDate sunday) {
         android.util.Log.d("CAL", "=== listenWeekFromFirestore INICIADO ===");
-        android.util.Log.d("CAL", "monday=" + monday + ", sunday=" + sunday);
 
         if (weekListener != null) {
             weekListener.remove();
@@ -326,21 +349,17 @@ public class CalendarFragment extends Fragment {
         Timestamp tsStart = new Timestamp(Date.from(zStart.toInstant()));
         Timestamp tsEnd   = new Timestamp(Date.from(zEnd.toInstant()));
 
-        android.util.Log.d("CAL", "tsStart=" + tsStart.toDate());
-        android.util.Log.d("CAL", "tsEnd=" + tsEnd.toDate());
-        android.util.Log.d("CAL", "Ejecutando query collectionGroup...");
-
-        // 👇 CRÍTICO: Primero forzar carga del servidor
+        // 🆕 Primero forzar carga del servidor
         db.collectionGroup("citas")
                 .whereGreaterThanOrEqualTo("startAt", tsStart)
                 .whereLessThan("startAt", tsEnd)
                 .orderBy("startAt", Query.Direction.ASCENDING)
-                .get(com.google.firebase.firestore.Source.SERVER) // 👈 FORZAR SERVER
+                .get(Source.SERVER)
                 .addOnSuccessListener(serverSnapshot -> {
                     android.util.Log.d("CAL", "🌐 Datos del servidor cargados: " + serverSnapshot.size());
                     procesarSnapshot(serverSnapshot);
 
-                    // Ahora sí, escuchar cambios en tiempo real
+                    // Ahora escuchar cambios en tiempo real
                     weekListener = db.collectionGroup("citas")
                             .whereGreaterThanOrEqualTo("startAt", tsStart)
                             .whereLessThan("startAt", tsEnd)
@@ -356,12 +375,10 @@ public class CalendarFragment extends Fragment {
                                         (snap.getMetadata().isFromCache() ? "CACHE" : "SERVER"));
                                 procesarSnapshot(snap);
                             });
-
-                    android.util.Log.d("CAL", "Listener registrado correctamente");
                 })
                 .addOnFailureListener(e -> {
                     android.util.Log.e("CAL", "❌ Error cargando del servidor", e);
-                    // Fallback al cache si falla el servidor
+                    // Fallback al cache
                     db.collectionGroup("citas")
                             .whereGreaterThanOrEqualTo("startAt", tsStart)
                             .whereLessThan("startAt", tsEnd)
@@ -371,8 +388,8 @@ public class CalendarFragment extends Fragment {
                 });
     }
 
-    // 👇 NUEVO: Método helper para procesar snapshots
-    private void procesarSnapshot(com.google.firebase.firestore.QuerySnapshot snap) {
+    // 🆕 Método helper para procesar snapshots
+    private void procesarSnapshot(QuerySnapshot snap) {
         weekEvents.clear();
         Map<LocalDate, List<EventItem>> map = new HashMap<>();
         Set<String> activityIdsInWeek = new HashSet<>();
@@ -387,13 +404,13 @@ public class CalendarFragment extends Fragment {
 
         android.util.Log.d("CAL", "📅 weekEvents.size()=" + weekEvents.size());
     }
-    // crea/actualiza listeners para actividades referenciadas en la semana
+
     private void ensureActivityNameListeners(Set<String> activityIdsInWeek) {
-        // Eliminar listeners de actividades que ya no están visibles esta semana
+        // Eliminar listeners de actividades no visibles
         Iterator<Map.Entry<String, ListenerRegistration>> it = activityNameRegs.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, ListenerRegistration> e = it.next();
-            String key = e.getKey(); // formato "EN:ID" o "ES:ID"
+            String key = e.getKey();
             String id = key.substring(3);
             if (!activityIdsInWeek.contains(id)) {
                 try { e.getValue().remove(); } catch (Exception ignore) {}
@@ -401,7 +418,7 @@ public class CalendarFragment extends Fragment {
             }
         }
 
-        // Crear listeners para nuevas actividades (EN y ES)
+        // Crear listeners para nuevas actividades
         for (String actId : activityIdsInWeek) {
             if (actId == null) continue;
 
@@ -425,7 +442,7 @@ public class CalendarFragment extends Fragment {
                                     activityNameCache.put(actId, name);
                                     changed = true;
                                 }
-                                if (tipo != null && !tipo.equals(activityTypeCache.get(actId))) { // 👈 NUEVO
+                                if (tipo != null && !tipo.equals(activityTypeCache.get(actId))) {
                                     activityTypeCache.put(actId, tipo);
                                     changed = true;
                                 }
@@ -452,7 +469,7 @@ public class CalendarFragment extends Fragment {
                                     activityNameCache.put(actId, name);
                                     changed = true;
                                 }
-                                if (tipo != null && !tipo.equals(activityTypeCache.get(actId))) { // 👈 NUEVO
+                                if (tipo != null && !tipo.equals(activityTypeCache.get(actId))) {
                                     activityTypeCache.put(actId, tipo);
                                     changed = true;
                                 }
@@ -463,16 +480,6 @@ public class CalendarFragment extends Fragment {
             }
         }
     }
-
-
-    private void mapSnapshotToWeekEvents(@NonNull QuerySnapshot snap,
-                                         @NonNull Map<LocalDate, List<EventItem>> map) {
-        // método viejo preservado para compatibilidad
-        Set<String> ignore = new HashSet<>();
-        mapSnapshotToWeekEvents(snap, map, ignore);
-    }
-
-    // ========== CalendarFragment.java - Método mapSnapshotToWeekEvents (AÑADIR LOGS) ==========
 
     private void mapSnapshotToWeekEvents(@NonNull QuerySnapshot snap,
                                          @NonNull Map<LocalDate, List<EventItem>> map,
@@ -517,7 +524,6 @@ public class CalendarFragment extends Fragment {
             String estado = doc.getString("estado");
             if (estado == null) estado = "programada";
 
-            // 👇 AÑADIR LOG CRÍTICO AQUÍ
             android.util.Log.d("CAL", "📄 Procesando cita: id=" + citaId +
                     " | estado=" + estado +
                     " | título=" + titulo);
@@ -547,7 +553,6 @@ public class CalendarFragment extends Fragment {
         String cached = activityNameCache.get(activityId);
         if (cached != null) return cached;
 
-        // Consulta puntual EN y luego ES
         db.collection("activities").document(activityId).get()
                 .addOnSuccessListener(doc -> {
                     String name = firstNonEmpty(doc.getString("nombre"), doc.getString("titulo"), doc.getString("name"));
@@ -566,17 +571,16 @@ public class CalendarFragment extends Fragment {
                                     if (nameEs != null) {
                                         activityNameCache.put(activityId, nameEs);
                                     }
-                                    if (tipoEs != null) activityTypeCache.put(activityId, tipoEs); // 👈 NUEVO
+                                    if (tipoEs != null) activityTypeCache.put(activityId, tipoEs);
                                     loadEventsFor(selectedDay);
                                 });
                     }
-                    if (tipo != null) { activityTypeCache.put(activityId, tipo); changed = true; } // 👈 NUEVO
+                    if (tipo != null) { activityTypeCache.put(activityId, tipo); changed = true; }
                     if (changed) loadEventsFor(selectedDay);
                 });
         return "Actividad";
     }
 
-    // 👇 NUEVO: helper para tipo
     @Nullable
     private String getActivityTypeSync(@Nullable String activityId) {
         if (activityId == null) return null;
@@ -610,7 +614,7 @@ public class CalendarFragment extends Fragment {
     public static class EventItem {
         public final String hora, titulo, lugar, estado;
         public final String activityId, citaId;
-        public final String tipo; // 👈 NUEVO
+        public final String tipo;
 
         public EventItem(String h, String t, String l, String e, String activityId, String citaId){
             this(h, t, l, e, activityId, citaId, null);
@@ -622,17 +626,37 @@ public class CalendarFragment extends Fragment {
             this.estado = e;
             this.activityId = activityId;
             this.citaId = citaId;
-            this.tipo = tipo; // 👈 NUEVO
+            this.tipo = tipo;
         }
     }
 
+    // ✅ EventAdapter con sistema de roles + colores adaptativos
     static class EventAdapter extends RecyclerView.Adapter<EventVH> {
         private final List<EventItem> data;
         interface OnClick { void onTap(EventItem it); }
         private final OnClick cb;
-        EventAdapter(List<EventItem> d, OnClick c){data=d;cb=c;}
-        void submit(List<EventItem> d){ data.clear(); data.addAll(d); notifyDataSetChanged(); }
-        @NonNull @Override public EventVH onCreateViewHolder(@NonNull ViewGroup p, int vtype){
+        private UserRole userRole;
+
+        EventAdapter(List<EventItem> d, OnClick c, UserRole role){
+            data = d;
+            cb = c;
+            userRole = role != null ? role : UserRole.VISUALIZADOR;
+        }
+
+        void submit(List<EventItem> d){
+            data.clear();
+            data.addAll(d);
+            notifyDataSetChanged();
+        }
+
+        void updateUserRole(UserRole role) {
+            this.userRole = role;
+            notifyDataSetChanged();
+        }
+
+        @NonNull
+        @Override
+        public EventVH onCreateViewHolder(@NonNull ViewGroup p, int vtype){
             View v = LayoutInflater.from(p.getContext()).inflate(R.layout.item_event, p, false);
             return new EventVH(v);
         }
@@ -641,59 +665,134 @@ public class CalendarFragment extends Fragment {
         public void onBindViewHolder(@NonNull EventVH h, int i) {
             EventItem it = data.get(i);
 
-            // ✅ Hora
             h.tvHora.setText(it.hora == null ? "" : it.hora);
+            h.tvTitulo.setText(it.titulo == null ? "Sin nombre" : it.titulo);
+            h.tvLugar.setText(it.lugar == null ? "Sin lugar" : it.lugar);
 
-            // ✅ Mostrar nombre y lugarNombre (de la cita)
-            h.tvTitulo.setText(it.titulo == null ? "Sin nombre" : it.titulo);  // ← usa campo "nombre"
-            h.tvLugar.setText(it.lugar == null ? "Sin lugar" : it.lugar);      // ← usa campo "lugarNombre"
-
-            // ================== ESTADOS ==================
+            // 🆕 Estados con colores adaptativos e iconos
             String estado = it.estado == null ? "programada" : it.estado.toLowerCase(Locale.ROOT);
+
+            int lugarIconColor;
+
             switch (estado) {
                 case "cancelada":
                     h.tvEstado.setText("Cancelada");
+                    h.tvEstado.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
                     h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_pill)
                     ));
                     h.containerGradient.setBackgroundColor(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_bg)
                     );
+
+                    h.tvHora.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_text));
+                    h.tvTitulo.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_text));
+                    h.tvLugar.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_text));
+
+                    h.tvHora.setCompoundDrawablesWithIntrinsicBounds(
+                            android.R.drawable.ic_delete, 0, 0, 0
+                    );
+                    h.tvHora.setCompoundDrawableTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_text)
+                    ));
+
+                    lugarIconColor = ContextCompat.getColor(h.itemView.getContext(), R.color.state_cancelada_text);
                     break;
+
                 case "reagendada":
                     h.tvEstado.setText("Reagendada");
+                    h.tvEstado.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
                     h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_pill)
                     ));
                     h.containerGradient.setBackgroundColor(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_bg)
                     );
+
+                    h.tvHora.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_text));
+                    h.tvTitulo.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_text));
+                    h.tvLugar.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_text));
+
+                    h.tvHora.setCompoundDrawablesWithIntrinsicBounds(
+                            android.R.drawable.ic_popup_sync, 0, 0, 0
+                    );
+                    h.tvHora.setCompoundDrawableTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_text)
+                    ));
+
+                    lugarIconColor = ContextCompat.getColor(h.itemView.getContext(), R.color.state_reagendada_text);
                     break;
+
                 case "finalizada":
-                    h.tvEstado.setText("Finalizada");
+                case "completada":
+                    h.tvEstado.setText("Completada");
+                    h.tvEstado.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
                     h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_pill)
                     ));
                     h.containerGradient.setBackgroundColor(
                             ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_bg)
                     );
+
+                    h.tvHora.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_text));
+                    h.tvTitulo.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_text));
+                    h.tvLugar.setTextColor(ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_text));
+
+                    h.tvHora.setCompoundDrawablesWithIntrinsicBounds(
+                            android.R.drawable.checkbox_on_background, 0, 0, 0
+                    );
+                    h.tvHora.setCompoundDrawableTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_text)
+                    ));
+
+                    lugarIconColor = ContextCompat.getColor(h.itemView.getContext(), R.color.state_finalizada_text);
                     break;
-                default:
+
+                default: // programada
                     h.tvEstado.setText("Programada");
+                    h.tvEstado.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
                     h.tvEstado.setBackgroundTintList(ColorStateList.valueOf(
-                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_programada_stroke)
+                            ContextCompat.getColor(h.itemView.getContext(), R.color.state_programada_pill)
                     ));
                     h.containerGradient.setBackgroundResource(R.drawable.bg_header_gradient);
+
+                    h.tvHora.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
+                    h.tvTitulo.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
+                    h.tvLugar.setTextColor(ContextCompat.getColor(h.itemView.getContext(), android.R.color.white));
+
+                    h.tvHora.setCompoundDrawablesWithIntrinsicBounds(
+                            android.R.drawable.ic_menu_recent_history, 0, 0, 0
+                    );
+                    h.tvHora.setCompoundDrawableTintList(ColorStateList.valueOf(
+                            ContextCompat.getColor(h.itemView.getContext(), android.R.color.white)
+                    ));
+
+                    lugarIconColor = ContextCompat.getColor(h.itemView.getContext(), android.R.color.white);
                     break;
             }
 
-            // Acción al tocar el item
+            // 🆕 Configurar ícono de lugar con tamaño reducido (14dp)
+            Drawable lugarIcon = ContextCompat.getDrawable(
+                    h.itemView.getContext(),
+                    android.R.drawable.ic_dialog_map
+            );
+
+            if (lugarIcon != null) {
+                int iconSize = (int) (14 * h.itemView.getContext().getResources().getDisplayMetrics().density);
+                lugarIcon.setBounds(0, 0, iconSize, iconSize);
+                lugarIcon.setTint(lugarIconColor);
+                h.tvLugar.setCompoundDrawables(lugarIcon, null, null, null);
+            } else {
+                h.tvLugar.setCompoundDrawables(null, null, null, null);
+            }
+
             h.itemView.setOnClickListener(x -> cb.onTap(it));
         }
 
-
-
-        @Override public int getItemCount(){ return data.size(); }
+        @Override
+        public int getItemCount(){
+            return data.size();
+        }
     }
 
     static class EventVH extends RecyclerView.ViewHolder {

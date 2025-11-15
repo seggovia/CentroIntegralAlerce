@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:background="@android:color/transparent"
     android:layout_width="match_parent"
@@ -12,7 +13,7 @@
         android:orientation="vertical"
         android:paddingBottom="0dp">
 
-        <!-- Encabezado -->
+        <!-- Encabezado con gradiente -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="120dp"
@@ -32,7 +33,7 @@
                     android:text="Oferente"
                     android:textStyle="bold"
                     android:textSize="22sp"
-                    android:textColor="@android:color/white" />
+                    android:textColor="@android:color/white"/>
 
                 <TextView
                     android:id="@+id/tvSubtitulo"
@@ -42,7 +43,7 @@
                     android:text="Completa los datos del oferente"
                     android:textSize="13sp"
                     android:alpha="0.9"
-                    android:textColor="@android:color/white" />
+                    android:textColor="@android:color/white"/>
             </LinearLayout>
         </FrameLayout>
 
@@ -53,49 +54,73 @@
             android:padding="16dp"
             android:orientation="vertical">
 
-            <!-- Nombre del oferente -->
+            <!-- ✅ Nombre del oferente con contador -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilNombre"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Nombre del oferente">
+                android:hint="Nombre del oferente *"
+                app:startIconDrawable="@android:drawable/ic_menu_myplaces"
+                app:startIconTint="@color/primary"
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="50">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etNombre"
                     android:layout_width="match_parent"
-                    android:textColor="@android:color/black"
-                    android:layout_height="wrap_content" />
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:maxLength="100"
+                    android:inputType="textCapWords"/>
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Docente responsable -->
+            <!-- ✅ Docente responsable con contador -->
             <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:hint="Docente responsable">
+                android:hint="Docente responsable (opcional)"
+                app:startIconDrawable="@android:drawable/ic_menu_share"
+                app:startIconTint="@color/primary"
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="50">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etDocente"
-                    android:textColor="@android:color/black"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:maxLength="100"
+                    android:inputType="textCapWords"/>
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Carrera -->
+            <!-- ✅ Carrera con contador -->
             <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                style="@style/TextInputLayout.Alerce"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:hint="Carrera">
+                android:hint="Carrera (opcional)"
+                app:startIconDrawable="@android:drawable/ic_menu_info_details"
+                app:startIconTint="@color/primary"
+                app:endIconMode="clear_text"
+                app:counterEnabled="true"
+                app:counterMaxLength="50">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etCarrera"
-                    android:textColor="@android:color/black"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="16sp"
+                    android:maxLength="150"
+                    android:inputType="textCapWords"/>
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
@@ -103,7 +128,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="@color/cardStroke" />
+            android:background="@color/cardStroke"/>
 
         <!-- Botones de acción -->
         <LinearLayout
@@ -115,20 +140,21 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancelar"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Button.Outlined.Alerce"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAllCaps="false"
-                android:text="Cancelar" />
+                android:text="Cancelar"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnGuardar"
-                style="@style/Widget.MaterialComponents.Button"
+                style="@style/Button.Primary.Alerce"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:textAllCaps="false"
-                android:text="Guardar" />
+                android:text="Guardar"
+                app:backgroundTint="@color/primary"/>
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>
