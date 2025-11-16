@@ -81,6 +81,13 @@ public class CalendarFragment extends Fragment {
         // ✅ Inicializar sistema de roles
         initializeRoleSystem();
 
+        // ✅ Escuchar cambios desde ModificarActividadSheet (en childFragmentManager)
+        android.util.Log.d("CAL", "🎧 Registrando listener para calendar_refresh en childFragmentManager");
+        getChildFragmentManager().setFragmentResultListener("calendar_refresh", getViewLifecycleOwner(), (requestKey, result) -> {
+            android.util.Log.d("CAL", "📢 ¡RECIBIDO calendar_refresh! - iniciando recarga del calendario");
+            refreshFromExternalChange();
+        });
+
         // Configuración inicial
         LocalDate today = LocalDate.now();
         weekStart   = today.minusDays((today.getDayOfWeek().getValue() + 6) % 7);
@@ -244,12 +251,12 @@ public class CalendarFragment extends Fragment {
             android.util.Log.d("CAL", "🛑 Listener anterior detenido");
         }
 
-        // Esperar 300ms para sincronización
+        // Esperar 800ms para asegurar que Firestore se sincronizó
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-            android.util.Log.d("CAL", "⏰ Ejecutando fillWeek() después del delay");
+            android.util.Log.d("CAL", "⏰ Ejecutando fillWeek() después del delay de 800ms");
             fillWeek();
-            android.util.Log.d("CAL", "✅ fillWeek() completado");
-        }, 300);
+            android.util.Log.d("CAL", "✅ fillWeek() completado - calendario actualizado");
+        }, 800);
     }
 
     private void clearActivityNameListeners() {
@@ -446,7 +453,15 @@ public class CalendarFragment extends Fragment {
                                     activityTypeCache.put(actId, tipo);
                                     changed = true;
                                 }
-                                if (changed) loadEventsFor(selectedDay);
+                                if (changed) {
+                                    android.util.Log.d("CAL", "🔄 Actividad actualizada: " + actId + " - recargando eventos");
+                                    // Recargar toda la semana para refrescar cambios
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                        if (weekListener != null) {
+                                            fillWeek();
+                                        }
+                                    }, 200);
+                                }
                             }
                         });
                 activityNameRegs.put(keyEN, regEN);
@@ -473,7 +488,15 @@ public class CalendarFragment extends Fragment {
                                     activityTypeCache.put(actId, tipo);
                                     changed = true;
                                 }
-                                if (changed) loadEventsFor(selectedDay);
+                                if (changed) {
+                                    android.util.Log.d("CAL", "🔄 Actividad actualizada: " + actId + " - recargando eventos");
+                                    // Recargar toda la semana para refrescar cambios
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                        if (weekListener != null) {
+                                            fillWeek();
+                                        }
+                                    }, 200);
+                                }
                             }
                         });
                 activityNameRegs.put(keyES, regES);

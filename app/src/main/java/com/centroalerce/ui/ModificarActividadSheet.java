@@ -15,6 +15,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.Beneficiario;
@@ -595,6 +596,9 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         up.put("updatedAt", com.google.firebase.Timestamp.now());
 
         // ==== Actualizar EN y ES en batch si existen (mantengo tu lógica) ====
+        android.util.Log.d("MOD_ACT", "💾 Iniciando transacción para guardar cambios. ActividadId: " + actividadId);
+        android.util.Log.d("MOD_ACT", "📝 Datos a guardar: nombre=" + nombre + ", lugar=" + lugar + ", tipo=" + tipo);
+
         db.runTransaction(trx -> {
             DocumentReference en = act(actividadId,true);
             DocumentReference es = act(actividadId,false);
@@ -602,13 +606,28 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             DocumentSnapshot dEn = trx.get(en);
             DocumentSnapshot dEs = trx.get(es);
 
-            if (dEn.exists()) trx.update(en, up);
-            if (dEs.exists()) trx.update(es, up);
-            if (!dEn.exists() && !dEs.exists()) trx.set(en, up, SetOptions.merge());
+            android.util.Log.d("MOD_ACT", "📄 Doc EN exists: " + dEn.exists() + ", Doc ES exists: " + dEs.exists());
+
+            if (dEn.exists()) {
+                trx.update(en, up);
+                android.util.Log.d("MOD_ACT", "✏️ Actualizando documento EN (activities)");
+            }
+            if (dEs.exists()) {
+                trx.update(es, up);
+                android.util.Log.d("MOD_ACT", "✏️ Actualizando documento ES (actividades)");
+            }
+            if (!dEn.exists() && !dEs.exists()) {
+                trx.set(en, up, SetOptions.merge());
+                android.util.Log.d("MOD_ACT", "➕ Creando nuevo documento EN");
+            }
 
             return null;
         }).addOnSuccessListener(u -> {
+            android.util.Log.d("MOD_ACT", "✅ Transacción exitosa - cambios guardados en Firestore");
             toast("Cambios guardados");
+
+            // 🔥 NUEVO: Actualizar las citas asociadas con el nuevo nombre y lugar
+            actualizarCitasAsociadas(nombre, lugar);
 
             // Reprogramar notificaciones si se modificó diasAvisoPrevio
             if (!TextUtils.isEmpty(diasAvisoStr)) {
@@ -617,7 +636,98 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
             notifyChanged();   // ya refresca Detalle y Calendario
             dismiss();
-        }).addOnFailureListener(e -> toast("Error: "+e.getMessage()));
+        }).addOnFailureListener(e -> {
+            android.util.Log.e("MOD_ACT", "❌ Error en transacción: " + e.getMessage(), e);
+            toast("Error: "+e.getMessage());
+        });
+    }
+
+    /**
+     * Actualiza las citas asociadas con el nuevo nombre y lugar de la actividad
+     */
+    private void actualizarCitasAsociadas(String nuevoNombre, String nuevoLugar) {
+        android.util.Log.d("MOD_ACT", "📝 Actualizando citas asociadas con nombre='" + nuevoNombre + "', lugar='" + nuevoLugar + "'");
+
+        // Actualizar citas en la colección global "citas"
+        db.collection("citas")
+            .whereEqualTo("actividadId", actividadId)
+            .get()
+            .addOnSuccessListener(querySnapshot -> {
+                android.util.Log.d("MOD_ACT", "📊 Encontradas " + querySnapshot.size() + " citas en colección global");
+
+                Map<String, Object> updates = new HashMap<>();
+                updates.put("nombre", nuevoNombre);
+                updates.put("titulo", nuevoNombre);
+                updates.put("activityName", nuevoNombre);
+                if (!TextUtils.isEmpty(nuevoLugar)) {
+                    updates.put("lugar", nuevoLugar);
+                    updates.put("lugarNombre", nuevoLugar);
+                }
+
+                for (DocumentSnapshot citaDoc : querySnapshot.getDocuments()) {
+                    citaDoc.getReference().update(updates)
+                        .addOnSuccessListener(aVoid ->
+                            android.util.Log.d("MOD_ACT", "✅ Cita " + citaDoc.getId() + " actualizada en colección global"))
+                        .addOnFailureListener(e ->
+                            android.util.Log.e("MOD_ACT", "❌ Error actualizando cita " + citaDoc.getId() + ": " + e.getMessage()));
+                }
+            })
+            .addOnFailureListener(e ->
+                android.util.Log.e("MOD_ACT", "❌ Error consultando citas en colección global: " + e.getMessage()));
+
+        // Actualizar citas en la subcolección activities/{actividadId}/citas
+        db.collection("activities").document(actividadId)
+            .collection("citas")
+            .get()
+            .addOnSuccessListener(querySnapshot -> {
+                android.util.Log.d("MOD_ACT", "📊 Encontradas " + querySnapshot.size() + " citas en subcolección EN");
+
+                Map<String, Object> updates = new HashMap<>();
+                updates.put("nombre", nuevoNombre);
+                updates.put("titulo", nuevoNombre);
+                updates.put("activityName", nuevoNombre);
+                if (!TextUtils.isEmpty(nuevoLugar)) {
+                    updates.put("lugar", nuevoLugar);
+                    updates.put("lugarNombre", nuevoLugar);
+                }
+
+                for (DocumentSnapshot citaDoc : querySnapshot.getDocuments()) {
+                    citaDoc.getReference().update(updates)
+                        .addOnSuccessListener(aVoid ->
+                            android.util.Log.d("MOD_ACT", "✅ Cita " + citaDoc.getId() + " actualizada en subcolección EN"))
+                        .addOnFailureListener(e ->
+                            android.util.Log.e("MOD_ACT", "❌ Error actualizando cita " + citaDoc.getId() + ": " + e.getMessage()));
+                }
+            })
+            .addOnFailureListener(e ->
+                android.util.Log.e("MOD_ACT", "❌ Error consultando citas en subcolección EN: " + e.getMessage()));
+
+        // Actualizar citas en la subcolección actividades/{actividadId}/citas
+        db.collection("actividades").document(actividadId)
+            .collection("citas")
+            .get()
+            .addOnSuccessListener(querySnapshot -> {
+                android.util.Log.d("MOD_ACT", "📊 Encontradas " + querySnapshot.size() + " citas en subcolección ES");
+
+                Map<String, Object> updates = new HashMap<>();
+                updates.put("nombre", nuevoNombre);
+                updates.put("titulo", nuevoNombre);
+                updates.put("activityName", nuevoNombre);
+                if (!TextUtils.isEmpty(nuevoLugar)) {
+                    updates.put("lugar", nuevoLugar);
+                    updates.put("lugarNombre", nuevoLugar);
+                }
+
+                for (DocumentSnapshot citaDoc : querySnapshot.getDocuments()) {
+                    citaDoc.getReference().update(updates)
+                        .addOnSuccessListener(aVoid ->
+                            android.util.Log.d("MOD_ACT", "✅ Cita " + citaDoc.getId() + " actualizada en subcolección ES"))
+                        .addOnFailureListener(e ->
+                            android.util.Log.e("MOD_ACT", "❌ Error actualizando cita " + citaDoc.getId() + ": " + e.getMessage()));
+                }
+            })
+            .addOnFailureListener(e ->
+                android.util.Log.e("MOD_ACT", "❌ Error consultando citas en subcolección ES: " + e.getMessage()));
     }
 
     /**
@@ -803,11 +913,58 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         return null;
     }
     private void notifyChanged(){
+        android.util.Log.d("MOD_ACT", "📢 Enviando eventos de actualización (actividad_change + calendar_refresh)");
         Bundle b = new Bundle();
-        try { getParentFragmentManager().setFragmentResult("actividad_change", b); } catch (Exception ignore) {}
-        try { getParentFragmentManager().setFragmentResult("calendar_refresh", b); } catch (Exception ignore) {}
-        try { requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", b); } catch (Exception ignore) {}
-        try { requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b); } catch (Exception ignore) {}
+
+        // Enviar a TODOS los FragmentManagers posibles para asegurar que se reciba
+        try {
+            getParentFragmentManager().setFragmentResult("actividad_change", b);
+            android.util.Log.d("MOD_ACT", "✅ Enviado actividad_change a parentFragmentManager");
+        } catch (Exception e) {
+            android.util.Log.e("MOD_ACT", "❌ Error enviando actividad_change a parent: " + e.getMessage());
+        }
+
+        try {
+            getParentFragmentManager().setFragmentResult("calendar_refresh", b);
+            android.util.Log.d("MOD_ACT", "✅ Enviado calendar_refresh a parentFragmentManager");
+        } catch (Exception e) {
+            android.util.Log.e("MOD_ACT", "❌ Error enviando calendar_refresh a parent: " + e.getMessage());
+        }
+
+        try {
+            requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", b);
+            android.util.Log.d("MOD_ACT", "✅ Enviado actividad_change a activity supportFragmentManager");
+        } catch (Exception e) {
+            android.util.Log.e("MOD_ACT", "❌ Error enviando actividad_change a activity: " + e.getMessage());
+        }
+
+        try {
+            requireActivity().getSupportFragmentManager().setFragmentResult("calendar_refresh", b);
+            android.util.Log.d("MOD_ACT", "✅ Enviado calendar_refresh a activity supportFragmentManager");
+        } catch (Exception e) {
+            android.util.Log.e("MOD_ACT", "❌ Error enviando calendar_refresh a activity: " + e.getMessage());
+        }
+
+        // 🔥 NUEVO: También enviar al childFragmentManager del parent (para que CalendarFragment lo reciba)
+        try {
+            // ActivityDetailBottomSheet es el parent de ModificarActividadSheet
+            // CalendarFragment escucha en su childFragmentManager
+            // Necesitamos llegar al grandparent (CalendarFragment)
+            Fragment parentFragment = getParentFragment();
+            if (parentFragment != null) {
+                Fragment grandparentFragment = parentFragment.getParentFragment();
+                if (grandparentFragment != null) {
+                    grandparentFragment.getChildFragmentManager().setFragmentResult("calendar_refresh", b);
+                    android.util.Log.d("MOD_ACT", "✅ Enviado calendar_refresh a grandparent childFragmentManager (CalendarFragment)");
+                } else {
+                    android.util.Log.w("MOD_ACT", "⚠️ No hay grandparent fragment");
+                }
+            } else {
+                android.util.Log.w("MOD_ACT", "⚠️ No hay parent fragment");
+            }
+        } catch (Exception e) {
+            android.util.Log.e("MOD_ACT", "❌ Error enviando a grandparent: " + e.getMessage());
+        }
     }
 
     private void toast(String m){ Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }
