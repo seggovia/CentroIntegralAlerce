@@ -31,7 +31,8 @@
         app:itemTextAppearanceActive="@style/Text.BottomNav"
         app:itemTextAppearanceInactive="@style/Text.BottomNav"
         app:labelVisibilityMode="labeled"
-        app:itemRippleColor="@color/ripple"
+        app:itemRippleColor="@android:color/transparent"
+        app:itemActiveIndicatorStyle="@null"
         app:menu="@menu/bottom_nav_menu"/>
 
     <!-- FAB CENTRAL DESTACADO - Calendario verde circular -->
