@@ -302,7 +302,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         subscribeCita(actividadId, citaId);
         loadActividad(actividadId);
         loadCita(actividadId, citaId);
-        mostrarMensajeArchivosAdjuntos();
+        loadAdjuntosAll(actividadId, citaId);
 
         // Listeners de resultados (ambos managers)
         getParentFragmentManager().setFragmentResultListener("actividad_change", getViewLifecycleOwner(),
@@ -739,6 +739,10 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private void loadAdjuntosAll(String actividadId, String citaId) {
         if (llAdjuntos == null) return;
         android.util.Log.d("DETAIL", "🚀 Iniciando carga de adjuntos - Actividad: " + actividadId + ", Cita: " + citaId);
+
+        // 🔥 NUEVO: Limpiar la lista temporal
+        adjuntosTemporales.clear();
+
         llAdjuntos.removeAllViews();
         addNoFilesRow();
 
@@ -755,7 +759,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                             if (raw instanceof List) {
                                 List<?> arr = (List<?>) raw;
                                 if (!arr.isEmpty()) {
-                                    llAdjuntos.removeAllViews();
                                     for (Object o : arr) {
                                         if (o instanceof Map) {
                                             @SuppressWarnings("unchecked")
@@ -772,7 +775,11 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                                 }
                             }
                         }
-                        if (any) return;
+                        if (any) {
+                            // 🔥 NUEVO: Después de cargar archivos, renderizar el botón
+                            showPlaceholderIfEmpty();
+                            return;
+                        }
 
                         loadAdjuntosFromCitaSubcollection(actividadId, citaId, "adjuntos", preferEN, () ->
                                 loadAdjuntosFromCitaSubcollection(actividadId, citaId, "archivos", preferEN, () ->
@@ -794,7 +801,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                         if (raw instanceof List) {
                             List<?> arr = (List<?>) raw;
                             if (!arr.isEmpty()) {
-                                llAdjuntos.removeAllViews();
                                 for (Object o : arr) {
                                     if (o instanceof Map) {
                                         @SuppressWarnings("unchecked")
@@ -811,7 +817,11 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                             }
                         }
                     }
-                    if (any) return;
+                    if (any) {
+                        // 🔥 NUEVO: Después de cargar archivos, renderizar el botón
+                        showPlaceholderIfEmpty();
+                        return;
+                    }
                     loadAdjuntosFromSubcollection(actividadId, "adjuntos", preferEN, () ->
                             loadAdjuntosFromSubcollection(actividadId, "archivos", preferEN, () ->
                                     loadAdjuntosFromSubcollection(actividadId, "attachments", preferEN, onEmpty)));
@@ -825,7 +835,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .get()
                 .addOnSuccessListener(q -> {
                     if (q == null || q.isEmpty()) { onEmpty.run(); return; }
-                    llAdjuntos.removeAllViews();
                     int added = 0;
                     for (DocumentSnapshot d : q.getDocuments()) {
                         String nombre = firstNonEmpty(d.getString("nombre"), d.getString("name"));
@@ -834,7 +843,12 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                         addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, did);
                         added++;
                     }
-                    if (added == 0) onEmpty.run();
+                    if (added > 0) {
+                        // 🔥 NUEVO: Renderizar botón después de cargar archivos
+                        showPlaceholderIfEmpty();
+                    } else {
+                        onEmpty.run();
+                    }
                 })
                 .addOnFailureListener(e -> onEmpty.run());
     }
@@ -844,12 +858,11 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .get()
                 .addOnSuccessListener(q -> {
                     android.util.Log.d("DETAIL", "📄 Query resultado para " + sub + ": " + (q != null ? q.size() : "null") + " documentos");
-                    if (q == null || q.isEmpty()) { 
+                    if (q == null || q.isEmpty()) {
                         android.util.Log.d("DETAIL", "❌ Sin documentos en subcolección " + sub);
-                        onEmpty.run(); 
-                        return; 
+                        onEmpty.run();
+                        return;
                     }
-                    llAdjuntos.removeAllViews();
                     int added = 0;
                     for (DocumentSnapshot d : q.getDocuments()) {
                         String nombre = firstNonEmpty(d.getString("nombre"), d.getString("name"));
@@ -858,19 +871,73 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                         addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, did);
                         added++;
                     }
-                    if (added == 0) onEmpty.run();
+                    if (added > 0) {
+                        android.util.Log.d("DETAIL", "✅ Cargados " + added + " archivos de subcolección " + sub);
+                        // 🔥 NUEVO: Renderizar botón después de cargar archivos
+                        showPlaceholderIfEmpty();
+                    } else {
+                        onEmpty.run();
+                    }
                 })
                 .addOnFailureListener(e -> onEmpty.run());
     }
     private void showPlaceholderIfEmpty() {
         if (llAdjuntos == null) return;
-        if (llAdjuntos.getChildCount() == 0) addNoFilesRow();
+
+        // 🔥 NUEVO: Renderizar con botón en lugar de rows individuales
+        llAdjuntos.removeAllViews();
+
+        if (adjuntosTemporales.isEmpty()) {
+            // No hay archivos
+            android.util.Log.d("DETAIL", "🔴 No se encontraron archivos adjuntos");
+            addNoFilesRow();
+        } else {
+            // Hay archivos - mostrar botón
+            android.util.Log.d("DETAIL", "✅ Encontrados " + adjuntosTemporales.size() + " archivos");
+            renderizarBotonArchivos();
+        }
     }
 
     /**
-     * Muestra un mensaje informativo en amarillo sobre archivos adjuntos
-     * SIEMPRE muestra solo el mensaje, sin cargar los archivos adjuntos
+     * Renderiza un botón para ver/descargar archivos adjuntos (mismo estilo que ModificarActividadSheet)
      */
+    private void renderizarBotonArchivos() {
+        if (llAdjuntos == null || adjuntosTemporales.isEmpty()) return;
+
+        MaterialButton btnVerArchivos = new MaterialButton(requireContext());
+        btnVerArchivos.setText(adjuntosTemporales.size() + " archivo(s) adjunto(s) - Ver/Descargar");
+        btnVerArchivos.setIcon(requireContext().getDrawable(android.R.drawable.ic_menu_view));
+
+        // Configurar layout params
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, dp(8), 0, dp(8));
+        btnVerArchivos.setLayoutParams(params);
+
+        btnVerArchivos.setOnClickListener(v -> {
+            try {
+                // Abrir ArchivosListSheet para ver/descargar archivos (sin eliminar)
+                ArchivosListSheet sheet = ArchivosListSheet.newInstance(
+                        adjuntosTemporales,
+                        "Archivos adjuntos"
+                );
+                sheet.show(getParentFragmentManager(), "archivos_list");
+            } catch (Exception e) {
+                android.util.Log.e("DETAIL", "Error abriendo ArchivosListSheet: " + e.getMessage(), e);
+                toast("Error al abrir archivos: " + e.getMessage());
+            }
+        });
+
+        llAdjuntos.addView(btnVerArchivos);
+    }
+
+    /**
+     * [DEPRECATED] Muestra un mensaje informativo en amarillo sobre archivos adjuntos
+     * Ya no se usa - ahora se muestra un botón con loadAdjuntosAll()
+     */
+    /*
     private void mostrarMensajeArchivosAdjuntos() {
         if (llAdjuntos == null) return;
 
@@ -902,11 +969,32 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
         llAdjuntos.addView(tvMensaje);
     }
+    */
 
     // ---------- UI helpers ----------
+
+    // 🔥 NUEVO: Lista temporal para almacenar los adjuntos y mostrarlos con botón
+    private final List<Map<String, Object>> adjuntosTemporales = new ArrayList<>();
+
     private void addAdjuntoRow(String nombre, @Nullable String url) { addAdjuntoRow(nombre, url, null); }
     private void addAdjuntoRow(String nombre, @Nullable String url, @Nullable String adjuntoId) {
         if (llAdjuntos == null) return;
+
+        // 🔥 NUEVO: En lugar de agregar el row directamente, guardar en lista temporal
+        Map<String, Object> adjunto = new HashMap<>();
+        adjunto.put("nombre", nombre != null ? nombre : "");
+        adjunto.put("name", nombre != null ? nombre : "");
+        adjunto.put("url", url != null ? url : "");
+        if (adjuntoId != null) {
+            adjunto.put("id", adjuntoId);
+        }
+        adjuntosTemporales.add(adjunto);
+
+        // Nota: Ya no agregamos rows individuales aquí
+        // Los archivos se mostrarán con un botón al final
+        return;
+
+        /* CÓDIGO ANTIGUO COMENTADO - ahora usamos botón en lugar de rows
         LinearLayout item = new LinearLayout(requireContext());
         item.setOrientation(LinearLayout.VERTICAL);
         item.setPadding(0, dp(6), 0, dp(6));
@@ -969,6 +1057,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         llAdjuntos.addView(sep);
 
         Log.d(TAG, "Adjunto agregado: " + nombre + " | url=" + url + (adjuntoId != null ? " | id=" + adjuntoId : ""));
+        */
     }
 
     private void addNoFilesRow() {

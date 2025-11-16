@@ -43,7 +43,7 @@ public class RegistroActividadesFragment extends Fragment {
     // Lista completa de actividades cargadas
     private List<ActividadRegistro> todasActividades = new ArrayList<>();
 
-    // Filtro actual: "todas" o "mes"
+    // Filtro actual: "todas", "mes"
     private String filtroActual = "todas";
 
     @Nullable

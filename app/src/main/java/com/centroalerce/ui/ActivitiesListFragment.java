@@ -58,6 +58,7 @@ public class ActivitiesListFragment extends Fragment {
     private String currentFilter = "todas";
     private String searchQuery = "";
     private String currentSort = "recientes"; // "recientes" o "antiguos"
+    private String currentPeriodicidadFilter = "ninguno"; // "ninguno", "puntuales", "periodicas"
 
     // Cache de metadatos de la actividad padre
     private final Map<String, String> activityTipoMap  = new HashMap<>();
@@ -179,16 +180,66 @@ public class ActivitiesListFragment extends Fragment {
                     Log.d(TAG, "✅ Se encontraron " + snapshot.size() + " citas");
                     allActivities.clear();
 
+                    // 🔥 NUEVO: Agrupar actividades periódicas
+                    Map<String, List<DocumentSnapshot>> actividadesPorId = new HashMap<>();
+
                     for (DocumentSnapshot doc : snapshot.getDocuments()) {
                         try {
-                            ActivityItem item = parseActivityFromCita(doc);
-                            if (item != null) {
-                                allActivities.add(item);
+                            String activityId = getActivityIdFromRef(doc);
+                            if (activityId == null) continue;
+
+                            // Agrupar por activityId
+                            if (!actividadesPorId.containsKey(activityId)) {
+                                actividadesPorId.put(activityId, new ArrayList<>());
                             }
+                            actividadesPorId.get(activityId).add(doc);
                         } catch (Exception e) {
-                            Log.e(TAG, "Error parseando documento: " + doc.getId(), e);
+                            Log.e(TAG, "Error agrupando documento: " + doc.getId(), e);
                         }
                     }
+
+                    // Procesar cada grupo de actividades
+                    for (Map.Entry<String, List<DocumentSnapshot>> entry : actividadesPorId.entrySet()) {
+                        String activityId = entry.getKey();
+                        List<DocumentSnapshot> citas = entry.getValue();
+
+                        if (citas.isEmpty()) continue;
+
+                        // Obtener periodicidad del primer documento
+                        DocumentSnapshot firstDoc = citas.get(0);
+                        String periodicidad = firstNonEmpty(
+                                firstDoc.getString("periodicidad"),
+                                firstDoc.getString("actividadPeriodicidad"),
+                                firstDoc.getString("frecuencia")
+                        );
+
+                        if (TextUtils.isEmpty(periodicidad) && activityId != null) {
+                            String cached = activityPerMap.get(activityId);
+                            if (!TextUtils.isEmpty(cached)) periodicidad = cached;
+                        }
+
+                        if (TextUtils.isEmpty(periodicidad)) periodicidad = "PUNTUAL";
+                        periodicidad = periodicidad.toUpperCase(Locale.ROOT);
+
+                        // Si es PERIODICA: crear solo 1 item con todas las citas
+                        if (periodicidad.equals("PERIODICA")) {
+                            ActivityItem item = parseActivityFromCita(firstDoc, citas);
+                            if (item != null) {
+                                allActivities.add(item);
+                                Log.d(TAG, "✅ Agrupada actividad PERIODICA: " + item.title + " (" + citas.size() + " citas)");
+                            }
+                        }
+                        // Si es PUNTUAL: crear 1 item por cada cita
+                        else {
+                            for (DocumentSnapshot doc : citas) {
+                                ActivityItem item = parseActivityFromCita(doc, null);
+                                if (item != null) {
+                                    allActivities.add(item);
+                                }
+                            }
+                        }
+                    }
+
                     Log.d(TAG, "📋 Total de actividades parseadas: " + allActivities.size());
                     applyFilters();
                 });
@@ -196,7 +247,7 @@ public class ActivitiesListFragment extends Fragment {
 
     // ============ PARSEAR DOCUMENTO A ActivityItem ============
     @Nullable
-    private ActivityItem parseActivityFromCita(DocumentSnapshot doc) {
+    private ActivityItem parseActivityFromCita(DocumentSnapshot doc, @Nullable List<DocumentSnapshot> allCitas) {
         String activityId = getActivityIdFromRef(doc);
         String citaId = doc.getId();
 
@@ -290,7 +341,10 @@ public class ActivitiesListFragment extends Fragment {
         Log.d(TAG, "parse: tipo=" + tipo + ", periodicidad=" + periodicidad + ", lugar=" + lugar +
                 " | title=" + titulo + " | actId=" + activityId + " | citaId=" + citaId);
 
-        return new ActivityItem(activityId, citaId, titulo, subtitle, fechaStr, estado, startAt);
+        // 🔥 NUEVO: Si es actividad agrupada (PERIODICA con múltiples citas)
+        int totalCitas = (allCitas != null) ? allCitas.size() : 1;
+
+        return new ActivityItem(activityId, citaId, titulo, subtitle, fechaStr, estado, startAt, periodicidad, totalCitas);
     }
 
     @Nullable
@@ -344,24 +398,68 @@ public class ActivitiesListFragment extends Fragment {
             android.widget.PopupMenu popup = new android.widget.PopupMenu(requireContext(), btnOrdenar);
             popup.getMenuInflater().inflate(R.menu.menu_ordenar_actividades, popup.getMenu());
 
-            // Marcar la opción actual
+            // Forzar el estado correcto de los items de ordenamiento
             if (currentSort.equals("recientes")) {
                 popup.getMenu().findItem(R.id.menu_mas_recientes).setChecked(true);
+                popup.getMenu().findItem(R.id.menu_menos_recientes).setChecked(false);
             } else {
+                popup.getMenu().findItem(R.id.menu_mas_recientes).setChecked(false);
                 popup.getMenu().findItem(R.id.menu_menos_recientes).setChecked(true);
             }
 
-            popup.setOnMenuItemClickListener(item -> {
-                int itemId = item.getItemId();
+            // Marcar filtro de periodicidad actual
+            popup.getMenu().findItem(R.id.menu_puntuales).setChecked(currentPeriodicidadFilter.equals("puntuales"));
+            popup.getMenu().findItem(R.id.menu_periodicas).setChecked(currentPeriodicidadFilter.equals("periodicas"));
+
+            popup.setOnMenuItemClickListener(menuItem -> {
+                int itemId = menuItem.getItemId();
+
+                // Ordenamiento - Control manual completo
                 if (itemId == R.id.menu_mas_recientes) {
                     currentSort = "recientes";
+                    // Marcar este, desmarcar el otro
+                    menuItem.setChecked(true);
+                    popup.getMenu().findItem(R.id.menu_menos_recientes).setChecked(false);
                     applyFilters();
                     return true;
                 } else if (itemId == R.id.menu_menos_recientes) {
                     currentSort = "antiguos";
+                    // Marcar este, desmarcar el otro
+                    menuItem.setChecked(true);
+                    popup.getMenu().findItem(R.id.menu_mas_recientes).setChecked(false);
                     applyFilters();
                     return true;
                 }
+
+                // Filtros de periodicidad
+                else if (itemId == R.id.menu_puntuales) {
+                    // Toggle: Si ya está en puntuales, desactivar
+                    if (currentPeriodicidadFilter.equals("puntuales")) {
+                        currentPeriodicidadFilter = "ninguno";
+                        menuItem.setChecked(false);
+                    } else {
+                        // Activar puntuales y desactivar periódicas
+                        currentPeriodicidadFilter = "puntuales";
+                        menuItem.setChecked(true);
+                        popup.getMenu().findItem(R.id.menu_periodicas).setChecked(false);
+                    }
+                    applyFilters();
+                    return true;
+                } else if (itemId == R.id.menu_periodicas) {
+                    // Toggle: Si ya está en periódicas, desactivar
+                    if (currentPeriodicidadFilter.equals("periodicas")) {
+                        currentPeriodicidadFilter = "ninguno";
+                        menuItem.setChecked(false);
+                    } else {
+                        // Activar periódicas y desactivar puntuales
+                        currentPeriodicidadFilter = "periodicas";
+                        menuItem.setChecked(true);
+                        popup.getMenu().findItem(R.id.menu_puntuales).setChecked(false);
+                    }
+                    applyFilters();
+                    return true;
+                }
+
                 return false;
             });
 
@@ -426,6 +524,21 @@ public class ActivitiesListFragment extends Fragment {
                     break;
             }
 
+            // 🔥 NUEVO: Filtro adicional por periodicidad
+            if (!currentPeriodicidadFilter.equals("ninguno")) {
+                String periItem = item.periodicidad == null ? "" : item.periodicidad.toUpperCase();
+
+                if (currentPeriodicidadFilter.equals("puntuales")) {
+                    if (!periItem.equals("PUNTUAL")) {
+                        continue;
+                    }
+                } else if (currentPeriodicidadFilter.equals("periodicas")) {
+                    if (!periItem.equals("PERIODICA")) {
+                        continue;
+                    }
+                }
+            }
+
             filteredActivities.add(item);
         }
 
@@ -449,6 +562,17 @@ public class ActivitiesListFragment extends Fragment {
         }
 
         Log.d(TAG, "📊 Filtros aplicados: " + filteredActivities.size() + " de " + allActivities.size() + " actividades (Orden: " + currentSort + ")");
+
+        // 🔥 MEJORADO: Animación más notoria al actualizar
+        if (rvActivities != null) {
+            rvActivities.setAlpha(0.0f); // Empezar completamente transparente
+            rvActivities.animate()
+                .alpha(1.0f)
+                .setDuration(400) // Duración más larga para mejor visibilidad
+                .setInterpolator(new android.view.animation.DecelerateInterpolator()) // Animación más suave
+                .start();
+        }
+
         adapter.notifyDataSetChanged();
 
         if (filteredActivities.isEmpty()) showEmptyState();
@@ -487,9 +611,11 @@ public class ActivitiesListFragment extends Fragment {
         String fecha;
         String estado;
         Timestamp startAt;
+        String periodicidad;
+        int totalCitas; // 🔥 NUEVO: número de citas (1 para puntuales, >1 para periódicas agrupadas)
 
         ActivityItem(String activityId, String citaId, String title, String subtitle,
-                     String fecha, String estado, Timestamp startAt) {
+                     String fecha, String estado, Timestamp startAt, String periodicidad, int totalCitas) {
             this.activityId = activityId;
             this.citaId = citaId;
             this.title = title;
@@ -497,6 +623,8 @@ public class ActivitiesListFragment extends Fragment {
             this.fecha = fecha;
             this.estado = estado;
             this.startAt = startAt;
+            this.periodicidad = periodicidad;
+            this.totalCitas = totalCitas; // 🔥 NUEVO
         }
     }
 
@@ -521,8 +649,12 @@ public class ActivitiesListFragment extends Fragment {
         public void onBindViewHolder(@NonNull ActivityVH h, int i) {
             ActivityItem it = data.get(i);
 
-            // Título
-            h.title.setText(it.title);
+            // Título - 🔥 NUEVO: Mostrar contador de citas para actividades periódicas
+            String tituloFinal = it.title;
+            if (it.totalCitas > 1) {
+                tituloFinal = it.title + " (" + it.totalCitas + " citas)";
+            }
+            h.title.setText(tituloFinal);
 
             // Subtítulo (Tipo • Periodicidad)
             h.subtitle.setText(it.subtitle);

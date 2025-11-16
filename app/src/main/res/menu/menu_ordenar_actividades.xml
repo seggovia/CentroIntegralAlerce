@@ -1,15 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <group android:checkableBehavior="single">
-        <item
-            android:id="@+id/menu_mas_recientes"
-            android:title="Más recientes"
-            android:icon="@android:drawable/ic_menu_recent_history"
-            android:checked="true" />
+    <!-- Ordenamiento -->
+    <item
+        android:id="@+id/menu_mas_recientes"
+        android:title="Más recientes"
+        android:icon="@android:drawable/ic_menu_recent_history"
+        android:checkable="true"
+        android:checked="true" />
 
-        <item
-            android:id="@+id/menu_menos_recientes"
-            android:title="Menos recientes"
-            android:icon="@android:drawable/arrow_up_float" />
-    </group>
+    <item
+        android:id="@+id/menu_menos_recientes"
+        android:title="Menos recientes"
+        android:icon="@android:drawable/arrow_up_float"
+        android:checkable="true"
+        android:checked="false" />
+
+    <!-- Periodicidad -->
+    <item
+        android:id="@+id/menu_puntuales"
+        android:title="Puntuales"
+        android:checkable="true"
+        android:checked="false" />
+
+    <item
+        android:id="@+id/menu_periodicas"
+        android:title="Periódicas"
+        android:checkable="true"
+        android:checked="false" />
 </menu>

@@ -12,7 +12,10 @@
       "Bash(adb install:*)",
       "Bash(gcloud functions describe:*)",
       "Bash(where adb 2)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "Bash(.gradlew assembleDebug:*)",
+      "Bash(gradlew.bat assembleDebug:*)",
+      "Bash(./gradlew.bat assembleDebug)"
     ],
     "deny": [],
     "ask": []
