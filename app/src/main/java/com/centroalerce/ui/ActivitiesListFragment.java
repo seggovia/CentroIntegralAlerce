@@ -359,10 +359,28 @@ public class ActivitiesListFragment extends Fragment {
                             ZoneId.systemDefault()
                     );
 
+                    // Obtener información de repetición
+                    String diasRepeticion = obtenerDiasRepeticion(allCitas);
+                    String frecuenciaStr = doc.getString("frecuencia");
+                    if (TextUtils.isEmpty(frecuenciaStr)) frecuenciaStr = doc.getString("periodicidad");
+
+                    String infoRepeticion = "";
+                    if (!TextUtils.isEmpty(diasRepeticion)) {
+                        String frecuencia = (frecuenciaStr != null) ? frecuenciaStr.toLowerCase() : "";
+                        if (frecuencia.contains("semanal")) {
+                            infoRepeticion = " • " + diasRepeticion + " • semanal";
+                        } else if (frecuencia.contains("mensual")) {
+                            infoRepeticion = " • " + diasRepeticion + " • mensual";
+                        } else {
+                            infoRepeticion = " • " + diasRepeticion;
+                        }
+                    }
+
                     // Rango de fechas con emoji de repetición (separado de la hora)
                     String rangoFechas = primera.format(DateTimeFormatter.ofPattern("dd/MM/yy")) +
                                         " → " +
-                                        ultima.format(DateTimeFormatter.ofPattern("dd/MM/yy"));
+                                        ultima.format(DateTimeFormatter.ofPattern("dd/MM/yy")) +
+                                        infoRepeticion;
                     horaStr = primera.format(DateTimeFormatter.ofPattern("HH:mm"));
                     // Formato: "RANGO|hora · lugar" (RANGO se mostrará aparte, hora al lado del icono)
                     fechaStr = "🔁 " + rangoFechas + "|" + horaStr + " · " + lugar;
@@ -699,12 +717,8 @@ public class ActivitiesListFragment extends Fragment {
         public void onBindViewHolder(@NonNull ActivityVH h, int i) {
             ActivityItem it = data.get(i);
 
-            // Título - 🔥 NUEVO: Mostrar contador de citas para actividades periódicas
-            String tituloFinal = it.title;
-            if (it.totalCitas > 1) {
-                tituloFinal = it.title + " (" + it.totalCitas + " citas)";
-            }
-            h.title.setText(tituloFinal);
+            // Título
+            h.title.setText(it.title);
 
             // Subtítulo (Tipo • Periodicidad)
             h.subtitle.setText(it.subtitle);
@@ -798,6 +812,70 @@ public class ActivitiesListFragment extends Fragment {
         for (String v : values) {
             if (!TextUtils.isEmpty(v)) return v;
         }
+        return "";
+    }
+
+    /**
+     * Analiza las citas para determinar los días de repetición
+     */
+    private String obtenerDiasRepeticion(List<DocumentSnapshot> citas) {
+        if (citas == null || citas.size() < 2) return "";
+
+        try {
+            // Contar días de la semana
+            java.util.Map<Integer, Integer> diasSemana = new java.util.HashMap<>();
+            java.util.Set<Integer> diasDelMes = new java.util.HashSet<>();
+
+            for (DocumentSnapshot cita : citas) {
+                Timestamp citaTime = cita.getTimestamp("startAt");
+                if (citaTime == null) citaTime = cita.getTimestamp("fecha");
+
+                if (citaTime != null) {
+                    java.util.Calendar cal = java.util.Calendar.getInstance();
+                    cal.setTime(citaTime.toDate());
+
+                    int diaSemana = cal.get(java.util.Calendar.DAY_OF_WEEK);
+                    int diaDelMes = cal.get(java.util.Calendar.DAY_OF_MONTH);
+
+                    diasSemana.put(diaSemana, diasSemana.getOrDefault(diaSemana, 0) + 1);
+                    diasDelMes.add(diaDelMes);
+                }
+            }
+
+            // Si todos los días del mes son iguales, es repetición mensual
+            if (diasDelMes.size() == 1) {
+                int dia = diasDelMes.iterator().next();
+                return dia + " de cada mes";
+            }
+
+            // Si hay múltiples días de la semana, es repetición semanal
+            if (diasSemana.size() > 0) {
+                StringBuilder dias = new StringBuilder();
+                String[] nombresDias = {"domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"};
+
+                // Ordenar días
+                java.util.List<Integer> diasOrdenados = new java.util.ArrayList<>(diasSemana.keySet());
+                java.util.Collections.sort(diasOrdenados);
+
+                for (int i = 0; i < diasOrdenados.size(); i++) {
+                    int dia = diasOrdenados.get(i);
+                    if (i > 0) {
+                        if (i == diasOrdenados.size() - 1) {
+                            dias.append(" y ");
+                        } else {
+                            dias.append(", ");
+                        }
+                    }
+                    dias.append(nombresDias[dia - 1]);
+                }
+
+                return dias.toString();
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error obteniendo días de repetición", e);
+        }
+
         return "";
     }
 }
