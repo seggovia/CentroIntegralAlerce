@@ -323,26 +323,76 @@ public class ActivitiesListFragment extends Fragment {
         ).toLowerCase();
 
         String fechaStr = "Sin fecha";
-        if (startAt != null) {
+        String horaStr = "";
+
+        // 🔥 NUEVO: Si es actividad agrupada (PERIODICA con múltiples citas)
+        int totalCitas = (allCitas != null) ? allCitas.size() : 1;
+
+        if (allCitas != null && allCitas.size() > 1) {
+            // Es una actividad PERIODICA agrupada - mostrar rango de fechas
             try {
-                ZonedDateTime zdt = ZonedDateTime.ofInstant(
-                        Instant.ofEpochMilli(startAt.toDate().getTime()),
-                        ZoneId.systemDefault()
-                );
-                fechaStr = zdt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) + " · " + lugar;
+                // Encontrar primera y última fecha
+                Timestamp primeraFecha = null;
+                Timestamp ultimaFecha = null;
+
+                for (DocumentSnapshot cita : allCitas) {
+                    Timestamp citaTime = cita.getTimestamp("startAt");
+                    if (citaTime == null) citaTime = cita.getTimestamp("fecha");
+
+                    if (citaTime != null) {
+                        if (primeraFecha == null || citaTime.toDate().before(primeraFecha.toDate())) {
+                            primeraFecha = citaTime;
+                        }
+                        if (ultimaFecha == null || citaTime.toDate().after(ultimaFecha.toDate())) {
+                            ultimaFecha = citaTime;
+                        }
+                    }
+                }
+
+                if (primeraFecha != null && ultimaFecha != null) {
+                    ZonedDateTime primera = ZonedDateTime.ofInstant(
+                            Instant.ofEpochMilli(primeraFecha.toDate().getTime()),
+                            ZoneId.systemDefault()
+                    );
+                    ZonedDateTime ultima = ZonedDateTime.ofInstant(
+                            Instant.ofEpochMilli(ultimaFecha.toDate().getTime()),
+                            ZoneId.systemDefault()
+                    );
+
+                    // Rango de fechas con emoji de repetición (separado de la hora)
+                    String rangoFechas = primera.format(DateTimeFormatter.ofPattern("dd/MM/yy")) +
+                                        " → " +
+                                        ultima.format(DateTimeFormatter.ofPattern("dd/MM/yy"));
+                    horaStr = primera.format(DateTimeFormatter.ofPattern("HH:mm"));
+                    // Formato: "RANGO|hora · lugar" (RANGO se mostrará aparte, hora al lado del icono)
+                    fechaStr = "🔁 " + rangoFechas + "|" + horaStr + " · " + lugar;
+                } else {
+                    fechaStr = "🔁 Periódica · " + lugar;
+                }
             } catch (Exception e) {
-                Log.e(TAG, "Error formateando fecha", e);
-                fechaStr = "Sin fecha · " + lugar;
+                Log.e(TAG, "Error formateando rango de fechas", e);
+                fechaStr = "🔁 Periódica · " + lugar;
             }
         } else {
-            fechaStr = "Sin fecha · " + lugar;
+            // Actividad PUNTUAL o cita individual
+            if (startAt != null) {
+                try {
+                    ZonedDateTime zdt = ZonedDateTime.ofInstant(
+                            Instant.ofEpochMilli(startAt.toDate().getTime()),
+                            ZoneId.systemDefault()
+                    );
+                    fechaStr = zdt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) + " · " + lugar;
+                } catch (Exception e) {
+                    Log.e(TAG, "Error formateando fecha", e);
+                    fechaStr = "Sin fecha · " + lugar;
+                }
+            } else {
+                fechaStr = "Sin fecha · " + lugar;
+            }
         }
 
         Log.d(TAG, "parse: tipo=" + tipo + ", periodicidad=" + periodicidad + ", lugar=" + lugar +
                 " | title=" + titulo + " | actId=" + activityId + " | citaId=" + citaId);
-
-        // 🔥 NUEVO: Si es actividad agrupada (PERIODICA con múltiples citas)
-        int totalCitas = (allCitas != null) ? allCitas.size() : 1;
 
         return new ActivityItem(activityId, citaId, titulo, subtitle, fechaStr, estado, startAt, periodicidad, totalCitas);
     }
@@ -659,14 +709,35 @@ public class ActivitiesListFragment extends Fragment {
             // Subtítulo (Tipo • Periodicidad)
             h.subtitle.setText(it.subtitle);
 
-            // ✅ CORRECCIÓN: Extraer la fecha del string completo
-            String fechaCompleta = it.fecha; // "dd/MM/yyyy HH:mm · Lugar"
+            // ✅ CORRECCIÓN: Separar rango de fechas, hora y lugar
+            String fechaCompleta = it.fecha; // "🔁 rango|hora · lugar" o "dd/MM/yyyy HH:mm · lugar"
             String[] partes = fechaCompleta.split(" · ");
 
             if (partes.length >= 2) {
-                h.fecha.setText(partes[0]); // Solo "dd/MM/yyyy HH:mm"
+                String fechaYHora = partes[0];
+
+                // Si es PERIODICA (contiene | y emoji 🔁)
+                if (fechaYHora.contains("|") && fechaYHora.startsWith("🔁")) {
+                    String[] rangoYHora = fechaYHora.split("\\|");
+                    if (rangoYHora.length == 2) {
+                        // Mostrar rango en TextView separado
+                        h.rangoFechas.setText(rangoYHora[0]); // "🔁 02/12/25 → 02/03/26"
+                        h.rangoFechas.setVisibility(android.view.View.VISIBLE);
+                        // Mostrar solo hora al lado del icono de reloj
+                        h.fecha.setText(rangoYHora[1]); // "17:30"
+                    } else {
+                        h.rangoFechas.setVisibility(android.view.View.GONE);
+                        h.fecha.setText(fechaYHora);
+                    }
+                } else {
+                    // PUNTUAL: ocultar rango y mostrar fecha/hora completa
+                    h.rangoFechas.setVisibility(android.view.View.GONE);
+                    h.fecha.setText(fechaYHora); // "dd/MM/yyyy HH:mm"
+                }
+
                 h.lugar.setText(partes[1]); // Solo "Lugar"
             } else {
+                h.rangoFechas.setVisibility(android.view.View.GONE);
                 h.fecha.setText(fechaCompleta);
                 h.lugar.setText("Sin lugar");
             }
@@ -710,7 +781,7 @@ public class ActivitiesListFragment extends Fragment {
     }
 
     static class ActivityVH extends RecyclerView.ViewHolder {
-        TextView title, subtitle, fecha, estado, lugar; // ✅ AÑADIR lugar
+        TextView title, subtitle, fecha, estado, lugar, rangoFechas;
 
         ActivityVH(@NonNull View v) {
             super(v);
@@ -718,7 +789,8 @@ public class ActivitiesListFragment extends Fragment {
             subtitle = v.findViewById(R.id.tvSubtitle);
             fecha = v.findViewById(R.id.tvFecha);
             estado = v.findViewById(R.id.tvEstado);
-            lugar = v.findViewById(R.id.tvLugar); // ✅ AÑADIR
+            lugar = v.findViewById(R.id.tvLugar);
+            rangoFechas = v.findViewById(R.id.tvRangoFechas);
         }
     }
 

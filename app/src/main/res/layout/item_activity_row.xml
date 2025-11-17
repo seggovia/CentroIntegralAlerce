@@ -72,6 +72,18 @@
             android:ellipsize="end"
             tools:text="Taller • PUNTUAL" />
 
+        <!-- Rango de fechas (solo para periódicas) -->
+        <TextView
+            android:id="@+id/tvRangoFechas"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textSize="13sp"
+            android:textColor="@color/textSecondary"
+            android:visibility="gone"
+            tools:text="🔁 02/12/25 → 02/03/26"
+            tools:visibility="visible" />
+
         <!-- Separador sutil -->
         <View
             android:layout_width="match_parent"
