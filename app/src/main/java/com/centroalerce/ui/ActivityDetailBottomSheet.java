@@ -368,8 +368,39 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     @Override
     public void onDestroyView() {
-        if (actReg != null) { actReg.remove(); actReg = null; }
-        if (citaReg != null) { citaReg.remove(); citaReg = null; }
+        // ✅ IMPORTANTE: Limpiar todos los listeners antes de destruir la vista
+        if (actReg != null) {
+            try {
+                actReg.remove();
+                Log.d(TAG, "🗑️ Listener de actividad removido en onDestroyView");
+            } catch (Exception e) {
+                Log.w(TAG, "Error removiendo actReg en onDestroyView", e);
+            }
+            actReg = null;
+        }
+        if (citaReg != null) {
+            try {
+                citaReg.remove();
+                Log.d(TAG, "🗑️ Listener de cita removido en onDestroyView");
+            } catch (Exception e) {
+                Log.w(TAG, "Error removiendo citaReg en onDestroyView", e);
+            }
+            citaReg = null;
+        }
+
+        // ✅ Limpiar referencias de vistas para evitar memory leaks
+        tvNombre = null;
+        tvTipoYPer = null;
+        chFechaHora = null;
+        chLugar = null;
+        chEstado = null;
+        llAdjuntos = null;
+        btnModificar = null;
+        btnCancelar = null;
+        btnReagendar = null;
+        btnAdjuntar = null;
+        btnCompletar = null;
+
         super.onDestroyView();
     }
 
@@ -428,13 +459,28 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     // ---------- Escuchas en vivo ----------
     private void subscribeActividad(String actividadId) {
         if (TextUtils.isEmpty(actividadId)) return;
+
+        // ✅ IMPORTANTE: Remover listener anterior ANTES de crear uno nuevo
+        if (actReg != null) {
+            try {
+                actReg.remove();
+                Log.d(TAG, "✅ Listener anterior de actividad removido");
+            } catch (Exception ex) {
+                Log.w(TAG, "Error removiendo listener de actividad", ex);
+            }
+            actReg = null;
+        }
+
         actReg = act(actividadId, true).addSnapshotListener((doc, e) -> {
             if (e != null) { Log.w(TAG, "listen actividad EN error", e); return; }
             Log.d(TAG, "actividad EN snapshot recibido");
             if (doc != null && doc.exists()) {
                 bindActividadDoc(doc);
             } else {
-                if (actReg != null) { actReg.remove(); actReg = null; }
+                if (actReg != null) {
+                    try { actReg.remove(); } catch (Exception ex) {}
+                    actReg = null;
+                }
                 actReg = act(actividadId, false).addSnapshotListener((doc2, e2) -> {
                     if (e2 != null) { Log.w(TAG, "listen actividad ES error", e2); return; }
                     Log.d(TAG, "actividad ES snapshot recibido");
@@ -446,6 +492,18 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     private void subscribeCita(String actividadId, String citaId) {
         if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) return;
+
+        // ✅ IMPORTANTE: Remover listener anterior ANTES de crear uno nuevo
+        if (citaReg != null) {
+            try {
+                citaReg.remove();
+                Log.d(TAG, "✅ Listener anterior de cita removido");
+            } catch (Exception ex) {
+                Log.w(TAG, "Error removiendo listener de cita", ex);
+            }
+            citaReg = null;
+        }
+
         citaReg = act(actividadId, true).collection("citas").document(citaId)
                 .addSnapshotListener((doc, e) -> {
                     if (e != null) { Log.w(TAG, "listen cita EN error", e); return; }
@@ -453,7 +511,10 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                     if (doc != null && doc.exists()) {
                         bindCitaDoc(doc);
                     } else {
-                        if (citaReg != null) { citaReg.remove(); citaReg = null; }
+                        if (citaReg != null) {
+                            try { citaReg.remove(); } catch (Exception ex) {}
+                            citaReg = null;
+                        }
                         citaReg = act(actividadId, false).collection("citas").document(citaId)
                                 .addSnapshotListener((doc2, e2) -> {
                                     if (e2 != null) { Log.w(TAG, "listen cita ES error", e2); return; }
@@ -479,6 +540,12 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     private void bindActividadDoc(DocumentSnapshot doc) {
         if (doc == null || !doc.exists()) return;
+
+        // ✅ IMPORTANTE: Verificar que la vista no haya sido destruida
+        if (!isAdded() || getView() == null) {
+            Log.w(TAG, "⚠️ bindActividadDoc llamado después de onDestroyView - abortando");
+            return;
+        }
 
         String nombre       = pickString(doc, "nombre", "titulo", "name");
         String tipo         = pickString(doc, "tipo", "tipoActividad", "tipo_actividad", "tipoNombre");
@@ -680,6 +747,12 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     private void bindCitaDoc(DocumentSnapshot doc) {
         if (doc == null || !doc.exists()) return;
+
+        // ✅ IMPORTANTE: Verificar que la vista no haya sido destruida
+        if (!isAdded() || getView() == null) {
+            Log.w(TAG, "⚠️ bindCitaDoc llamado después de onDestroyView - abortando");
+            return;
+        }
 
         Timestamp ts = doc.getTimestamp("startAt");
         if (ts == null) {

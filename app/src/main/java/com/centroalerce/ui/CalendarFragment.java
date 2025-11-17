@@ -115,6 +115,13 @@ public class CalendarFragment extends Fragment {
 
         // ✅ Pasar el rol al adapter
         eventAdapter = new EventAdapter(new ArrayList<>(), event -> {
+            // ✅ IMPORTANTE: Cerrar BottomSheet anterior si existe
+            Fragment existingSheet = getChildFragmentManager().findFragmentByTag("activity_detail_sheet");
+            if (existingSheet != null) {
+                android.util.Log.d("CAL", "🗑️ Removiendo BottomSheet anterior antes de abrir uno nuevo");
+                getChildFragmentManager().beginTransaction().remove(existingSheet).commitNowAllowingStateLoss();
+            }
+
             ActivityDetailBottomSheet sheet = ActivityDetailBottomSheet.newInstance(
                     event.activityId,
                     event.citaId,
