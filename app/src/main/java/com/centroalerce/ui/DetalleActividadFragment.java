@@ -16,6 +16,7 @@ import com.google.android.material.chip.Chip;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.text.DateFormat;
 import java.util.Date;
@@ -23,6 +24,7 @@ import java.util.Date;
 public class DetalleActividadFragment extends Fragment {
 
     private static final String ARG_ACTIVIDAD_ID = "actividadId";
+    private static final String TAG = "DetalleActividad";
 
     public static DetalleActividadFragment newInstance(@NonNull String actividadId){
         Bundle b = new Bundle(); b.putString(ARG_ACTIVIDAD_ID, actividadId);
@@ -34,6 +36,23 @@ public class DetalleActividadFragment extends Fragment {
     private DocumentReference act(String id, boolean en){ return FirebaseFirestore.getInstance().collection(en?COL_EN:COL_ES).document(id); }
 
     private String actividadId;
+    private FirebaseFirestore db;
+
+    // 🆕 Listeners para mantenedores
+    private ListenerRegistration tipoActReg;
+    private ListenerRegistration lugarReg;
+    private ListenerRegistration oferenteReg;
+    private ListenerRegistration socioReg;
+    private ListenerRegistration proyectoReg;
+    private final java.util.Map<String, ListenerRegistration> beneficiariosRegs = new java.util.HashMap<>();
+
+    // 🆕 IDs de mantenedores para listeners
+    private String tipoActId;
+    private String lugarId;
+    private String oferenteId;
+    private String socioId;
+    private String proyectoId;
+    private java.util.List<String> beneficiariosIds = new java.util.ArrayList<>();
 
     // Views
     private TextView tvNombre, tvTipoYPeriodicidad;
@@ -52,6 +71,7 @@ public class DetalleActividadFragment extends Fragment {
     public void onViewCreated(@NonNull View v, @Nullable Bundle b) {
         super.onViewCreated(v, b);
         actividadId = getArguments()!=null ? getArguments().getString(ARG_ACTIVIDAD_ID) : null;
+        db = FirebaseFirestore.getInstance();
 
         // Bind
         tvNombre = v.findViewById(R.id.tvNombre);
@@ -100,6 +120,42 @@ public class DetalleActividadFragment extends Fragment {
         recargarDetalleDesdeFirestore();
     }
 
+    @Override
+    public void onDestroyView() {
+        // 🆕 Limpiar listeners de mantenedores
+        removeMantenedorListeners();
+        super.onDestroyView();
+    }
+
+    // 🆕 Método para remover listeners de mantenedores
+    private void removeMantenedorListeners() {
+        if (tipoActReg != null) {
+            try { tipoActReg.remove(); } catch (Exception e) { android.util.Log.w(TAG, "Error removiendo tipoActReg", e); }
+            tipoActReg = null;
+        }
+        if (lugarReg != null) {
+            try { lugarReg.remove(); } catch (Exception e) { android.util.Log.w(TAG, "Error removiendo lugarReg", e); }
+            lugarReg = null;
+        }
+        if (oferenteReg != null) {
+            try { oferenteReg.remove(); } catch (Exception e) { android.util.Log.w(TAG, "Error removiendo oferenteReg", e); }
+            oferenteReg = null;
+        }
+        if (socioReg != null) {
+            try { socioReg.remove(); } catch (Exception e) { android.util.Log.w(TAG, "Error removiendo socioReg", e); }
+            socioReg = null;
+        }
+        if (proyectoReg != null) {
+            try { proyectoReg.remove(); } catch (Exception e) { android.util.Log.w(TAG, "Error removiendo proyectoReg", e); }
+            proyectoReg = null;
+        }
+        // 🆕 Remover listeners de beneficiarios
+        for (ListenerRegistration reg : beneficiariosRegs.values()) {
+            try { reg.remove(); } catch (Exception e) { android.util.Log.w(TAG, "Error removiendo listener de beneficiario", e); }
+        }
+        beneficiariosRegs.clear();
+    }
+
     // ========= Carga =========
     private void recargarDetalleDesdeFirestore(){
         if (TextUtils.isEmpty(actividadId)) return;
@@ -112,6 +168,26 @@ public class DetalleActividadFragment extends Fragment {
 
     private void bind(@Nullable DocumentSnapshot doc){
         if (doc==null || !doc.exists()) return;
+
+        // 🆕 Extraer IDs de mantenedores para configurar listeners
+        String newTipoActId = firstNonEmpty(doc.getString("tipoActividad_id"), doc.getString("tipoActividadId"), doc.getString("tipo_id"), doc.getString("tipoId"));
+        String newLugarId = firstNonEmpty(doc.getString("lugar_id"), doc.getString("lugarId"));
+        String newOferenteId = firstNonEmpty(doc.getString("oferente_id"), doc.getString("oferenteId"));
+        String newSocioId = firstNonEmpty(doc.getString("socio_id"), doc.getString("socioId"), doc.getString("socioComunitario_id"));
+        String newProyectoId = firstNonEmpty(doc.getString("proyecto_id"), doc.getString("proyectoId"));
+
+        // 🆕 Extraer IDs de beneficiarios (lista)
+        java.util.List<String> newBeneficiariosIds = new java.util.ArrayList<>();
+        Object beneficiariosIdsObj = doc.get("beneficiarios_ids");
+        if (beneficiariosIdsObj == null) beneficiariosIdsObj = doc.get("beneficiariosIds");
+        if (beneficiariosIdsObj instanceof java.util.List) {
+            for (Object id : (java.util.List<?>) beneficiariosIdsObj) {
+                if (id != null) newBeneficiariosIds.add(String.valueOf(id));
+            }
+        }
+
+        // 🆕 Configurar listeners para mantenedores si los IDs cambiaron
+        setupMantenedorListeners(newTipoActId, newLugarId, newOferenteId, newSocioId, newProyectoId, newBeneficiariosIds);
 
         // Campos base
         set(tvNombre, doc.getString("nombre"));
@@ -265,5 +341,15 @@ public class DetalleActividadFragment extends Fragment {
             chEstado.setChipBackgroundColor(android.content.res.ColorStateList.valueOf(bg));
         } catch (Exception ignored) {}
         chEstado.setTextColor(fg);
+    }
+
+    // 🆕 Configurar listeners para mantenedores
+    // NOTA: Simplificado - el batch update actualiza Firestore automáticamente
+    private void setupMantenedorListeners(String newTipoActId, String newLugarId, String newOferenteId,
+                                          String newSocioId, String newProyectoId, java.util.List<String> newBeneficiariosIds) {
+        // Los listeners de mantenedores fueron removidos porque:
+        // 1. El batch update ya actualiza la actividad en Firestore
+        // 2. get() en recargarDetalleDesdeFirestore() obtiene datos frescos
+        android.util.Log.d(TAG, "✅ setupMantenedorListeners simplificado");
     }
 }

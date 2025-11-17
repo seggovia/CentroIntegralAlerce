@@ -125,14 +125,10 @@ public class OferenteDialog extends DialogFragment {
                 tilNombre.setErrorEnabled(false);
             }
 
-            Oferente o = (original != null) ? original : new Oferente();
-            o.setNombre(nombre);
-            o.setDocenteResponsable(docente);
-            o.setCarrera(carrera);
-
-            if (original == null) {
-                o.setActivo(true);
-            }
+            // ✅ Crear nuevo objeto en vez de modificar el original
+            Oferente o = (original == null)
+                    ? new Oferente(nombre, docente, carrera, true)
+                    : new Oferente(original.getId(), nombre, docente, carrera, original.isActivo());
 
             callback.onGuardar(o);
             d.dismiss();

@@ -62,8 +62,65 @@ public class ProyectosFragment extends Fragment {
 
     private void abrirDialogo(@Nullable Proyecto original){
         new ProyectoDialog(original, p -> {
-            if(p.getId()==null) db.collection("proyectos").add(p);
-            else db.collection("proyectos").document(p.getId()).set(p);
+            if(p.getId()==null) {
+                db.collection("proyectos").add(p);
+            } else {
+                db.collection("proyectos").document(p.getId()).set(p)
+                        .addOnSuccessListener(unused -> {
+                            // 🆕 Actualizar el nombre en todas las actividades que usan este proyecto
+                            if (original != null && !p.getNombre().equals(original.getNombre())) {
+                                actualizarNombreEnActividades(p.getId(), p.getNombre());
+                            }
+                        });
+            }
         }).show(getParentFragmentManager(),"ProyectoDialog");
+    }
+
+    /**
+     * 🆕 Actualiza el nombre del proyecto en todas las actividades que lo usan
+     */
+    private void actualizarNombreEnActividades(String proyectoId, String nuevoNombre) {
+        // Actualizar en colección "activities" (EN) - campo proyecto_id
+        db.collection("activities")
+                .whereEqualTo("proyecto_id", proyectoId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().update("proyecto", nuevoNombre, "proyectoNombre", nuevoNombre);
+                    }
+                    android.util.Log.d("Proyectos", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN - proyecto_id)");
+                });
+
+        // Actualizar en colección "actividades" (ES) - campo proyecto_id
+        db.collection("actividades")
+                .whereEqualTo("proyecto_id", proyectoId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().update("proyecto", nuevoNombre, "proyectoNombre", nuevoNombre);
+                    }
+                    android.util.Log.d("Proyectos", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES - proyecto_id)");
+                });
+
+        // También buscar por proyectoId sin guion bajo
+        db.collection("activities")
+                .whereEqualTo("proyectoId", proyectoId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().update("proyecto", nuevoNombre, "proyectoNombre", nuevoNombre);
+                    }
+                    android.util.Log.d("Proyectos", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN - proyectoId)");
+                });
+
+        db.collection("actividades")
+                .whereEqualTo("proyectoId", proyectoId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().update("proyecto", nuevoNombre, "proyectoNombre", nuevoNombre);
+                    }
+                    android.util.Log.d("Proyectos", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES - proyectoId)");
+                });
     }
 }

@@ -92,9 +92,59 @@ public class LugaresFragment extends Fragment {
             if (lugar.getId() == null) {
                 db.collection("lugares").add(lugar);
             } else {
-                db.collection("lugares").document(lugar.getId()).set(lugar);
+                db.collection("lugares").document(lugar.getId()).set(lugar)
+                        .addOnSuccessListener(aVoid -> {
+                            // 🆕 Actualizar el nombre en todas las actividades que usan este lugar
+                            if (original != null && !lugar.getNombre().equals(original.getNombre())) {
+                                actualizarNombreEnActividades(lugar.getId(), lugar.getNombre());
+                            }
+                        });
             }
         });
         dialog.show(getParentFragmentManager(), "LugarDialog");
+    }
+
+    // 🆕 Actualizar el nombre del lugar en todas las actividades
+    private void actualizarNombreEnActividades(String lugarId, String nuevoNombre) {
+        // Actualizar en colección "activities" (EN)
+        db.collection("activities")
+                .whereEqualTo("lugar_id", lugarId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().update("lugarNombre", nuevoNombre, "lugar", nuevoNombre);
+                    }
+                    android.util.Log.d("Lugares", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN)");
+                });
+
+        // Actualizar en colección "actividades" (ES)
+        db.collection("actividades")
+                .whereEqualTo("lugar_id", lugarId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().update("lugarNombre", nuevoNombre, "lugar", nuevoNombre);
+                    }
+                    android.util.Log.d("Lugares", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES)");
+                });
+
+        // También buscar por lugarId sin guion bajo
+        db.collection("activities")
+                .whereEqualTo("lugarId", lugarId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().update("lugarNombre", nuevoNombre, "lugar", nuevoNombre);
+                    }
+                });
+
+        db.collection("actividades")
+                .whereEqualTo("lugarId", lugarId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().update("lugarNombre", nuevoNombre, "lugar", nuevoNombre);
+                    }
+                });
     }
 }

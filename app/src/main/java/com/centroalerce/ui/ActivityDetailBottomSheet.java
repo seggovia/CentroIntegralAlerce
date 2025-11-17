@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +97,22 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     // 👇 NUEVO: listeners para datos en vivo
     private ListenerRegistration actReg;   // escucha de actividad
     private ListenerRegistration citaReg;  // escucha de cita
+
+    // 🆕 Listeners para mantenedores
+    private ListenerRegistration tipoActReg;
+    private ListenerRegistration lugarReg;
+    private ListenerRegistration oferenteReg;
+    private ListenerRegistration socioReg;
+    private ListenerRegistration proyectoReg;
+    private final Map<String, ListenerRegistration> beneficiariosRegs = new HashMap<>();
+
+    // 🆕 IDs de mantenedores para listeners
+    private String tipoActId;
+    private String lugarId;
+    private String oferenteId;
+    private String socioId;
+    private String proyectoId;
+    private List<String> beneficiariosIds = new ArrayList<>();
 
     private static final String COL_EN = "activities";
     private static final String COL_ES = "actividades";
@@ -388,6 +405,9 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             citaReg = null;
         }
 
+        // 🆕 Limpiar listeners de mantenedores
+        removeMantenedorListeners();
+
         // ✅ Limpiar referencias de vistas para evitar memory leaks
         tvNombre = null;
         tvTipoYPer = null;
@@ -402,6 +422,65 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         btnCompletar = null;
 
         super.onDestroyView();
+    }
+
+    // 🆕 Método para remover listeners de mantenedores
+    private void removeMantenedorListeners() {
+        if (tipoActReg != null) {
+            try { tipoActReg.remove(); } catch (Exception e) { Log.w(TAG, "Error removiendo tipoActReg", e); }
+            tipoActReg = null;
+        }
+        if (lugarReg != null) {
+            try { lugarReg.remove(); } catch (Exception e) { Log.w(TAG, "Error removiendo lugarReg", e); }
+            lugarReg = null;
+        }
+        if (oferenteReg != null) {
+            try { oferenteReg.remove(); } catch (Exception e) { Log.w(TAG, "Error removiendo oferenteReg", e); }
+            oferenteReg = null;
+        }
+        if (socioReg != null) {
+            try { socioReg.remove(); } catch (Exception e) { Log.w(TAG, "Error removiendo socioReg", e); }
+            socioReg = null;
+        }
+        if (proyectoReg != null) {
+            try { proyectoReg.remove(); } catch (Exception e) { Log.w(TAG, "Error removiendo proyectoReg", e); }
+            proyectoReg = null;
+        }
+        // 🆕 Remover listeners de beneficiarios
+        for (ListenerRegistration reg : beneficiariosRegs.values()) {
+            try { reg.remove(); } catch (Exception e) { Log.w(TAG, "Error removiendo listener de beneficiario", e); }
+        }
+        beneficiariosRegs.clear();
+    }
+
+    // 🆕 Configurar listeners para mantenedores
+    // NOTA: Ya no necesitamos listeners de mantenedores porque el batch update
+    // actualiza la actividad en Firestore, y el listener de actividad (subscribeActividad)
+    // detecta automáticamente esos cambios. Dejamos este método vacío por compatibilidad.
+    private void setupMantenedorListeners(String newTipoActId, String newLugarId, String newOferenteId,
+                                          String newSocioId, String newProyectoId, List<String> newBeneficiariosIds) {
+        // Ya no se configuran listeners de mantenedores.
+        // El listener de actividad (subscribeActividad) detecta cambios automáticamente
+        // cuando el batch update actualiza los campos en Firestore.
+        Log.d(TAG, "✅ Listeners de mantenedores deshabilitados - confiando en listener de actividad");
+    }
+
+    // 🆕 Método helper para actualizar campos de la actividad en Firestore
+    private void actualizarCampoActividad(String campo, String nuevoValor) {
+        if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(campo)) return;
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put(campo, nuevoValor);
+
+        // Intentar actualizar en ambas colecciones
+        act(actividadId, true).update(updates)
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "✅ Campo " + campo + " actualizado en activities"))
+                .addOnFailureListener(e -> {
+                    // Si falla en EN, intentar en ES
+                    act(actividadId, false).update(updates)
+                            .addOnSuccessListener(aVoid -> Log.d(TAG, "✅ Campo " + campo + " actualizado en actividades"))
+                            .addOnFailureListener(e2 -> Log.w(TAG, "❌ Error actualizando campo " + campo, e2));
+                });
     }
 
     // ====== ESTILOS BOTONES (forzar visibilidad/contraste) ======
@@ -547,6 +626,23 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             return;
         }
 
+        // 🆕 Extraer IDs de mantenedores para configurar listeners
+        String newTipoActId = pickString(doc, "tipoActividad_id", "tipoActividadId", "tipo_id", "tipoId");
+        String newLugarId = pickString(doc, "lugar_id", "lugarId");
+        String newOferenteId = pickString(doc, "oferente_id", "oferenteId");
+        String newSocioId = pickString(doc, "socio_id", "socioId", "socioComunitario_id");
+        String newProyectoId = pickString(doc, "proyecto_id", "proyectoId");
+
+        // 🆕 Extraer IDs de beneficiarios (lista)
+        List<String> newBeneficiariosIds = new ArrayList<>();
+        Object beneficiariosIdsObj = doc.get("beneficiarios_ids");
+        if (beneficiariosIdsObj == null) beneficiariosIdsObj = doc.get("beneficiariosIds");
+        if (beneficiariosIdsObj instanceof List) {
+            for (Object id : (List<?>) beneficiariosIdsObj) {
+                if (id != null) newBeneficiariosIds.add(String.valueOf(id));
+            }
+        }
+
         String nombre       = pickString(doc, "nombre", "titulo", "name");
         String tipo         = pickString(doc, "tipo", "tipoActividad", "tipo_actividad", "tipoNombre");
         String periodicidad = pickString(doc, "periodicidad", "frecuencia", "periodicidadNombre", "frecuenciaNombre");
@@ -571,6 +667,9 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (diasAviso == null) diasAviso = safeLong(doc.get("diasAvisoCancelacion"));
 
         actividadLugarFallback = pickString(doc, "lugarNombre", "lugar");
+
+        // 🆕 Configurar listeners para mantenedores si los IDs cambiaron
+        setupMantenedorListeners(newTipoActId, newLugarId, newOferenteId, newSocioId, newProyectoId, newBeneficiariosIds);
 
         setTextOrDash(tvNombre, nonEmpty(nombre, "Nombre actividad"));
         if (tvTipoYPer != null) tvTipoYPer.setText(nonEmpty(tipo, "—") + " • " + nonEmpty(periodicidad, "—"));
