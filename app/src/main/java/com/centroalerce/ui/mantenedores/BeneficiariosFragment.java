@@ -309,22 +309,62 @@ public class BeneficiariosFragment extends Fragment {
     }
 
     private void confirmarEliminar(Beneficiario item) {
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Eliminar beneficiario")
-                .setMessage("¿Eliminar a \"" + item.nombre + "\" de forma permanente?")
-                .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
-                .setPositiveButton("Eliminar", (d, w) -> db.collection("beneficiarios").document(item.id)
-                        .delete()
-                        .addOnSuccessListener(unused -> Toast.makeText(getContext(), "Eliminado", Toast.LENGTH_SHORT).show())
-                        .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show()))
-                .show();
+        // 🆕 Validar que no haya actividades activas usando este beneficiario
+        verificarActividadesActivas(item.id, tieneActividades -> {
+            if (tieneActividades) {
+                new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("❌ No se puede eliminar")
+                        .setMessage("El beneficiario \"" + item.nombre + "\" está asociado a actividades activas.\n\n" +
+                                "Primero debes eliminar o modificar esas actividades.")
+                        .setPositiveButton("Entendido", null)
+                        .show();
+                return;
+            }
+
+            // Si no tiene actividades, permitir eliminar
+            new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Eliminar beneficiario")
+                    .setMessage("¿Eliminar a \"" + item.nombre + "\" de forma permanente?")
+                    .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                    .setPositiveButton("Eliminar", (d, w) -> db.collection("beneficiarios").document(item.id)
+                            .delete()
+                            .addOnSuccessListener(unused -> {
+                                Toast.makeText(getContext(), "Eliminado", Toast.LENGTH_SHORT).show();
+                                // 🆕 Remover el beneficiario de todas las actividades (si las hay)
+                                removerBeneficiarioDeActividades(item.id);
+                            })
+                            .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show()))
+                    .show();
+        });
     }
 
     private void toggleActivo(Beneficiario item) {
         boolean nuevo = item.activo == null || !item.activo;
-        db.collection("beneficiarios").document(item.id)
-                .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
-                .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+
+        // 🆕 Si se va a desactivar, validar que no haya actividades activas
+        if (!nuevo) {
+            verificarActividadesActivas(item.id, tieneActividades -> {
+                if (tieneActividades) {
+                    new MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("❌ No se puede desactivar")
+                            .setMessage("El beneficiario \"" + item.nombre + "\" está asociado a actividades activas.\n\n" +
+                                    "Primero debes eliminar o modificar esas actividades.")
+                            .setPositiveButton("Entendido", null)
+                            .show();
+                    return;
+                }
+
+                // Si no tiene actividades, permitir desactivar
+                db.collection("beneficiarios").document(item.id)
+                        .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
+                        .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            });
+        } else {
+            // Si se va a activar, no necesita validación
+            db.collection("beneficiarios").document(item.id)
+                    .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
+                    .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+        }
     }
 
     // --- helpers / modelos ---
@@ -620,6 +660,173 @@ public class BeneficiariosFragment extends Fragment {
                     .addOnSuccessListener(aVoid -> android.util.Log.d("Beneficiarios", "      ✅ Cita actualizada: " + citaDoc.getId()))
                     .addOnFailureListener(e -> android.util.Log.e("Beneficiarios", "      ❌ Error actualizando cita: " + e.getMessage()));
         }
+    }
+
+    /**
+     * 🆕 Remueve el beneficiario de todas las actividades (cuando se elimina)
+     */
+    private void removerBeneficiarioDeActividades(String beneficiarioId) {
+        android.util.Log.d("Beneficiarios", "🗑️ Removiendo beneficiario " + beneficiarioId + " de todas las actividades");
+
+        // Buscar en ambas variantes de campo
+        db.collection("activities")
+                .whereArrayContains("beneficiariosIds", beneficiarioId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        removerBeneficiarioDeDoc(doc, beneficiarioId);
+                    }
+                });
+
+        db.collection("activities")
+                .whereArrayContains("beneficiarios_ids", beneficiarioId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        removerBeneficiarioDeDoc(doc, beneficiarioId);
+                    }
+                });
+    }
+
+    /**
+     * 🆕 Remueve un beneficiario de un documento de actividad
+     */
+    private void removerBeneficiarioDeDoc(com.google.firebase.firestore.DocumentSnapshot doc, String beneficiarioId) {
+        List<String> idsField = (List<String>) doc.get("beneficiarios_ids");
+        List<String> nombresField = (List<String>) doc.get("beneficiarios_nombres");
+
+        if (idsField == null) {
+            idsField = (List<String>) doc.get("beneficiariosIds");
+            nombresField = (List<String>) doc.get("beneficiariosNombres");
+        }
+
+        if (idsField == null) return;
+
+        int index = idsField.indexOf(beneficiarioId);
+        if (index == -1) return;
+
+        // Crear nuevas listas sin el beneficiario eliminado
+        List<String> nuevosIds = new ArrayList<>(idsField);
+        nuevosIds.remove(index);
+
+        List<String> nuevosNombres = null;
+        if (nombresField != null && index < nombresField.size()) {
+            nuevosNombres = new ArrayList<>(nombresField);
+            nuevosNombres.remove(index);
+        }
+
+        // Actualizar el documento
+        Map<String, Object> updates = new LinkedHashMap<>();
+        updates.put("beneficiarios_ids", nuevosIds);
+        updates.put("beneficiariosIds", nuevosIds);
+        if (nuevosNombres != null) {
+            updates.put("beneficiarios_nombres", nuevosNombres);
+            updates.put("beneficiariosNombres", nuevosNombres);
+        }
+
+        doc.getReference().update(updates)
+                .addOnSuccessListener(aVoid -> android.util.Log.d("Beneficiarios", "    ✅ Beneficiario removido de actividad: " + doc.getId()))
+                .addOnFailureListener(e -> android.util.Log.e("Beneficiarios", "    ❌ Error removiendo beneficiario: " + e.getMessage()));
+    }
+
+    /**
+     * 🆕 Verifica si hay actividades o citas programadas usando este beneficiario
+     * IMPORTANTE: Busca actividades sin campo estado (activas por defecto) Y con estado activo
+     */
+    private void verificarActividadesActivas(String beneficiarioId, Callback<Boolean> callback) {
+        android.util.Log.d("Beneficiarios", "🔍 Verificando actividades y citas para beneficiario: " + beneficiarioId);
+
+        // Buscar actividades con beneficiariosIds (incluye actividades SIN campo estado)
+        db.collection("activities")
+                .whereArrayContains("beneficiariosIds", beneficiarioId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    // Filtrar manualmente para incluir actividades sin estado o con estado activo
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        // Si NO tiene estado, o tiene estado pero NO es cancelada/completada
+                        if (estado == null ||
+                            (!estado.equalsIgnoreCase("cancelada") &&
+                             !estado.equalsIgnoreCase("canceled") &&
+                             !estado.equalsIgnoreCase("completada") &&
+                             !estado.equalsIgnoreCase("completed") &&
+                             !estado.equalsIgnoreCase("finalizada"))) {
+                            android.util.Log.d("Beneficiarios", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
+                            callback.onResult(true);
+                            return;
+                        }
+                    }
+
+                    // Buscar con el otro nombre de campo
+                    db.collection("activities")
+                            .whereArrayContains("beneficiarios_ids", beneficiarioId)
+                            .get()
+                            .addOnSuccessListener(querySnapshot2 -> {
+                                for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
+                                    String estado = doc.getString("estado");
+                                    if (estado == null ||
+                                        (!estado.equalsIgnoreCase("cancelada") &&
+                                         !estado.equalsIgnoreCase("canceled") &&
+                                         !estado.equalsIgnoreCase("completada") &&
+                                         !estado.equalsIgnoreCase("completed") &&
+                                         !estado.equalsIgnoreCase("finalizada"))) {
+                                        android.util.Log.d("Beneficiarios", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
+                                        callback.onResult(true);
+                                        return;
+                                    }
+                                }
+                                // Si no hay actividades activas, verificar citas programadas
+                                verificarCitasProgramadas(beneficiarioId, callback);
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.w("Beneficiarios", "Error verificando actividades: " + e.getMessage());
+                                callback.onResult(false);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.w("Beneficiarios", "Error verificando actividades: " + e.getMessage());
+                    callback.onResult(false);
+                });
+    }
+
+    /**
+     * 🆕 Verifica si hay citas programadas (no completadas/canceladas) usando este beneficiario
+     */
+    private void verificarCitasProgramadas(String beneficiarioId, Callback<Boolean> callback) {
+        android.util.Log.d("Beneficiarios", "🔍 Verificando citas programadas para beneficiario: " + beneficiarioId);
+
+        db.collectionGroup("citas")
+                .whereArrayContains("beneficiariosIds", beneficiarioId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    // Filtrar manualmente para incluir citas sin estado o con estado programada
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        if (estado == null ||
+                            (!estado.equalsIgnoreCase("cancelada") &&
+                             !estado.equalsIgnoreCase("canceled") &&
+                             !estado.equalsIgnoreCase("completada") &&
+                             !estado.equalsIgnoreCase("completed") &&
+                             !estado.equalsIgnoreCase("finalizada"))) {
+                            android.util.Log.d("Beneficiarios", "❌ Encontrada cita programada: " + doc.getId() + " (estado: " + estado + ")");
+                            callback.onResult(true);
+                            return;
+                        }
+                    }
+                    android.util.Log.d("Beneficiarios", "✅ No hay actividades ni citas activas");
+                    callback.onResult(false);
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.w("Beneficiarios", "Error verificando citas: " + e.getMessage());
+                    callback.onResult(false);
+                });
+    }
+
+    /**
+     * Interfaz para callbacks
+     */
+    private interface Callback<T> {
+        void onResult(T result);
     }
 
     public static class Beneficiario {

@@ -10,6 +10,7 @@ import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.SocioComunitario;
 import com.centroalerce.ui.mantenedores.adapter.SocioAdapter;
 import com.centroalerce.ui.mantenedores.dialog.SocioDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.firestore.*;
 import java.util.*;
@@ -38,9 +39,7 @@ public class SociosFragment extends Fragment {
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter=new SocioAdapter(new SocioAdapter.Callbacks(){
             @Override public void onEditar(SocioComunitario s){ abrirDialogo(s); }
-            @Override public void onEliminar(SocioComunitario s){
-                if(s.getId()!=null) db.collection("socios").document(s.getId()).delete();
-            }
+            @Override public void onEliminar(SocioComunitario s){ confirmarEliminar(s); }
         });
         rv.setAdapter(adapter);
 
@@ -195,5 +194,301 @@ public class SociosFragment extends Fragment {
                         citaDoc.getReference().update("socio", nuevoNombre, "socioComunitario", nuevoNombre, "socio_nombre", nuevoNombre);
                     }
                 });
+    }
+
+    private void confirmarEliminar(SocioComunitario item) {
+        if (item == null || item.getId() == null) return;
+
+        // Validar que no haya actividades activas usando este socio
+        verificarActividadesActivas(item.getNombre(), tieneActividades -> {
+            if (tieneActividades) {
+                new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("No se puede eliminar")
+                        .setMessage("El socio comunitario \"" + item.getNombre() + "\" está asociado a actividades activas.\n\n" +
+                                "Primero debes eliminar o modificar esas actividades.")
+                        .setPositiveButton("Entendido", null)
+                        .show();
+                return;
+            }
+
+            // Si no tiene actividades, permitir eliminar
+            new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Eliminar socio comunitario")
+                    .setMessage("¿Eliminar \"" + item.getNombre() + "\" de forma permanente?")
+                    .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                    .setPositiveButton("Eliminar", (d, w) -> db.collection("socios").document(item.getId())
+                            .delete()
+                            .addOnSuccessListener(unused -> {
+                                android.widget.Toast.makeText(getContext(), "Eliminado", android.widget.Toast.LENGTH_SHORT).show();
+                                // Actualizar actividades poniendo el campo en null
+                                actualizarActividadesAlEliminar(item.getNombre());
+                            })
+                            .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show()))
+                    .show();
+        });
+    }
+
+    private void toggleActivo(SocioComunitario item) {
+        if (item == null || item.getId() == null) return;
+
+        boolean nuevo = !item.isActivo();
+
+        // Si se va a desactivar, validar que no haya actividades activas
+        if (!nuevo) {
+            verificarActividadesActivas(item.getNombre(), tieneActividades -> {
+                if (tieneActividades) {
+                    new MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("No se puede desactivar")
+                            .setMessage("El socio comunitario \"" + item.getNombre() + "\" está asociado a actividades activas.\n\n" +
+                                    "Primero debes eliminar o modificar esas actividades.")
+                            .setPositiveButton("Entendido", null)
+                            .show();
+                    return;
+                }
+
+                // Si no tiene actividades, permitir desactivar
+                db.collection("socios").document(item.getId())
+                        .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
+                        .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+            });
+        } else {
+            // Si se va a activar, no necesita validación
+            db.collection("socios").document(item.getId())
+                    .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
+                    .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+        }
+    }
+
+    /**
+     * Verifica si hay actividades activas usando este socio comunitario
+     */
+    private void verificarActividadesActivas(String socioNombre, Callback<Boolean> callback) {
+        android.util.Log.d("Socios", "🔍 Verificando actividades y citas para socio: " + socioNombre);
+
+        // Buscar actividades con campo 'socioComunitario' (incluye actividades SIN campo estado)
+        db.collection("activities")
+                .whereEqualTo("socioComunitario", socioNombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    // Filtrar manualmente para incluir actividades sin estado o con estado activo
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        // Si NO tiene estado, o tiene estado pero NO es cancelada/completada
+                        if (estado == null ||
+                            (!estado.equalsIgnoreCase("cancelada") &&
+                             !estado.equalsIgnoreCase("canceled") &&
+                             !estado.equalsIgnoreCase("completada") &&
+                             !estado.equalsIgnoreCase("completed") &&
+                             !estado.equalsIgnoreCase("finalizada"))) {
+                            android.util.Log.d("Socios", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
+                            callback.onResult(true);
+                            return;
+                        }
+                    }
+
+                    // Buscar con el campo "socio"
+                    db.collection("activities")
+                            .whereEqualTo("socio", socioNombre)
+                            .get()
+                            .addOnSuccessListener(querySnapshot2 -> {
+                                for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
+                                    String estado = doc.getString("estado");
+                                    if (estado == null ||
+                                        (!estado.equalsIgnoreCase("cancelada") &&
+                                         !estado.equalsIgnoreCase("canceled") &&
+                                         !estado.equalsIgnoreCase("completada") &&
+                                         !estado.equalsIgnoreCase("completed") &&
+                                         !estado.equalsIgnoreCase("finalizada"))) {
+                                        android.util.Log.d("Socios", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
+                                        callback.onResult(true);
+                                        return;
+                                    }
+                                }
+                                // Si no hay actividades activas, verificar citas programadas
+                                verificarCitasProgramadas(socioNombre, callback);
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.w("Socios", "Error verificando actividades: " + e.getMessage());
+                                callback.onResult(false);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.w("Socios", "Error verificando actividades: " + e.getMessage());
+                    callback.onResult(false);
+                });
+    }
+
+    /**
+     * Verifica si hay citas programadas (no completadas/canceladas) usando este socio comunitario
+     */
+    private void verificarCitasProgramadas(String socioNombre, Callback<Boolean> callback) {
+        android.util.Log.d("Socios", "🔍 Verificando citas programadas para socio: " + socioNombre);
+
+        db.collectionGroup("citas")
+                .whereEqualTo("socioComunitario", socioNombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    // Filtrar manualmente para incluir citas sin estado o con estado programada
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        if (estado == null ||
+                            (!estado.equalsIgnoreCase("cancelada") &&
+                             !estado.equalsIgnoreCase("canceled") &&
+                             !estado.equalsIgnoreCase("completada") &&
+                             !estado.equalsIgnoreCase("completed") &&
+                             !estado.equalsIgnoreCase("finalizada"))) {
+                            android.util.Log.d("Socios", "❌ Encontrada cita programada: " + doc.getId() + " (estado: " + estado + ")");
+                            callback.onResult(true);
+                            return;
+                        }
+                    }
+
+                    // Buscar con el otro nombre de campo
+                    db.collectionGroup("citas")
+                            .whereEqualTo("socio", socioNombre)
+                            .get()
+                            .addOnSuccessListener(querySnapshot2 -> {
+                                for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
+                                    String estado = doc.getString("estado");
+                                    if (estado == null ||
+                                        (!estado.equalsIgnoreCase("cancelada") &&
+                                         !estado.equalsIgnoreCase("canceled") &&
+                                         !estado.equalsIgnoreCase("completada") &&
+                                         !estado.equalsIgnoreCase("completed") &&
+                                         !estado.equalsIgnoreCase("finalizada"))) {
+                                        android.util.Log.d("Socios", "❌ Encontrada cita programada: " + doc.getId() + " (estado: " + estado + ")");
+                                        callback.onResult(true);
+                                        return;
+                                    }
+                                }
+                                android.util.Log.d("Socios", "✅ No hay actividades ni citas activas");
+                                callback.onResult(false);
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.w("Socios", "Error verificando citas: " + e.getMessage());
+                                callback.onResult(false);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.w("Socios", "Error verificando citas: " + e.getMessage());
+                    callback.onResult(false);
+                });
+    }
+
+    /**
+     * Actualiza todas las actividades que usan este socio, poniendo el campo en null
+     */
+    private void actualizarActividadesAlEliminar(String nombre) {
+        android.util.Log.d("Socios", "🗑️ Actualizando actividades que usaban socio: " + nombre);
+
+        // Buscar actividades con ese socio (campo "socioComunitario")
+        db.collection("activities")
+                .whereEqualTo("socioComunitario", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Socios", "🔍 Encontradas " + querySnapshot.size() + " actividades con socioComunitario='" + nombre + "'");
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("socioComunitario", null);
+                        updates.put("socio", null);
+                        updates.put("socio_nombre", null);
+                        updates.put("socioId", null);
+
+                        doc.getReference().update(updates)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("Socios", "✅ Actividad actualizada: " + doc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("Socios", "❌ Error: " + e.getMessage()));
+                    }
+                });
+
+        // Buscar por campo "socio"
+        db.collection("activities")
+                .whereEqualTo("socio", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Socios", "🔍 Encontradas " + querySnapshot.size() + " actividades con socio='" + nombre + "'");
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("socioComunitario", null);
+                        updates.put("socio", null);
+                        updates.put("socio_nombre", null);
+                        updates.put("socioId", null);
+
+                        doc.getReference().update(updates)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("Socios", "✅ Actividad actualizada: " + doc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("Socios", "❌ Error: " + e.getMessage()));
+                    }
+                });
+
+        // Buscar por campo "socio_nombre"
+        db.collection("activities")
+                .whereEqualTo("socio_nombre", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Socios", "🔍 Encontradas " + querySnapshot.size() + " actividades con socio_nombre='" + nombre + "'");
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("socioComunitario", null);
+                        updates.put("socio", null);
+                        updates.put("socio_nombre", null);
+                        updates.put("socioId", null);
+
+                        doc.getReference().update(updates)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("Socios", "✅ Actividad actualizada: " + doc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("Socios", "❌ Error: " + e.getMessage()));
+                    }
+                });
+
+        // Buscar en colección "actividades" (ES)
+        db.collection("actividades")
+                .whereEqualTo("socioComunitario", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("socioComunitario", null);
+                        updates.put("socio", null);
+                        updates.put("socio_nombre", null);
+                        updates.put("socioId", null);
+
+                        doc.getReference().update(updates);
+                    }
+                });
+
+        db.collection("actividades")
+                .whereEqualTo("socio", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("socioComunitario", null);
+                        updates.put("socio", null);
+                        updates.put("socio_nombre", null);
+                        updates.put("socioId", null);
+
+                        doc.getReference().update(updates);
+                    }
+                });
+
+        db.collection("actividades")
+                .whereEqualTo("socio_nombre", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("socioComunitario", null);
+                        updates.put("socio", null);
+                        updates.put("socio_nombre", null);
+                        updates.put("socioId", null);
+
+                        doc.getReference().update(updates);
+                    }
+                });
+    }
+
+    /**
+     * Interfaz para callbacks
+     */
+    private interface Callback<T> {
+        void onResult(T result);
     }
 }

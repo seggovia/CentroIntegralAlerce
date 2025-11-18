@@ -11,6 +11,7 @@ import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.Oferente;
 import com.centroalerce.ui.mantenedores.adapter.OferenteAdapter;
 import com.centroalerce.ui.mantenedores.dialog.OferenteDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.firestore.*;
 
@@ -46,11 +47,7 @@ public class OferentesFragment extends Fragment {
 
         adapter = new OferenteAdapter(new OferenteAdapter.Callbacks(){
             @Override public void onEditar(Oferente o){ abrirDialogo(o); }
-            @Override public void onEliminar(Oferente o){
-                if (o.getId() != null && !o.getId().isEmpty()) {
-                    db.collection(COL_OFERENTES).document(o.getId()).delete();
-                }
-            }
+            @Override public void onEliminar(Oferente o){ confirmarEliminar(o); }
         });
         rv.setAdapter(adapter);
 
@@ -271,5 +268,263 @@ public class OferentesFragment extends Fragment {
                         }
                     }
                 });
+    }
+
+    private void confirmarEliminar(Oferente item) {
+        if (item == null || item.getId() == null || item.getId().isEmpty()) return;
+
+        // Validar que no haya actividades activas usando este oferente
+        verificarActividadesActivas(item.getNombre(), tieneActividades -> {
+            if (tieneActividades) {
+                new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("No se puede eliminar")
+                        .setMessage("El oferente \"" + item.getNombre() + "\" está asociado a actividades activas.\n\n" +
+                                "Primero debes eliminar o modificar esas actividades.")
+                        .setPositiveButton("Entendido", null)
+                        .show();
+                return;
+            }
+
+            // Si no tiene actividades, permitir eliminar
+            new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Eliminar oferente")
+                    .setMessage("¿Eliminar \"" + item.getNombre() + "\" de forma permanente?")
+                    .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                    .setPositiveButton("Eliminar", (d, w) -> db.collection(COL_OFERENTES).document(item.getId())
+                            .delete()
+                            .addOnSuccessListener(unused -> {
+                                android.widget.Toast.makeText(getContext(), "Eliminado", android.widget.Toast.LENGTH_SHORT).show();
+                                // Actualizar actividades poniendo el campo en null
+                                actualizarActividadesAlEliminar(item.getNombre());
+                            })
+                            .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show()))
+                    .show();
+        });
+    }
+
+    private void toggleActivo(Oferente item) {
+        if (item == null || item.getId() == null || item.getId().isEmpty()) return;
+
+        boolean nuevo = !item.isActivo();
+
+        // Si se va a desactivar, validar que no haya actividades activas
+        if (!nuevo) {
+            verificarActividadesActivas(item.getNombre(), tieneActividades -> {
+                if (tieneActividades) {
+                    new MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("No se puede desactivar")
+                            .setMessage("El oferente \"" + item.getNombre() + "\" está asociado a actividades activas.\n\n" +
+                                    "Primero debes eliminar o modificar esas actividades.")
+                            .setPositiveButton("Entendido", null)
+                            .show();
+                    return;
+                }
+
+                // Si no tiene actividades, permitir desactivar
+                db.collection(COL_OFERENTES).document(item.getId())
+                        .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
+                        .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+            });
+        } else {
+            // Si se va a activar, no necesita validación
+            db.collection(COL_OFERENTES).document(item.getId())
+                    .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
+                    .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+        }
+    }
+
+    /**
+     * Verifica si hay actividades activas usando este oferente
+     */
+    private void verificarActividadesActivas(String oferenteNombre, Callback<Boolean> callback) {
+        android.util.Log.d("Oferentes", "🔍 Verificando actividades y citas para oferente: " + oferenteNombre);
+
+        // Buscar actividades con campo 'oferente' (incluye actividades SIN campo estado)
+        db.collection("activities")
+                .whereEqualTo("oferente", oferenteNombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    // Filtrar manualmente para incluir actividades sin estado o con estado activo
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        // Si NO tiene estado, o tiene estado pero NO es cancelada/completada
+                        if (estado == null ||
+                            (!estado.equalsIgnoreCase("cancelada") &&
+                             !estado.equalsIgnoreCase("canceled") &&
+                             !estado.equalsIgnoreCase("completada") &&
+                             !estado.equalsIgnoreCase("completed") &&
+                             !estado.equalsIgnoreCase("finalizada"))) {
+                            android.util.Log.d("Oferentes", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
+                            callback.onResult(true);
+                            return;
+                        }
+                    }
+
+                    // Buscar con el otro nombre de campo
+                    db.collection("activities")
+                            .whereEqualTo("oferenteNombre", oferenteNombre)
+                            .get()
+                            .addOnSuccessListener(querySnapshot2 -> {
+                                for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
+                                    String estado = doc.getString("estado");
+                                    if (estado == null ||
+                                        (!estado.equalsIgnoreCase("cancelada") &&
+                                         !estado.equalsIgnoreCase("canceled") &&
+                                         !estado.equalsIgnoreCase("completada") &&
+                                         !estado.equalsIgnoreCase("completed") &&
+                                         !estado.equalsIgnoreCase("finalizada"))) {
+                                        android.util.Log.d("Oferentes", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
+                                        callback.onResult(true);
+                                        return;
+                                    }
+                                }
+                                // Si no hay actividades activas, verificar citas programadas
+                                verificarCitasProgramadas(oferenteNombre, callback);
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.w("Oferentes", "Error verificando actividades: " + e.getMessage());
+                                callback.onResult(false);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.w("Oferentes", "Error verificando actividades: " + e.getMessage());
+                    callback.onResult(false);
+                });
+    }
+
+    /**
+     * Verifica si hay citas programadas (no completadas/canceladas) usando este oferente
+     */
+    private void verificarCitasProgramadas(String oferenteNombre, Callback<Boolean> callback) {
+        android.util.Log.d("Oferentes", "🔍 Verificando citas programadas para oferente: " + oferenteNombre);
+
+        db.collectionGroup("citas")
+                .whereEqualTo("oferente", oferenteNombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    // Filtrar manualmente para incluir citas sin estado o con estado programada
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        if (estado == null ||
+                            (!estado.equalsIgnoreCase("cancelada") &&
+                             !estado.equalsIgnoreCase("canceled") &&
+                             !estado.equalsIgnoreCase("completada") &&
+                             !estado.equalsIgnoreCase("completed") &&
+                             !estado.equalsIgnoreCase("finalizada"))) {
+                            android.util.Log.d("Oferentes", "❌ Encontrada cita programada: " + doc.getId() + " (estado: " + estado + ")");
+                            callback.onResult(true);
+                            return;
+                        }
+                    }
+
+                    // Buscar con el otro nombre de campo
+                    db.collectionGroup("citas")
+                            .whereEqualTo("oferenteNombre", oferenteNombre)
+                            .get()
+                            .addOnSuccessListener(querySnapshot2 -> {
+                                for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
+                                    String estado = doc.getString("estado");
+                                    if (estado == null ||
+                                        (!estado.equalsIgnoreCase("cancelada") &&
+                                         !estado.equalsIgnoreCase("canceled") &&
+                                         !estado.equalsIgnoreCase("completada") &&
+                                         !estado.equalsIgnoreCase("completed") &&
+                                         !estado.equalsIgnoreCase("finalizada"))) {
+                                        android.util.Log.d("Oferentes", "❌ Encontrada cita programada: " + doc.getId() + " (estado: " + estado + ")");
+                                        callback.onResult(true);
+                                        return;
+                                    }
+                                }
+                                android.util.Log.d("Oferentes", "✅ No hay actividades ni citas activas");
+                                callback.onResult(false);
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.w("Oferentes", "Error verificando citas: " + e.getMessage());
+                                callback.onResult(false);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.w("Oferentes", "Error verificando citas: " + e.getMessage());
+                    callback.onResult(false);
+                });
+    }
+
+    /**
+     * Actualiza todas las actividades que usan este oferente, poniendo el campo en null
+     */
+    private void actualizarActividadesAlEliminar(String nombre) {
+        android.util.Log.d("Oferentes", "🗑️ Actualizando actividades que usaban oferente: " + nombre);
+
+        // Buscar actividades con ese oferente (campo "oferente")
+        db.collection("activities")
+                .whereEqualTo("oferente", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Oferentes", "🔍 Encontradas " + querySnapshot.size() + " actividades con oferente='" + nombre + "'");
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("oferente", null);
+                        updates.put("oferenteNombre", null);
+                        updates.put("oferenteId", null);
+
+                        doc.getReference().update(updates)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("Oferentes", "✅ Actividad actualizada: " + doc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("Oferentes", "❌ Error: " + e.getMessage()));
+                    }
+                });
+
+        // Buscar por campo "oferenteNombre"
+        db.collection("activities")
+                .whereEqualTo("oferenteNombre", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Oferentes", "🔍 Encontradas " + querySnapshot.size() + " actividades con oferenteNombre='" + nombre + "'");
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("oferente", null);
+                        updates.put("oferenteNombre", null);
+                        updates.put("oferenteId", null);
+
+                        doc.getReference().update(updates)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("Oferentes", "✅ Actividad actualizada: " + doc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("Oferentes", "❌ Error: " + e.getMessage()));
+                    }
+                });
+
+        // Buscar en colección "actividades" (ES)
+        db.collection("actividades")
+                .whereEqualTo("oferente", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("oferente", null);
+                        updates.put("oferenteNombre", null);
+                        updates.put("oferenteId", null);
+
+                        doc.getReference().update(updates);
+                    }
+                });
+
+        db.collection("actividades")
+                .whereEqualTo("oferenteNombre", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("oferente", null);
+                        updates.put("oferenteNombre", null);
+                        updates.put("oferenteId", null);
+
+                        doc.getReference().update(updates);
+                    }
+                });
+    }
+
+    /**
+     * Interfaz para callbacks
+     */
+    private interface Callback<T> {
+        void onResult(T result);
     }
 }

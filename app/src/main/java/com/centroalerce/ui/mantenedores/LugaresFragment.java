@@ -16,12 +16,17 @@ import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.Lugar;
 import com.centroalerce.ui.mantenedores.adapter.LugarAdapter;
 import com.centroalerce.ui.mantenedores.dialog.LugarDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class LugaresFragment extends Fragment {
 
@@ -54,12 +59,7 @@ public class LugaresFragment extends Fragment {
 
         adapter = new LugarAdapter(new LugarAdapter.Callbacks() {
             @Override public void onEditar(Lugar l) { abrirDialogo(l); }
-
-            @Override public void onEliminar(Lugar l) {
-                if (l != null && l.getId() != null) {
-                    db.collection("lugares").document(l.getId()).delete();
-                }
-            }
+            @Override public void onEliminar(Lugar l) { confirmarEliminar(l); }
         });
         rv.setAdapter(adapter);
 
@@ -191,5 +191,263 @@ public class LugaresFragment extends Fragment {
                         citaDoc.getReference().update("lugar", nuevoNombre, "lugarNombre", nuevoNombre);
                     }
                 });
+    }
+
+    private void confirmarEliminar(Lugar item) {
+        if (item == null || item.getId() == null) return;
+
+        // Validar que no haya actividades activas usando este lugar
+        verificarActividadesActivas(item.getNombre(), tieneActividades -> {
+            if (tieneActividades) {
+                new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("No se puede eliminar")
+                        .setMessage("El lugar \"" + item.getNombre() + "\" está asociado a actividades activas.\n\n" +
+                                "Primero debes eliminar o modificar esas actividades.")
+                        .setPositiveButton("Entendido", null)
+                        .show();
+                return;
+            }
+
+            // Si no tiene actividades, permitir eliminar
+            new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Eliminar lugar")
+                    .setMessage("¿Eliminar \"" + item.getNombre() + "\" de forma permanente?")
+                    .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                    .setPositiveButton("Eliminar", (d, w) -> db.collection("lugares").document(item.getId())
+                            .delete()
+                            .addOnSuccessListener(unused -> {
+                                android.widget.Toast.makeText(getContext(), "Eliminado", android.widget.Toast.LENGTH_SHORT).show();
+                                // Actualizar actividades poniendo el campo en null
+                                actualizarActividadesAlEliminar(item.getNombre());
+                            })
+                            .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show()))
+                    .show();
+        });
+    }
+
+    private void toggleActivo(Lugar item) {
+        if (item == null || item.getId() == null) return;
+
+        boolean nuevo = !item.isActivo();
+
+        // Si se va a desactivar, validar que no haya actividades activas
+        if (!nuevo) {
+            verificarActividadesActivas(item.getNombre(), tieneActividades -> {
+                if (tieneActividades) {
+                    new MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("No se puede desactivar")
+                            .setMessage("El lugar \"" + item.getNombre() + "\" está asociado a actividades activas.\n\n" +
+                                    "Primero debes eliminar o modificar esas actividades.")
+                            .setPositiveButton("Entendido", null)
+                            .show();
+                    return;
+                }
+
+                // Si no tiene actividades, permitir desactivar
+                db.collection("lugares").document(item.getId())
+                        .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
+                        .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+            });
+        } else {
+            // Si se va a activar, no necesita validación
+            db.collection("lugares").document(item.getId())
+                    .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
+                    .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+        }
+    }
+
+    /**
+     * Verifica si hay actividades activas usando este lugar
+     */
+    private void verificarActividadesActivas(String lugarNombre, Callback<Boolean> callback) {
+        android.util.Log.d("Lugares", "🔍 Verificando actividades y citas para lugar: " + lugarNombre);
+
+        // Buscar actividades con campo 'lugar' (incluye actividades SIN campo estado)
+        db.collection("activities")
+                .whereEqualTo("lugar", lugarNombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    // Filtrar manualmente para incluir actividades sin estado o con estado activo
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        // Si NO tiene estado, o tiene estado pero NO es cancelada/completada
+                        if (estado == null ||
+                            (!estado.equalsIgnoreCase("cancelada") &&
+                             !estado.equalsIgnoreCase("canceled") &&
+                             !estado.equalsIgnoreCase("completada") &&
+                             !estado.equalsIgnoreCase("completed") &&
+                             !estado.equalsIgnoreCase("finalizada"))) {
+                            android.util.Log.d("Lugares", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
+                            callback.onResult(true);
+                            return;
+                        }
+                    }
+
+                    // Buscar con el otro nombre de campo
+                    db.collection("activities")
+                            .whereEqualTo("lugarNombre", lugarNombre)
+                            .get()
+                            .addOnSuccessListener(querySnapshot2 -> {
+                                for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
+                                    String estado = doc.getString("estado");
+                                    if (estado == null ||
+                                        (!estado.equalsIgnoreCase("cancelada") &&
+                                         !estado.equalsIgnoreCase("canceled") &&
+                                         !estado.equalsIgnoreCase("completada") &&
+                                         !estado.equalsIgnoreCase("completed") &&
+                                         !estado.equalsIgnoreCase("finalizada"))) {
+                                        android.util.Log.d("Lugares", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
+                                        callback.onResult(true);
+                                        return;
+                                    }
+                                }
+                                // Si no hay actividades activas, verificar citas programadas
+                                verificarCitasProgramadas(lugarNombre, callback);
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.w("Lugares", "Error verificando actividades: " + e.getMessage());
+                                callback.onResult(false);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.w("Lugares", "Error verificando actividades: " + e.getMessage());
+                    callback.onResult(false);
+                });
+    }
+
+    /**
+     * Verifica si hay citas programadas (no completadas/canceladas) usando este lugar
+     */
+    private void verificarCitasProgramadas(String lugarNombre, Callback<Boolean> callback) {
+        android.util.Log.d("Lugares", "🔍 Verificando citas programadas para lugar: " + lugarNombre);
+
+        db.collectionGroup("citas")
+                .whereEqualTo("lugar", lugarNombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    // Filtrar manualmente para incluir citas sin estado o con estado programada
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        if (estado == null ||
+                            (!estado.equalsIgnoreCase("cancelada") &&
+                             !estado.equalsIgnoreCase("canceled") &&
+                             !estado.equalsIgnoreCase("completada") &&
+                             !estado.equalsIgnoreCase("completed") &&
+                             !estado.equalsIgnoreCase("finalizada"))) {
+                            android.util.Log.d("Lugares", "❌ Encontrada cita programada: " + doc.getId() + " (estado: " + estado + ")");
+                            callback.onResult(true);
+                            return;
+                        }
+                    }
+
+                    // Buscar con el otro nombre de campo
+                    db.collectionGroup("citas")
+                            .whereEqualTo("lugarNombre", lugarNombre)
+                            .get()
+                            .addOnSuccessListener(querySnapshot2 -> {
+                                for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
+                                    String estado = doc.getString("estado");
+                                    if (estado == null ||
+                                        (!estado.equalsIgnoreCase("cancelada") &&
+                                         !estado.equalsIgnoreCase("canceled") &&
+                                         !estado.equalsIgnoreCase("completada") &&
+                                         !estado.equalsIgnoreCase("completed") &&
+                                         !estado.equalsIgnoreCase("finalizada"))) {
+                                        android.util.Log.d("Lugares", "❌ Encontrada cita programada: " + doc.getId() + " (estado: " + estado + ")");
+                                        callback.onResult(true);
+                                        return;
+                                    }
+                                }
+                                android.util.Log.d("Lugares", "✅ No hay actividades ni citas activas");
+                                callback.onResult(false);
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.w("Lugares", "Error verificando citas: " + e.getMessage());
+                                callback.onResult(false);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.w("Lugares", "Error verificando citas: " + e.getMessage());
+                    callback.onResult(false);
+                });
+    }
+
+    /**
+     * Actualiza todas las actividades que usan este lugar, poniendo el campo en null
+     */
+    private void actualizarActividadesAlEliminar(String nombre) {
+        android.util.Log.d("Lugares", "🗑️ Actualizando actividades que usaban lugar: " + nombre);
+
+        // Buscar actividades con ese lugar (campo "lugar")
+        db.collection("activities")
+                .whereEqualTo("lugar", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Lugares", "🔍 Encontradas " + querySnapshot.size() + " actividades con lugar='" + nombre + "'");
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("lugar", null);
+                        updates.put("lugarNombre", null);
+                        updates.put("lugarId", null);
+
+                        doc.getReference().update(updates)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("Lugares", "✅ Actividad actualizada: " + doc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("Lugares", "❌ Error: " + e.getMessage()));
+                    }
+                });
+
+        // Buscar por campo "lugarNombre"
+        db.collection("activities")
+                .whereEqualTo("lugarNombre", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Lugares", "🔍 Encontradas " + querySnapshot.size() + " actividades con lugarNombre='" + nombre + "'");
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("lugar", null);
+                        updates.put("lugarNombre", null);
+                        updates.put("lugarId", null);
+
+                        doc.getReference().update(updates)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("Lugares", "✅ Actividad actualizada: " + doc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("Lugares", "❌ Error: " + e.getMessage()));
+                    }
+                });
+
+        // Buscar en colección "actividades" (ES)
+        db.collection("actividades")
+                .whereEqualTo("lugar", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("lugar", null);
+                        updates.put("lugarNombre", null);
+                        updates.put("lugarId", null);
+
+                        doc.getReference().update(updates);
+                    }
+                });
+
+        db.collection("actividades")
+                .whereEqualTo("lugarNombre", nombre)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("lugar", null);
+                        updates.put("lugarNombre", null);
+                        updates.put("lugarId", null);
+
+                        doc.getReference().update(updates);
+                    }
+                });
+    }
+
+    /**
+     * Interfaz para callbacks
+     */
+    private interface Callback<T> {
+        void onResult(T result);
     }
 }
