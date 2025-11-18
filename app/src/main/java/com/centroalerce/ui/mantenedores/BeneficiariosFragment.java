@@ -289,6 +289,7 @@ public class BeneficiariosFragment extends Fragment {
                         .addOnSuccessListener(unused -> {
                             // 🆕 Actualizar el nombre en todas las actividades que usan este beneficiario
                             if (!nombre.equals(editar.nombre)) {
+                                android.util.Log.d("Beneficiarios", "🔄 Nombre cambió de '" + editar.nombre + "' a '" + nombre + "' - actualizando actividades...");
                                 actualizarNombreEnActividades(editar.id, nombre);
                             }
                             Toast.makeText(getContext(), "✅ Beneficiario actualizado", Toast.LENGTH_SHORT).show();
@@ -371,19 +372,23 @@ public class BeneficiariosFragment extends Fragment {
 
     /**
      * 🆕 Actualiza el nombre del beneficiario en todas las actividades que lo usan
-     * NOTA: Beneficiarios se guardan como arrays en las actividades, por lo que
-     * necesitamos actualizar el array de nombres manteniendo el orden
+     * NOTA: Beneficiarios se guardan como arrays de IDs y nombres en las actividades,
+     * por lo que buscamos por ID y actualizamos el nombre manteniendo el orden
      */
     private void actualizarNombreEnActividades(String beneficiarioId, String nuevoNombre) {
+        android.util.Log.d("Beneficiarios", "📝 Buscando actividades con beneficiarioId: " + beneficiarioId);
+
         // Actualizar en colección "activities" (EN) - campo beneficiarios_ids (array)
         db.collection("activities")
                 .whereArrayContains("beneficiarios_ids", beneficiarioId)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Beneficiarios", "🔍 Encontradas " + querySnapshot.size() + " actividades con beneficiarios_ids[] contiene '" + beneficiarioId + "' en 'activities'");
                     for (com.google.firebase.firestore.QueryDocumentSnapshot doc : querySnapshot) {
                         actualizarBeneficiarioEnDoc(doc, beneficiarioId, nuevoNombre);
+                        // También actualizar las citas de esta actividad
+                        actualizarBeneficiarioEnCitas(doc.getId(), beneficiarioId, nuevoNombre);
                     }
-                    android.util.Log.d("Beneficiarios", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN - beneficiarios_ids)");
                 });
 
         // Actualizar en colección "actividades" (ES) - campo beneficiarios_ids
@@ -391,10 +396,10 @@ public class BeneficiariosFragment extends Fragment {
                 .whereArrayContains("beneficiarios_ids", beneficiarioId)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Beneficiarios", "🔍 Encontradas " + querySnapshot.size() + " actividades con beneficiarios_ids[] contiene '" + beneficiarioId + "' en 'actividades'");
                     for (com.google.firebase.firestore.QueryDocumentSnapshot doc : querySnapshot) {
                         actualizarBeneficiarioEnDoc(doc, beneficiarioId, nuevoNombre);
                     }
-                    android.util.Log.d("Beneficiarios", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES - beneficiarios_ids)");
                 });
 
         // También buscar por beneficiariosIds sin guion bajo
@@ -402,20 +407,21 @@ public class BeneficiariosFragment extends Fragment {
                 .whereArrayContains("beneficiariosIds", beneficiarioId)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Beneficiarios", "🔍 Encontradas " + querySnapshot.size() + " actividades con beneficiariosIds[] contiene '" + beneficiarioId + "' en 'activities'");
                     for (com.google.firebase.firestore.QueryDocumentSnapshot doc : querySnapshot) {
                         actualizarBeneficiarioEnDoc(doc, beneficiarioId, nuevoNombre);
+                        actualizarBeneficiarioEnCitas(doc.getId(), beneficiarioId, nuevoNombre);
                     }
-                    android.util.Log.d("Beneficiarios", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN - beneficiariosIds)");
                 });
 
         db.collection("actividades")
                 .whereArrayContains("beneficiariosIds", beneficiarioId)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Beneficiarios", "🔍 Encontradas " + querySnapshot.size() + " actividades con beneficiariosIds[] contiene '" + beneficiarioId + "' en 'actividades'");
                     for (com.google.firebase.firestore.QueryDocumentSnapshot doc : querySnapshot) {
                         actualizarBeneficiarioEnDoc(doc, beneficiarioId, nuevoNombre);
                     }
-                    android.util.Log.d("Beneficiarios", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES - beneficiariosIds)");
                 });
     }
 
@@ -451,8 +457,73 @@ public class BeneficiariosFragment extends Fragment {
             updates.put("beneficiariosNombres", nuevosNombres);
 
             doc.getReference().update(updates)
+                    .addOnSuccessListener(aVoid -> android.util.Log.d("Beneficiarios", "    ✅ Actualizado: " + doc.getId()))
                     .addOnFailureListener(e -> android.util.Log.w("Beneficiarios",
                             "Error actualizando beneficiario en actividad: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 🆕 Actualiza el beneficiario en todas las citas de una actividad
+     */
+    private void actualizarBeneficiarioEnCitas(String actividadId, String beneficiarioId, String nuevoNombre) {
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereArrayContains("beneficiarios_ids", beneficiarioId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Beneficiarios", "      🔍 Encontradas " + querySnapshot.size() + " citas con beneficiarios_ids[] contiene '" + beneficiarioId + "' en actividad " + actividadId);
+                    for (com.google.firebase.firestore.QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        actualizarBeneficiarioEnCita(citaDoc, beneficiarioId, nuevoNombre);
+                    }
+                });
+
+        // También buscar por beneficiariosIds sin guion bajo en las citas
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereArrayContains("beneficiariosIds", beneficiarioId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Beneficiarios", "      🔍 Encontradas " + querySnapshot.size() + " citas con beneficiariosIds[] contiene '" + beneficiarioId + "'");
+                    for (com.google.firebase.firestore.QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        actualizarBeneficiarioEnCita(citaDoc, beneficiarioId, nuevoNombre);
+                    }
+                });
+    }
+
+    /**
+     * 🆕 Actualiza el nombre de un beneficiario en una cita específica
+     */
+    private void actualizarBeneficiarioEnCita(com.google.firebase.firestore.QueryDocumentSnapshot citaDoc,
+                                               String beneficiarioId, String nuevoNombre) {
+        // Intentar ambas variantes de nombres de campos
+        List<String> idsField = (List<String>) citaDoc.get("beneficiarios_ids");
+        List<String> nombresField = (List<String>) citaDoc.get("beneficiarios_nombres");
+
+        if (idsField == null) {
+            idsField = (List<String>) citaDoc.get("beneficiariosIds");
+            nombresField = (List<String>) citaDoc.get("beneficiariosNombres");
+        }
+
+        if (idsField == null || nombresField == null) return;
+
+        // Encontrar el índice del beneficiario
+        int index = idsField.indexOf(beneficiarioId);
+        if (index == -1) return;
+
+        // Crear nueva lista de nombres con el nombre actualizado
+        List<String> nuevosNombres = new ArrayList<>(nombresField);
+        if (index < nuevosNombres.size()) {
+            nuevosNombres.set(index, nuevoNombre);
+
+            // Actualizar la cita con ambas posibles variantes de campo
+            Map<String, Object> updates = new LinkedHashMap<>();
+            updates.put("beneficiarios_nombres", nuevosNombres);
+            updates.put("beneficiariosNombres", nuevosNombres);
+
+            citaDoc.getReference().update(updates)
+                    .addOnSuccessListener(aVoid -> android.util.Log.d("Beneficiarios", "      ✅ Cita actualizada: " + citaDoc.getId()))
+                    .addOnFailureListener(e -> android.util.Log.e("Beneficiarios", "      ❌ Error actualizando cita: " + e.getMessage()));
         }
     }
 

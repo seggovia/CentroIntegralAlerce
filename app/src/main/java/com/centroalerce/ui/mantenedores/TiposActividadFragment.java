@@ -80,7 +80,8 @@ public class TiposActividadFragment extends Fragment {
                         .addOnSuccessListener(unused -> {
                             // 🆕 Actualizar el nombre en todas las actividades que usan este tipo
                             if (original != null && !t.getNombre().equals(original.getNombre())) {
-                                actualizarNombreEnActividades(t.getId(), t.getNombre());
+                                android.util.Log.d("TiposActividad", "🔄 Nombre cambió de '" + original.getNombre() + "' a '" + t.getNombre() + "' - actualizando actividades...");
+                                actualizarNombreEnActividades(original.getNombre(), t.getNombre());
                             }
                             Toast.makeText(getContext(), "Tipo actualizado exitosamente", Toast.LENGTH_SHORT).show();
                         })
@@ -92,49 +93,88 @@ public class TiposActividadFragment extends Fragment {
 
     /**
      * 🆕 Actualiza el nombre del tipo de actividad en todas las actividades que lo usan
+     * NOTA: Los tipos se guardan solo por nombre (no por ID) en las actividades
      */
-    private void actualizarNombreEnActividades(String tipoId, String nuevoNombre) {
-        // Actualizar en colección "activities" (EN) - campo tipoActividad_id
+    private void actualizarNombreEnActividades(String nombreAntiguo, String nuevoNombre) {
+        android.util.Log.d("TiposActividad", "📝 Buscando actividades con tipo: '" + nombreAntiguo + "'");
+
+        // Actualizar en colección "activities" (EN) - campo "tipo"
         db.collection("activities")
-                .whereEqualTo("tipoActividad_id", tipoId)
+                .whereEqualTo("tipo", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("TiposActividad", "🔍 Encontradas " + querySnapshot.size() + " actividades con tipo='" + nombreAntiguo + "' en 'activities'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
-                        doc.getReference().update("tipo", nuevoNombre, "tipoActividad", nuevoNombre);
+                        doc.getReference().update("tipo", nuevoNombre, "tipoActividad", nuevoNombre)
+                                .addOnSuccessListener(aVoid -> {
+                                    android.util.Log.d("TiposActividad", "    ✅ Actualizado: " + doc.getId());
+                                    // También actualizar las citas de esta actividad
+                                    actualizarTipoEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
+                                })
+                                .addOnFailureListener(e -> android.util.Log.e("TiposActividad", "    ❌ Error: " + e.getMessage()));
                     }
-                    android.util.Log.d("TiposActividad", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN - tipoActividad_id)");
                 });
 
-        // Actualizar en colección "actividades" (ES) - campo tipoActividad_id
+        // Actualizar en colección "actividades" (ES) - campo "tipo"
         db.collection("actividades")
-                .whereEqualTo("tipoActividad_id", tipoId)
+                .whereEqualTo("tipo", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("TiposActividad", "🔍 Encontradas " + querySnapshot.size() + " actividades con tipo='" + nombreAntiguo + "' en 'actividades'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         doc.getReference().update("tipo", nuevoNombre, "tipoActividad", nuevoNombre);
                     }
-                    android.util.Log.d("TiposActividad", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES - tipoActividad_id)");
                 });
 
-        // También buscar por tipoActividadId sin guion bajo
+        // Actualizar también en campo "tipoActividad" si existe
         db.collection("activities")
-                .whereEqualTo("tipoActividadId", tipoId)
+                .whereEqualTo("tipoActividad", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("TiposActividad", "🔍 Encontradas " + querySnapshot.size() + " actividades con tipoActividad='" + nombreAntiguo + "' en 'activities'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         doc.getReference().update("tipo", nuevoNombre, "tipoActividad", nuevoNombre);
+                        actualizarTipoEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
                     }
-                    android.util.Log.d("TiposActividad", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN - tipoActividadId)");
                 });
 
         db.collection("actividades")
-                .whereEqualTo("tipoActividadId", tipoId)
+                .whereEqualTo("tipoActividad", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("TiposActividad", "🔍 Encontradas " + querySnapshot.size() + " actividades con tipoActividad='" + nombreAntiguo + "' en 'actividades'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         doc.getReference().update("tipo", nuevoNombre, "tipoActividad", nuevoNombre);
                     }
-                    android.util.Log.d("TiposActividad", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES - tipoActividadId)");
+                });
+    }
+
+    /**
+     * 🆕 Actualiza el tipo en todas las citas de una actividad
+     */
+    private void actualizarTipoEnCitas(String actividadId, String nombreAntiguo, String nuevoNombre) {
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereEqualTo("tipo", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("TiposActividad", "      🔍 Encontradas " + querySnapshot.size() + " citas con tipo='" + nombreAntiguo + "' en actividad " + actividadId);
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        citaDoc.getReference().update("tipo", nuevoNombre, "tipoActividad", nuevoNombre)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("TiposActividad", "      ✅ Cita actualizada: " + citaDoc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("TiposActividad", "      ❌ Error actualizando cita: " + e.getMessage()));
+                    }
+                });
+
+        // También buscar por tipoActividad en las citas
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereEqualTo("tipoActividad", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        citaDoc.getReference().update("tipo", nuevoNombre, "tipoActividad", nuevoNombre);
+                    }
                 });
     }
 }

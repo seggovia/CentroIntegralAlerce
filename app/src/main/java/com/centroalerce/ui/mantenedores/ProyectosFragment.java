@@ -69,7 +69,8 @@ public class ProyectosFragment extends Fragment {
                         .addOnSuccessListener(unused -> {
                             // 🆕 Actualizar el nombre en todas las actividades que usan este proyecto
                             if (original != null && !p.getNombre().equals(original.getNombre())) {
-                                actualizarNombreEnActividades(p.getId(), p.getNombre());
+                                android.util.Log.d("Proyectos", "🔄 Nombre cambió de '" + original.getNombre() + "' a '" + p.getNombre() + "' - actualizando actividades...");
+                                actualizarNombreEnActividades(original.getNombre(), p.getNombre());
                             }
                         });
             }
@@ -78,49 +79,88 @@ public class ProyectosFragment extends Fragment {
 
     /**
      * 🆕 Actualiza el nombre del proyecto en todas las actividades que lo usan
+     * NOTA: Los proyectos se guardan solo por nombre (no por ID) en las actividades
      */
-    private void actualizarNombreEnActividades(String proyectoId, String nuevoNombre) {
-        // Actualizar en colección "activities" (EN) - campo proyecto_id
+    private void actualizarNombreEnActividades(String nombreAntiguo, String nuevoNombre) {
+        android.util.Log.d("Proyectos", "📝 Buscando actividades con proyecto: '" + nombreAntiguo + "'");
+
+        // Actualizar en colección "activities" (EN) - campo "proyecto"
         db.collection("activities")
-                .whereEqualTo("proyecto_id", proyectoId)
+                .whereEqualTo("proyecto", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Proyectos", "🔍 Encontradas " + querySnapshot.size() + " actividades con proyecto='" + nombreAntiguo + "' en 'activities'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
-                        doc.getReference().update("proyecto", nuevoNombre, "proyectoNombre", nuevoNombre);
+                        doc.getReference().update("proyecto", nuevoNombre, "proyectoNombre", nuevoNombre)
+                                .addOnSuccessListener(aVoid -> {
+                                    android.util.Log.d("Proyectos", "    ✅ Actualizado: " + doc.getId());
+                                    // También actualizar las citas de esta actividad
+                                    actualizarProyectoEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
+                                })
+                                .addOnFailureListener(e -> android.util.Log.e("Proyectos", "    ❌ Error: " + e.getMessage()));
                     }
-                    android.util.Log.d("Proyectos", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN - proyecto_id)");
                 });
 
-        // Actualizar en colección "actividades" (ES) - campo proyecto_id
+        // Actualizar en colección "actividades" (ES) - campo "proyecto"
         db.collection("actividades")
-                .whereEqualTo("proyecto_id", proyectoId)
+                .whereEqualTo("proyecto", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Proyectos", "🔍 Encontradas " + querySnapshot.size() + " actividades con proyecto='" + nombreAntiguo + "' en 'actividades'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         doc.getReference().update("proyecto", nuevoNombre, "proyectoNombre", nuevoNombre);
                     }
-                    android.util.Log.d("Proyectos", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES - proyecto_id)");
                 });
 
-        // También buscar por proyectoId sin guion bajo
+        // Actualizar también en campo "proyectoNombre" si existe
         db.collection("activities")
-                .whereEqualTo("proyectoId", proyectoId)
+                .whereEqualTo("proyectoNombre", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Proyectos", "🔍 Encontradas " + querySnapshot.size() + " actividades con proyectoNombre='" + nombreAntiguo + "' en 'activities'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         doc.getReference().update("proyecto", nuevoNombre, "proyectoNombre", nuevoNombre);
+                        actualizarProyectoEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
                     }
-                    android.util.Log.d("Proyectos", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN - proyectoId)");
                 });
 
         db.collection("actividades")
-                .whereEqualTo("proyectoId", proyectoId)
+                .whereEqualTo("proyectoNombre", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Proyectos", "🔍 Encontradas " + querySnapshot.size() + " actividades con proyectoNombre='" + nombreAntiguo + "' en 'actividades'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         doc.getReference().update("proyecto", nuevoNombre, "proyectoNombre", nuevoNombre);
                     }
-                    android.util.Log.d("Proyectos", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES - proyectoId)");
+                });
+    }
+
+    /**
+     * 🆕 Actualiza el proyecto en todas las citas de una actividad
+     */
+    private void actualizarProyectoEnCitas(String actividadId, String nombreAntiguo, String nuevoNombre) {
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereEqualTo("proyecto", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Proyectos", "      🔍 Encontradas " + querySnapshot.size() + " citas con proyecto='" + nombreAntiguo + "' en actividad " + actividadId);
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        citaDoc.getReference().update("proyecto", nuevoNombre, "proyectoNombre", nuevoNombre)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("Proyectos", "      ✅ Cita actualizada: " + citaDoc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("Proyectos", "      ❌ Error actualizando cita: " + e.getMessage()));
+                    }
+                });
+
+        // También buscar por proyectoNombre en las citas
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereEqualTo("proyectoNombre", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        citaDoc.getReference().update("proyecto", nuevoNombre, "proyectoNombre", nuevoNombre);
+                    }
                 });
     }
 }

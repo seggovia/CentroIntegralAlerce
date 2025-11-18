@@ -69,7 +69,8 @@ public class SociosFragment extends Fragment {
                         .addOnSuccessListener(unused -> {
                             // 🆕 Actualizar el nombre en todas las actividades que usan este socio
                             if (original != null && !s.getNombre().equals(original.getNombre())) {
-                                actualizarNombreEnActividades(s.getId(), s.getNombre());
+                                android.util.Log.d("Socios", "🔄 Nombre cambió de '" + original.getNombre() + "' a '" + s.getNombre() + "' - actualizando actividades...");
+                                actualizarNombreEnActividades(original.getNombre(), s.getNombre());
                             }
                         });
             }
@@ -78,49 +79,121 @@ public class SociosFragment extends Fragment {
 
     /**
      * 🆕 Actualiza el nombre del socio comunitario en todas las actividades que lo usan
+     * NOTA: Los socios se guardan solo por nombre (no por ID) en las actividades
      */
-    private void actualizarNombreEnActividades(String socioId, String nuevoNombre) {
-        // Actualizar en colección "activities" (EN) - campo socio_id
+    private void actualizarNombreEnActividades(String nombreAntiguo, String nuevoNombre) {
+        android.util.Log.d("Socios", "📝 Buscando actividades con socio: '" + nombreAntiguo + "'");
+
+        // Actualizar en colección "activities" (EN) - campo "socioComunitario"
         db.collection("activities")
-                .whereEqualTo("socio_id", socioId)
+                .whereEqualTo("socioComunitario", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Socios", "🔍 Encontradas " + querySnapshot.size() + " actividades con socioComunitario='" + nombreAntiguo + "' en 'activities'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
-                        doc.getReference().update("socio", nuevoNombre, "socioComunitario", nuevoNombre, "socio_nombre", nuevoNombre);
+                        doc.getReference().update("socio", nuevoNombre, "socioComunitario", nuevoNombre, "socio_nombre", nuevoNombre)
+                                .addOnSuccessListener(aVoid -> {
+                                    android.util.Log.d("Socios", "    ✅ Actualizado: " + doc.getId());
+                                    // También actualizar las citas de esta actividad
+                                    actualizarSocioEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
+                                })
+                                .addOnFailureListener(e -> android.util.Log.e("Socios", "    ❌ Error: " + e.getMessage()));
                     }
-                    android.util.Log.d("Socios", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN - socio_id)");
                 });
 
-        // Actualizar en colección "actividades" (ES) - campo socio_id
+        // Actualizar en colección "actividades" (ES) - campo "socioComunitario"
         db.collection("actividades")
-                .whereEqualTo("socio_id", socioId)
+                .whereEqualTo("socioComunitario", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Socios", "🔍 Encontradas " + querySnapshot.size() + " actividades con socioComunitario='" + nombreAntiguo + "' en 'actividades'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         doc.getReference().update("socio", nuevoNombre, "socioComunitario", nuevoNombre, "socio_nombre", nuevoNombre);
                     }
-                    android.util.Log.d("Socios", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES - socio_id)");
                 });
 
-        // También buscar por socioId sin guion bajo
+        // Actualizar también en campo "socio" si existe
         db.collection("activities")
-                .whereEqualTo("socioId", socioId)
+                .whereEqualTo("socio", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Socios", "🔍 Encontradas " + querySnapshot.size() + " actividades con socio='" + nombreAntiguo + "' en 'activities'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         doc.getReference().update("socio", nuevoNombre, "socioComunitario", nuevoNombre, "socio_nombre", nuevoNombre);
+                        actualizarSocioEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
                     }
-                    android.util.Log.d("Socios", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN - socioId)");
                 });
 
         db.collection("actividades")
-                .whereEqualTo("socioId", socioId)
+                .whereEqualTo("socio", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Socios", "🔍 Encontradas " + querySnapshot.size() + " actividades con socio='" + nombreAntiguo + "' en 'actividades'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         doc.getReference().update("socio", nuevoNombre, "socioComunitario", nuevoNombre, "socio_nombre", nuevoNombre);
                     }
-                    android.util.Log.d("Socios", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES - socioId)");
+                });
+
+        // Actualizar también en campo "socio_nombre" si existe
+        db.collection("activities")
+                .whereEqualTo("socio_nombre", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Socios", "🔍 Encontradas " + querySnapshot.size() + " actividades con socio_nombre='" + nombreAntiguo + "' en 'activities'");
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().update("socio", nuevoNombre, "socioComunitario", nuevoNombre, "socio_nombre", nuevoNombre);
+                        actualizarSocioEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
+                    }
+                });
+
+        db.collection("actividades")
+                .whereEqualTo("socio_nombre", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Socios", "🔍 Encontradas " + querySnapshot.size() + " actividades con socio_nombre='" + nombreAntiguo + "' en 'actividades'");
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().update("socio", nuevoNombre, "socioComunitario", nuevoNombre, "socio_nombre", nuevoNombre);
+                    }
+                });
+    }
+
+    /**
+     * 🆕 Actualiza el socio comunitario en todas las citas de una actividad
+     */
+    private void actualizarSocioEnCitas(String actividadId, String nombreAntiguo, String nuevoNombre) {
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereEqualTo("socioComunitario", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Socios", "      🔍 Encontradas " + querySnapshot.size() + " citas con socioComunitario='" + nombreAntiguo + "' en actividad " + actividadId);
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        citaDoc.getReference().update("socio", nuevoNombre, "socioComunitario", nuevoNombre, "socio_nombre", nuevoNombre)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("Socios", "      ✅ Cita actualizada: " + citaDoc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("Socios", "      ❌ Error actualizando cita: " + e.getMessage()));
+                    }
+                });
+
+        // También buscar por socio en las citas
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereEqualTo("socio", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        citaDoc.getReference().update("socio", nuevoNombre, "socioComunitario", nuevoNombre, "socio_nombre", nuevoNombre);
+                    }
+                });
+
+        // También buscar por socio_nombre en las citas
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereEqualTo("socio_nombre", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        citaDoc.getReference().update("socio", nuevoNombre, "socioComunitario", nuevoNombre, "socio_nombre", nuevoNombre);
+                    }
                 });
     }
 }

@@ -131,7 +131,11 @@ public class OferentesFragment extends Fragment {
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         android.util.Log.d("Oferentes", "  📄 Actualizando actividad: " + doc.getId());
                         doc.getReference().update("oferente", nuevoNombre, "oferenteNombre", nuevoNombre)
-                                .addOnSuccessListener(aVoid -> android.util.Log.d("Oferentes", "    ✅ Actualizado: " + doc.getId()))
+                                .addOnSuccessListener(aVoid -> {
+                                    android.util.Log.d("Oferentes", "    ✅ Actualizado: " + doc.getId());
+                                    // También actualizar las citas de esta actividad
+                                    actualizarOferenteEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
+                                })
                                 .addOnFailureListener(e -> android.util.Log.e("Oferentes", "    ❌ Error: " + e.getMessage()));
                     }
                 })
@@ -157,6 +161,7 @@ public class OferentesFragment extends Fragment {
                     android.util.Log.d("Oferentes", "🔍 Encontradas " + querySnapshot.size() + " actividades con oferenteNombre='" + nombreAntiguo + "' en 'activities'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         doc.getReference().update("oferente", nuevoNombre, "oferenteNombre", nuevoNombre);
+                        actualizarOferenteEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
                     }
                 });
 
@@ -211,7 +216,60 @@ public class OferentesFragment extends Fragment {
 
         // Actualizar el documento
         doc.getReference().update("oferentes", nuevosOferentes)
-                .addOnSuccessListener(aVoid -> android.util.Log.d("Oferentes", "    ✅ Array actualizado en: " + doc.getId()))
+                .addOnSuccessListener(aVoid -> {
+                    android.util.Log.d("Oferentes", "    ✅ Array actualizado en: " + doc.getId());
+                    // También actualizar citas
+                    actualizarOferenteEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
+                })
                 .addOnFailureListener(e -> android.util.Log.e("Oferentes", "    ❌ Error actualizando array: " + e.getMessage()));
+    }
+
+    /**
+     * 🆕 Actualiza el oferente en todas las citas de una actividad
+     */
+    private void actualizarOferenteEnCitas(String actividadId, String nombreAntiguo, String nuevoNombre) {
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereEqualTo("oferente", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Oferentes", "      🔍 Encontradas " + querySnapshot.size() + " citas con oferente='" + nombreAntiguo + "' en actividad " + actividadId);
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        citaDoc.getReference().update("oferente", nuevoNombre, "oferenteNombre", nuevoNombre)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("Oferentes", "      ✅ Cita actualizada: " + citaDoc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("Oferentes", "      ❌ Error actualizando cita: " + e.getMessage()));
+                    }
+                });
+
+        // También buscar por oferenteNombre en las citas
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereEqualTo("oferenteNombre", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        citaDoc.getReference().update("oferente", nuevoNombre, "oferenteNombre", nuevoNombre);
+                    }
+                });
+
+        // Actualizar oferentes en arrays dentro de las citas
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereArrayContains("oferentes", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Oferentes", "      🔍 Encontradas " + querySnapshot.size() + " citas con oferentes[] contiene '" + nombreAntiguo + "'");
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        List<String> oferentes = (List<String>) citaDoc.get("oferentes");
+                        if (oferentes != null) {
+                            List<String> nuevosOferentes = new ArrayList<>();
+                            for (String oferente : oferentes) {
+                                nuevosOferentes.add(oferente.equals(nombreAntiguo) ? nuevoNombre : oferente);
+                            }
+                            citaDoc.getReference().update("oferentes", nuevosOferentes)
+                                    .addOnSuccessListener(aVoid -> android.util.Log.d("Oferentes", "      ✅ Cita array actualizado: " + citaDoc.getId()));
+                        }
+                    }
+                });
     }
 }

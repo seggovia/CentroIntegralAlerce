@@ -96,7 +96,8 @@ public class LugaresFragment extends Fragment {
                         .addOnSuccessListener(aVoid -> {
                             // 🆕 Actualizar el nombre en todas las actividades que usan este lugar
                             if (original != null && !lugar.getNombre().equals(original.getNombre())) {
-                                actualizarNombreEnActividades(lugar.getId(), lugar.getNombre());
+                                android.util.Log.d("Lugares", "🔄 Nombre cambió de '" + original.getNombre() + "' a '" + lugar.getNombre() + "' - actualizando actividades...");
+                                actualizarNombreEnActividades(original.getNombre(), lugar.getNombre());
                             }
                         });
             }
@@ -104,46 +105,90 @@ public class LugaresFragment extends Fragment {
         dialog.show(getParentFragmentManager(), "LugarDialog");
     }
 
-    // 🆕 Actualizar el nombre del lugar en todas las actividades
-    private void actualizarNombreEnActividades(String lugarId, String nuevoNombre) {
-        // Actualizar en colección "activities" (EN)
+    /**
+     * 🆕 Actualizar el nombre del lugar en todas las actividades Y SUS CITAS
+     * NOTA: Los lugares se guardan solo por nombre (no por ID) en las actividades
+     */
+    private void actualizarNombreEnActividades(String nombreAntiguo, String nuevoNombre) {
+        android.util.Log.d("Lugares", "📝 Buscando actividades con lugar: '" + nombreAntiguo + "'");
+
+        // Actualizar en colección "activities" (EN) - campo "lugar"
         db.collection("activities")
-                .whereEqualTo("lugar_id", lugarId)
+                .whereEqualTo("lugar", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Lugares", "🔍 Encontradas " + querySnapshot.size() + " actividades con lugar='" + nombreAntiguo + "' en 'activities'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
-                        doc.getReference().update("lugarNombre", nuevoNombre, "lugar", nuevoNombre);
+                        // Actualizar actividad
+                        doc.getReference().update("lugar", nuevoNombre, "lugarNombre", nuevoNombre)
+                                .addOnSuccessListener(aVoid -> {
+                                    android.util.Log.d("Lugares", "    ✅ Actualizado: " + doc.getId());
+                                    // También actualizar las citas de esta actividad
+                                    actualizarLugarEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
+                                })
+                                .addOnFailureListener(e -> android.util.Log.e("Lugares", "    ❌ Error: " + e.getMessage()));
                     }
-                    android.util.Log.d("Lugares", "✅ Actualizado en " + querySnapshot.size() + " actividades (EN)");
                 });
 
-        // Actualizar en colección "actividades" (ES)
+        // Actualizar en colección "actividades" (ES) - campo "lugar"
         db.collection("actividades")
-                .whereEqualTo("lugar_id", lugarId)
+                .whereEqualTo("lugar", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Lugares", "🔍 Encontradas " + querySnapshot.size() + " actividades con lugar='" + nombreAntiguo + "' en 'actividades'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
-                        doc.getReference().update("lugarNombre", nuevoNombre, "lugar", nuevoNombre);
+                        doc.getReference().update("lugar", nuevoNombre, "lugarNombre", nuevoNombre);
                     }
-                    android.util.Log.d("Lugares", "✅ Actualizado en " + querySnapshot.size() + " actividades (ES)");
                 });
 
-        // También buscar por lugarId sin guion bajo
+        // Actualizar también en campo "lugarNombre" si existe
         db.collection("activities")
-                .whereEqualTo("lugarId", lugarId)
+                .whereEqualTo("lugarNombre", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Lugares", "🔍 Encontradas " + querySnapshot.size() + " actividades con lugarNombre='" + nombreAntiguo + "' en 'activities'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
-                        doc.getReference().update("lugarNombre", nuevoNombre, "lugar", nuevoNombre);
+                        doc.getReference().update("lugar", nuevoNombre, "lugarNombre", nuevoNombre);
+                        actualizarLugarEnCitas(doc.getId(), nombreAntiguo, nuevoNombre);
                     }
                 });
 
         db.collection("actividades")
-                .whereEqualTo("lugarId", lugarId)
+                .whereEqualTo("lugarNombre", nombreAntiguo)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Lugares", "🔍 Encontradas " + querySnapshot.size() + " actividades con lugarNombre='" + nombreAntiguo + "' en 'actividades'");
                     for (QueryDocumentSnapshot doc : querySnapshot) {
-                        doc.getReference().update("lugarNombre", nuevoNombre, "lugar", nuevoNombre);
+                        doc.getReference().update("lugar", nuevoNombre, "lugarNombre", nuevoNombre);
+                    }
+                });
+    }
+
+    /**
+     * 🆕 Actualiza el lugar en todas las citas de una actividad
+     */
+    private void actualizarLugarEnCitas(String actividadId, String nombreAntiguo, String nuevoNombre) {
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereEqualTo("lugar", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    android.util.Log.d("Lugares", "      🔍 Encontradas " + querySnapshot.size() + " citas con lugar='" + nombreAntiguo + "' en actividad " + actividadId);
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        citaDoc.getReference().update("lugar", nuevoNombre, "lugarNombre", nuevoNombre)
+                                .addOnSuccessListener(aVoid -> android.util.Log.d("Lugares", "      ✅ Cita actualizada: " + citaDoc.getId()))
+                                .addOnFailureListener(e -> android.util.Log.e("Lugares", "      ❌ Error actualizando cita: " + e.getMessage()));
+                    }
+                });
+
+        // También buscar por lugarNombre en las citas
+        db.collection("activities").document(actividadId)
+                .collection("citas")
+                .whereEqualTo("lugarNombre", nombreAntiguo)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (QueryDocumentSnapshot citaDoc : querySnapshot) {
+                        citaDoc.getReference().update("lugar", nuevoNombre, "lugarNombre", nuevoNombre);
                     }
                 });
     }
