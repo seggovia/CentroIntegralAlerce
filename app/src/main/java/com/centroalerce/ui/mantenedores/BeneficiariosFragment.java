@@ -428,6 +428,7 @@ public class BeneficiariosFragment extends Fragment {
     /**
      * 🆕 Actualiza el nombre de un beneficiario específico en un documento de actividad
      * Mantiene el orden sincronizado entre IDs y nombres
+     * Si el array de nombres no existe, lo crea consultando Firestore
      */
     private void actualizarBeneficiarioEnDoc(com.google.firebase.firestore.QueryDocumentSnapshot doc,
                                              String beneficiarioId, String nuevoNombre) {
@@ -440,27 +441,121 @@ public class BeneficiariosFragment extends Fragment {
             nombresField = (List<String>) doc.get("beneficiariosNombres");
         }
 
-        if (idsField == null || nombresField == null) return;
+        if (idsField == null) {
+            android.util.Log.w("Beneficiarios", "    ⚠️ No se encontró array de IDs en actividad: " + doc.getId());
+            return;
+        }
 
         // Encontrar el índice del beneficiario
         int index = idsField.indexOf(beneficiarioId);
-        if (index == -1) return;
+        if (index == -1) {
+            android.util.Log.w("Beneficiarios", "    ⚠️ BeneficiarioId no encontrado en array de IDs: " + beneficiarioId);
+            return;
+        }
+
+        // 🆕 Si el array de nombres no existe, crearlo consultando Firestore
+        if (nombresField == null) {
+            android.util.Log.d("Beneficiarios", "    🔧 Array de nombres no existe, creando desde Firestore...");
+            crearArrayNombresDesdeIds(doc, idsField, beneficiarioId, nuevoNombre, index);
+            return;
+        }
 
         // Crear nueva lista de nombres con el nombre actualizado
         List<String> nuevosNombres = new ArrayList<>(nombresField);
-        if (index < nuevosNombres.size()) {
-            nuevosNombres.set(index, nuevoNombre);
 
-            // Actualizar el documento con ambas posibles variantes de campo
-            Map<String, Object> updates = new LinkedHashMap<>();
-            updates.put("beneficiarios_nombres", nuevosNombres);
-            updates.put("beneficiariosNombres", nuevosNombres);
-
-            doc.getReference().update(updates)
-                    .addOnSuccessListener(aVoid -> android.util.Log.d("Beneficiarios", "    ✅ Actualizado: " + doc.getId()))
-                    .addOnFailureListener(e -> android.util.Log.w("Beneficiarios",
-                            "Error actualizando beneficiario en actividad: " + e.getMessage()));
+        // 🆕 Si el array de nombres es más corto que el de IDs, completarlo
+        while (nuevosNombres.size() < idsField.size()) {
+            nuevosNombres.add(""); // Placeholder que se llenará después
         }
+
+        nuevosNombres.set(index, nuevoNombre);
+
+        // Actualizar el documento con ambas posibles variantes de campo
+        Map<String, Object> updates = new LinkedHashMap<>();
+        updates.put("beneficiarios_nombres", nuevosNombres);
+        updates.put("beneficiariosNombres", nuevosNombres);
+
+        doc.getReference().update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    android.util.Log.d("Beneficiarios", "    ✅ Actualizado: " + doc.getId());
+                    android.util.Log.d("Beneficiarios", "       📊 Nuevos nombres: " + nuevosNombres);
+                })
+                .addOnFailureListener(e -> android.util.Log.w("Beneficiarios",
+                        "Error actualizando beneficiario en actividad: " + e.getMessage()));
+    }
+
+    /**
+     * 🆕 Crea el array de nombres consultando Firestore por cada ID
+     */
+    private void crearArrayNombresDesdeIds(com.google.firebase.firestore.QueryDocumentSnapshot doc,
+                                           List<String> idsField, String beneficiarioIdActualizado,
+                                           String nuevoNombre, int indexActualizado) {
+        List<String> nombresArray = new ArrayList<>();
+        final int[] consultasPendientes = {idsField.size()};
+
+        android.util.Log.d("Beneficiarios", "       🔍 Consultando " + idsField.size() + " beneficiarios...");
+
+        for (int i = 0; i < idsField.size(); i++) {
+            String benefId = idsField.get(i);
+            final int currentIndex = i;
+
+            // Placeholder inicial
+            nombresArray.add("");
+
+            // Si es el beneficiario que estamos actualizando, usar el nuevo nombre directamente
+            if (i == indexActualizado) {
+                nombresArray.set(currentIndex, nuevoNombre);
+                consultasPendientes[0]--;
+
+                // Si era el único, actualizar inmediatamente
+                if (consultasPendientes[0] == 0) {
+                    actualizarArrayNombres(doc, nombresArray);
+                }
+                continue;
+            }
+
+            // Consultar el nombre desde Firestore
+            db.collection("beneficiarios").document(benefId).get()
+                    .addOnSuccessListener(benefDoc -> {
+                        String nombre = benefDoc.exists() ? benefDoc.getString("nombre") : "Beneficiario desconocido";
+                        nombresArray.set(currentIndex, nombre != null ? nombre : "Sin nombre");
+
+                        consultasPendientes[0]--;
+                        android.util.Log.d("Beneficiarios", "       📥 " + (idsField.size() - consultasPendientes[0]) + "/" + idsField.size() + " - " + nombre);
+
+                        // Cuando todas las consultas terminen, actualizar el documento
+                        if (consultasPendientes[0] == 0) {
+                            actualizarArrayNombres(doc, nombresArray);
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        android.util.Log.w("Beneficiarios", "       ❌ Error consultando beneficiario " + benefId + ": " + e.getMessage());
+                        nombresArray.set(currentIndex, "Error");
+
+                        consultasPendientes[0]--;
+                        if (consultasPendientes[0] == 0) {
+                            actualizarArrayNombres(doc, nombresArray);
+                        }
+                    });
+        }
+    }
+
+    /**
+     * 🆕 Actualiza el documento con el array de nombres completo
+     */
+    private void actualizarArrayNombres(com.google.firebase.firestore.QueryDocumentSnapshot doc,
+                                        List<String> nombresArray) {
+        Map<String, Object> updates = new LinkedHashMap<>();
+        updates.put("beneficiarios_nombres", nombresArray);
+        updates.put("beneficiariosNombres", nombresArray);
+
+        doc.getReference().update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    android.util.Log.d("Beneficiarios", "    ✅✅ Array de nombres CREADO y actualizado: " + doc.getId());
+                    android.util.Log.d("Beneficiarios", "       📊 Nombres completos: " + nombresArray);
+                })
+                .addOnFailureListener(e -> android.util.Log.w("Beneficiarios",
+                        "❌ Error creando array de nombres en actividad: " + e.getMessage()));
     }
 
     /**

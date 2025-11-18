@@ -1141,15 +1141,19 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             ids = (List<String>) doc.get("beneficiariosIds");
         }
 
-        // Intentar cargar nombres de beneficiarios
+        // 🆕 IMPORTANTE: Buscar primero en campos actualizados (con "Nombres") antes que en campos antiguos
         @SuppressWarnings("unchecked")
-        List<String> nombres = (List<String>) doc.get("beneficiarios");
+        List<String> nombres = (List<String>) doc.get("beneficiariosNombres");
         if (nombres == null || nombres.isEmpty()) {
             //noinspection unchecked
-            nombres = (List<String>) doc.get("beneficiariosNombres");
+            nombres = (List<String>) doc.get("beneficiarios_nombres");
+        }
+        if (nombres == null || nombres.isEmpty()) {
+            //noinspection unchecked
+            nombres = (List<String>) doc.get("beneficiarios");
         }
 
-        // Si tenemos IDs y nombres, crear objetos Beneficiario
+        // Si tenemos IDs y nombres, crear objetos Beneficiario y configurar listeners
         if (ids != null && !ids.isEmpty() && nombres != null && !nombres.isEmpty()) {
             int count = Math.min(ids.size(), nombres.size());
             for (int i = 0; i < count; i++) {
@@ -1159,6 +1163,8 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 beneficiariosSeleccionados.add(new Beneficiario(id, nombre, null));
             }
             renderChipsBeneficiarios();
+            // 🆕 Configurar listeners en tiempo real para actualizar nombres
+            configurarListenersBeneficiarios(ids);
         } else if (nombres != null && !nombres.isEmpty()) {
             // Solo tenemos nombres, usarlos como ID y nombre
             for (String nombre : nombres) {
@@ -1166,6 +1172,46 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 beneficiariosSeleccionados.add(new Beneficiario(nombre, nombre, null));
             }
             renderChipsBeneficiarios();
+        }
+    }
+
+    /**
+     * 🆕 Configura listeners en tiempo real para cada beneficiario
+     */
+    private void configurarListenersBeneficiarios(List<String> ids) {
+        for (int i = 0; i < ids.size(); i++) {
+            String beneficiarioId = ids.get(i);
+            final int index = i;
+
+            db.collection("beneficiarios").document(beneficiarioId)
+                    .addSnapshotListener((doc, error) -> {
+                        if (error != null || doc == null || !doc.exists()) return;
+
+                        String nuevoNombre = doc.getString("nombre");
+                        if (nuevoNombre != null && index < beneficiariosSeleccionados.size()) {
+                            Beneficiario beneficiario = beneficiariosSeleccionados.get(index);
+                            if (!nuevoNombre.equals(beneficiario.getNombre())) {
+                                android.util.Log.d("ModificarActividad", "📝 Beneficiario actualizado: " + beneficiario.getNombre() + " → " + nuevoNombre);
+                                beneficiario.setNombre(nuevoNombre);
+                                // Actualizar solo el chip correspondiente
+                                actualizarChipBeneficiario(index, nuevoNombre);
+                            }
+                        }
+                    });
+        }
+    }
+
+    /**
+     * 🆕 Actualiza un chip específico sin re-renderizar todos
+     */
+    private void actualizarChipBeneficiario(int index, String nuevoNombre) {
+        if (chipsBeneficiarios == null || index >= chipsBeneficiarios.getChildCount()) return;
+
+        View childView = chipsBeneficiarios.getChildAt(index);
+        if (childView instanceof Chip) {
+            Chip chip = (Chip) childView;
+            chip.setText(nuevoNombre);
+            android.util.Log.d("ModificarActividad", "✅ Chip actualizado en posición " + index + ": " + nuevoNombre);
         }
     }
 

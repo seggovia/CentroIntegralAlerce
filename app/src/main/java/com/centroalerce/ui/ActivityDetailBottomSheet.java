@@ -29,6 +29,7 @@ import com.google.android.material.chip.Chip;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.Source;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -550,23 +551,55 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             actReg = null;
         }
 
+        Log.d(TAG, "🎯 subscribeActividad - Configurando listener para actividadId: " + actividadId);
+
         actReg = act(actividadId, true).addSnapshotListener((doc, e) -> {
-            if (e != null) { Log.w(TAG, "listen actividad EN error", e); return; }
-            Log.d(TAG, "actividad EN snapshot recibido");
+            if (e != null) {
+                Log.w(TAG, "❌ listen actividad EN error: " + e.getMessage(), e);
+                return;
+            }
+            Log.d(TAG, "📬 actividad EN snapshot recibido - exists=" + (doc != null && doc.exists()));
             if (doc != null && doc.exists()) {
+                Log.d(TAG, "📋 Datos de actividad recibidos:");
+                Log.d(TAG, "   - nombre: " + doc.getString("nombre"));
+                Log.d(TAG, "   - oferente: " + doc.getString("oferente"));
+                Log.d(TAG, "   - oferenteNombre: " + doc.getString("oferenteNombre"));
+                Log.d(TAG, "   - socioComunitario: " + doc.getString("socioComunitario"));
+                Log.d(TAG, "   - socio: " + doc.getString("socio"));
+                Log.d(TAG, "   - proyecto: " + doc.getString("proyecto"));
+                Log.d(TAG, "   - proyectoNombre: " + doc.getString("proyectoNombre"));
+                Log.d(TAG, "   - tipo: " + doc.getString("tipo"));
+                Log.d(TAG, "   - tipoActividad: " + doc.getString("tipoActividad"));
+                Log.d(TAG, "   - lugar: " + doc.getString("lugar"));
+                Log.d(TAG, "   - lugarNombre: " + doc.getString("lugarNombre"));
+                Log.d(TAG, "   - beneficiarios_ids: " + doc.get("beneficiarios_ids"));
+                Log.d(TAG, "   - beneficiarios_nombres: " + doc.get("beneficiarios_nombres"));
+                Log.d(TAG, "   - beneficiariosIds: " + doc.get("beneficiariosIds"));
+                Log.d(TAG, "   - beneficiariosNombres: " + doc.get("beneficiariosNombres"));
                 bindActividadDoc(doc);
             } else {
+                Log.d(TAG, "⚠️ Documento no existe en 'activities', intentando en 'actividades'...");
                 if (actReg != null) {
                     try { actReg.remove(); } catch (Exception ex) {}
                     actReg = null;
                 }
                 actReg = act(actividadId, false).addSnapshotListener((doc2, e2) -> {
-                    if (e2 != null) { Log.w(TAG, "listen actividad ES error", e2); return; }
-                    Log.d(TAG, "actividad ES snapshot recibido");
-                    if (doc2 != null && doc2.exists()) bindActividadDoc(doc2);
+                    if (e2 != null) {
+                        Log.w(TAG, "❌ listen actividad ES error: " + e2.getMessage(), e2);
+                        return;
+                    }
+                    Log.d(TAG, "📬 actividad ES snapshot recibido - exists=" + (doc2 != null && doc2.exists()));
+                    if (doc2 != null && doc2.exists()) {
+                        Log.d(TAG, "📋 Datos de actividad recibidos (ES):");
+                        Log.d(TAG, "   - nombre: " + doc2.getString("nombre"));
+                        Log.d(TAG, "   - oferente: " + doc2.getString("oferente"));
+                        bindActividadDoc(doc2);
+                    }
                 });
             }
         });
+
+        Log.d(TAG, "✅ Listener de actividad configurado exitosamente");
     }
 
     private void subscribeCita(String actividadId, String citaId) {
@@ -607,10 +640,11 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     // ---------- Actividad ----------
     private void loadActividad(String actividadId) {
         if (TextUtils.isEmpty(actividadId)) return;
-        act(actividadId, true).get()
+        // 🆕 Usar Source.SERVER para evitar caché desactualizada (el listener en tiempo real ya maneja caché)
+        act(actividadId, true).get(Source.SERVER)
                 .addOnSuccessListener(doc -> {
                     if (doc != null && doc.exists()) bindActividadDoc(doc);
-                    else act(actividadId, false).get()
+                    else act(actividadId, false).get(Source.SERVER)
                             .addOnSuccessListener(this::bindActividadDoc)
                             .addOnFailureListener(e -> toast("No se pudo cargar la actividad"));
                 })
@@ -653,12 +687,16 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
         String socio = pickString(doc, "socioComunitario", "socio", "socio_nombre");
 
-        List<String> beneficiariosList = pickStringList(doc, new String[]{"beneficiarios", "beneficiario", "beneficiariosNombres"});
+        // 🆕 IMPORTANTE: Buscar primero en campos específicos (con "Nombres") antes que en campos genéricos
+        List<String> beneficiariosList = pickStringList(doc, new String[]{"beneficiariosNombres", "beneficiarios_nombres", "beneficiarios", "beneficiario"});
+        Log.d(TAG, "   📋 beneficiariosList leída: " + beneficiariosList);
         if (beneficiariosList.isEmpty()) {
             String beneficiariosTexto = pickString(doc, "beneficiariosTexto");
             beneficiariosList = splitToList(beneficiariosTexto);
+            Log.d(TAG, "   📋 beneficiariosList desde texto: " + beneficiariosList);
         }
         String beneficiarios = joinListOrText(beneficiariosList);
+        Log.d(TAG, "   📋 beneficiarios final (string): " + beneficiarios);
 
         String proyecto = pickString(doc, "proyectoNombre", "proyecto", "projectName");
         Long diasAviso  = safeLong(doc.get("diasAvisoPrevio"));
@@ -1330,8 +1368,16 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private List<String> pickStringList(DocumentSnapshot doc, String[] keys) {
         for (String k : keys) {
             Object raw = doc.get(k);
+            if (k.contains("beneficiario")) {
+                Log.d(TAG, "      🔍 pickStringList probando key='" + k + "' -> raw=" + raw);
+            }
             List<String> parsed = parseStringList(raw);
-            if (!parsed.isEmpty()) return parsed;
+            if (!parsed.isEmpty()) {
+                if (k.contains("beneficiario")) {
+                    Log.d(TAG, "      ✅ pickStringList encontró datos en key='" + k + "' -> parsed=" + parsed);
+                }
+                return parsed;
+            }
         }
         return Collections.emptyList();
     }
