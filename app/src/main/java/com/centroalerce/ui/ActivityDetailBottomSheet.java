@@ -741,8 +741,14 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
      * VERSIÓN CORREGIDA - desuscribe listeners antes de cerrar
      */
     private void completarCita(String actividadId, String citaId) {
-        if (TextUtils.isEmpty(actividadId) || TextUtils.isEmpty(citaId)) {
-            toast("Faltan datos para completar la cita");
+        if (TextUtils.isEmpty(actividadId)) {
+            toast("Faltan datos para completar");
+            return;
+        }
+
+        // Si NO hay citaId, es una ACTIVIDAD (no una cita)
+        if (TextUtils.isEmpty(citaId)) {
+            completarActividad(actividadId);
             return;
         }
 
@@ -838,7 +844,11 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                     updates.put("fechaModificacion", Timestamp.now());
 
                     citaRef.update(updates)
-                            .addOnSuccessListener(u -> callback.onResult(true))
+                            .addOnSuccessListener(u -> {
+                                // También actualizar la actividad principal si es PUNTUAL
+                                actualizarActividadSiEsPuntual(actividadId);
+                                callback.onResult(true);
+                            })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "Error actualizando cita: " + e.getMessage());
                                 callback.onResult(false);
@@ -853,7 +863,85 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         void onResult(boolean success);
     }
 
+    /**
+     * Actualiza el estado de la actividad principal a "completada" si es PUNTUAL
+     * Esto se llama después de completar una cita
+     */
+    private void actualizarActividadSiEsPuntual(String actividadId) {
+        db.collection("activities").document(actividadId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc != null && doc.exists()) {
+                        String periodicidad = doc.getString("periodicidad");
+                        if ("PUNTUAL".equalsIgnoreCase(periodicidad)) {
+                            // Es PUNTUAL, actualizar la actividad principal también
+                            Map<String, Object> updates = new HashMap<>();
+                            updates.put("estado", "completada");
+                            updates.put("fechaModificacion", Timestamp.now());
 
+                            db.collection("activities").document(actividadId)
+                                    .update(updates)
+                                    .addOnSuccessListener(unused ->
+                                        Log.d(TAG, "✅ Actividad PUNTUAL marcada como completada"))
+                                    .addOnFailureListener(e ->
+                                        Log.e(TAG, "Error actualizando actividad principal: " + e.getMessage()));
+                        }
+                    }
+                })
+                .addOnFailureListener(e ->
+                    Log.e(TAG, "Error obteniendo actividad: " + e.getMessage()));
+    }
+
+    /**
+     * Completa una ACTIVIDAD (no una cita) actualizando su estado en Firestore
+     */
+    private void completarActividad(String actividadId) {
+        // Validación adicional de estado
+        String estado = estadoActual != null ? estadoActual.toLowerCase() : "";
+        if ("cancelada".equals(estado) || "canceled".equals(estado)) {
+            toast("No se puede completar una actividad cancelada");
+            return;
+        }
+
+        if ("completada".equals(estado) || "completed".equals(estado) || "finalizada".equals(estado)) {
+            toast("Esta actividad ya está completada");
+            return;
+        }
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Marcar como completada")
+                .setMessage("¿Confirmas que esta actividad fue completada exitosamente?")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Sí, completar", (d, which) -> {
+                    // Desuscribir listeners antes de actualizar
+                    if (actReg != null) {
+                        actReg.remove();
+                        actReg = null;
+                    }
+
+                    // Actualizar el documento de la actividad
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("estado", "completada");
+                    updates.put("fechaModificacion", Timestamp.now());
+
+                    db.collection("activities").document(actividadId)
+                            .update(updates)
+                            .addOnSuccessListener(unused -> {
+                                toast("Actividad marcada como completada ✅");
+                                estadoActual = "completada";
+                                notifyChanged();
+
+                                // Cerrar con delay
+                                new android.os.Handler(android.os.Looper.getMainLooper())
+                                        .postDelayed(this::dismiss, 300);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Error completando actividad: " + e.getMessage());
+                                toast("Error al completar la actividad");
+                            });
+                })
+                .show();
+    }
 
     private void notifyChanged(){
         Bundle b = new Bundle();

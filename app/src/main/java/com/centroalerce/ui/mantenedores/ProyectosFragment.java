@@ -166,13 +166,14 @@ public class ProyectosFragment extends Fragment {
     private void confirmarEliminar(Proyecto item) {
         if (item == null || item.getId() == null) return;
 
-        // Validar que no haya actividades activas usando este proyecto
-        verificarActividadesActivas(item.getNombre(), tieneActividades -> {
+        // 🆕 Validar que no haya actividades activas usando este proyecto
+        ResultadoValidacion resultado = new ResultadoValidacion();
+        verificarActividadesActivasDetallado(item.getNombre(), resultado, tieneActividades -> {
             if (tieneActividades) {
+                String mensaje = resultado.construirMensaje("proyecto", item.getNombre());
                 new MaterialAlertDialogBuilder(requireContext())
-                        .setTitle("No se puede eliminar")
-                        .setMessage("El proyecto \"" + item.getNombre() + "\" está asociado a actividades activas.\n\n" +
-                                "Primero debes eliminar o modificar esas actividades.")
+                        .setTitle("❌ No se puede eliminar")
+                        .setMessage(mensaje)
                         .setPositiveButton("Entendido", null)
                         .show();
                 return;
@@ -200,14 +201,15 @@ public class ProyectosFragment extends Fragment {
 
         boolean nuevo = !item.isActivo();
 
-        // Si se va a desactivar, validar que no haya actividades activas
+        // 🆕 Si se va a desactivar, validar que no haya actividades activas
         if (!nuevo) {
-            verificarActividadesActivas(item.getNombre(), tieneActividades -> {
+            ResultadoValidacion resultado = new ResultadoValidacion();
+            verificarActividadesActivasDetallado(item.getNombre(), resultado, tieneActividades -> {
                 if (tieneActividades) {
+                    String mensaje = resultado.construirMensaje("proyecto", item.getNombre());
                     new MaterialAlertDialogBuilder(requireContext())
-                            .setTitle("No se puede desactivar")
-                            .setMessage("El proyecto \"" + item.getNombre() + "\" está asociado a actividades activas.\n\n" +
-                                    "Primero debes eliminar o modificar esas actividades.")
+                            .setTitle("❌ No se puede desactivar")
+                            .setMessage(mensaje)
                             .setPositiveButton("Entendido", null)
                             .show();
                     return;
@@ -230,58 +232,123 @@ public class ProyectosFragment extends Fragment {
      * Verifica si hay actividades activas usando este proyecto
      */
     private void verificarActividadesActivas(String proyectoNombre, Callback<Boolean> callback) {
+        ResultadoValidacion resultado = new ResultadoValidacion();
+        verificarActividadesActivasDetallado(proyectoNombre, resultado, callback);
+    }
+
+    private void verificarActividadesActivasDetallado(String proyectoNombre, ResultadoValidacion resultado, Callback<Boolean> callback) {
         android.util.Log.d("Proyectos", "🔍 Verificando actividades y citas para proyecto: " + proyectoNombre);
+
+        // Set para evitar duplicados (usar ID del documento como clave)
+        java.util.Set<String> actividadesEncontradas = new java.util.HashSet<>();
 
         // Buscar actividades con campo 'proyecto' (incluye actividades SIN campo estado)
         db.collection("activities")
                 .whereEqualTo("proyecto", proyectoNombre)
-                .get()
+                .get(com.google.firebase.firestore.Source.SERVER)
                 .addOnSuccessListener(querySnapshot -> {
-                    // Filtrar manualmente para incluir actividades sin estado o con estado activo
+                    android.util.Log.d("Proyectos", "  ✅ Query completado. Total encontradas: " + querySnapshot.size());
+                    android.util.Log.d("Proyectos", "  📡 Fuente de datos: " + (querySnapshot.getMetadata().isFromCache() ? "CACHE ⚠️" : "SERVER ✅"));
+                    // Recopilar actividades bloqueantes
                     for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
                         String estado = doc.getString("estado");
-                        // Si NO tiene estado, o tiene estado pero NO es cancelada/completada
-                        if (estado == null ||
-                            (!estado.equalsIgnoreCase("cancelada") &&
-                             !estado.equalsIgnoreCase("canceled") &&
-                             !estado.equalsIgnoreCase("completada") &&
-                             !estado.equalsIgnoreCase("completed") &&
-                             !estado.equalsIgnoreCase("finalizada"))) {
-                            android.util.Log.d("Proyectos", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
-                            callback.onResult(true);
-                            return;
+                        String nombre = doc.getString("nombre");
+                        android.util.Log.d("Proyectos", "  📄 Actividad encontrada (proyecto): " + doc.getId() + " estado='" + estado + "' nombre=" + nombre);
+
+                        // Excluir explícitamente las completadas
+                        boolean esCompletada = estado != null &&
+                            (estado.equalsIgnoreCase("completada") ||
+                             estado.equalsIgnoreCase("finalizada") ||
+                             estado.equalsIgnoreCase("cancelada") ||
+                             estado.equalsIgnoreCase("completed") ||
+                             estado.equalsIgnoreCase("canceled"));
+
+                        if (!esCompletada && (estado == null || estado.equalsIgnoreCase("programada") || estado.equalsIgnoreCase("reagendada"))) {
+                            if (nombre == null) nombre = "Sin nombre";
+                            String estadoStr = (estado == null) ? "Programada" : estado;
+                            if (actividadesEncontradas.add(doc.getId())) {
+                                resultado.actividadesBloqueantes.add(nombre + " (" + estadoStr + ")");
+                                resultado.tieneBloqueantes = true;
+                                android.util.Log.d("Proyectos", "  ✅ Agregada como bloqueante: " + nombre);
+                            }
+                        } else {
+                            android.util.Log.d("Proyectos", "  ⏭️ Ignorada (completada/cancelada): " + nombre);
                         }
                     }
 
                     // Buscar con el otro nombre de campo
                     db.collection("activities")
                             .whereEqualTo("proyectoNombre", proyectoNombre)
-                            .get()
+                            .get(com.google.firebase.firestore.Source.SERVER)
                             .addOnSuccessListener(querySnapshot2 -> {
+                                android.util.Log.d("Proyectos", "  ✅ Query completado. Total encontradas: " + querySnapshot2.size());
+                                android.util.Log.d("Proyectos", "  📡 Fuente de datos: " + (querySnapshot2.getMetadata().isFromCache() ? "CACHE ⚠️" : "SERVER ✅"));
                                 for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
                                     String estado = doc.getString("estado");
-                                    if (estado == null ||
-                                        (!estado.equalsIgnoreCase("cancelada") &&
-                                         !estado.equalsIgnoreCase("canceled") &&
-                                         !estado.equalsIgnoreCase("completada") &&
-                                         !estado.equalsIgnoreCase("completed") &&
-                                         !estado.equalsIgnoreCase("finalizada"))) {
-                                        android.util.Log.d("Proyectos", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
-                                        callback.onResult(true);
-                                        return;
+                                    String nombre = doc.getString("nombre");
+                                    android.util.Log.d("Proyectos", "  📄 Actividad encontrada (proyectoNombre): " + doc.getId() + " estado='" + estado + "' nombre=" + nombre);
+
+                                    // Excluir explícitamente las completadas
+                                    boolean esCompletada = estado != null &&
+                                        (estado.equalsIgnoreCase("completada") ||
+                                         estado.equalsIgnoreCase("finalizada") ||
+                                         estado.equalsIgnoreCase("cancelada") ||
+                                         estado.equalsIgnoreCase("completed") ||
+                                         estado.equalsIgnoreCase("canceled"));
+
+                                    if (!esCompletada && (estado == null || estado.equalsIgnoreCase("programada") || estado.equalsIgnoreCase("reagendada"))) {
+                                        if (nombre == null) nombre = "Sin nombre";
+                                        String estadoStr = (estado == null) ? "Programada" : estado;
+                                        if (actividadesEncontradas.add(doc.getId())) {
+                                            resultado.actividadesBloqueantes.add(nombre + " (" + estadoStr + ")");
+                                            resultado.tieneBloqueantes = true;
+                                            android.util.Log.d("Proyectos", "  ✅ Agregada como bloqueante: " + nombre);
+                                        }
+                                    } else {
+                                        android.util.Log.d("Proyectos", "  ⏭️ Ignorada (completada/cancelada): " + nombre);
                                     }
                                 }
-                                // Si no hay actividades activas, verificar citas programadas
-                                verificarCitasProgramadas(proyectoNombre, callback);
+                                // Verificar citas programadas
+                                verificarCitasProgramadasDetallado(proyectoNombre, resultado, callback);
                             })
                             .addOnFailureListener(e -> {
-                                android.util.Log.w("Proyectos", "Error verificando actividades: " + e.getMessage());
-                                callback.onResult(false);
+                                android.util.Log.w("Proyectos", "Error verificando actividades con proyectoNombre: " + e.getMessage());
+                                // Si ya encontramos bloqueantes, retornar true aunque falle la búsqueda
+                                if (resultado.tieneBloqueantes) {
+                                    callback.onResult(true);
+                                } else {
+                                    // Si no había bloqueantes, continuar con citas
+                                    verificarCitasProgramadasDetallado(proyectoNombre, resultado, callback);
+                                }
                             });
                 })
                 .addOnFailureListener(e -> {
-                    android.util.Log.w("Proyectos", "Error verificando actividades: " + e.getMessage());
-                    callback.onResult(false);
+                    android.util.Log.w("Proyectos", "Error verificando actividades con proyecto: " + e.getMessage());
+                    // Continuar buscando con el otro campo aunque falle
+                    db.collection("activities")
+                            .whereEqualTo("proyectoNombre", proyectoNombre)
+                            .get(com.google.firebase.firestore.Source.SERVER)
+                            .addOnSuccessListener(querySnapshot2 -> {
+                                for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
+                                    String estado = doc.getString("estado");
+                                    android.util.Log.d("Proyectos", "  📄 Actividad encontrada: " + doc.getId() + " estado=" + estado);
+                                    if (estado != null && (estado.equalsIgnoreCase("programada") || estado.equalsIgnoreCase("reagendada"))) {
+                                        String nombre = doc.getString("nombre");
+                                        if (nombre == null) nombre = "Sin nombre";
+                                        // Usar ID para evitar duplicados
+                                        if (actividadesEncontradas.add(doc.getId())) {
+                                            resultado.actividadesBloqueantes.add(nombre + " (" + estado + ")");
+                                            resultado.tieneBloqueantes = true;
+                                            android.util.Log.d("Proyectos", "  ✅ Agregada como bloqueante: " + nombre);
+                                        }
+                                    }
+                                }
+                                verificarCitasProgramadasDetallado(proyectoNombre, resultado, callback);
+                            })
+                            .addOnFailureListener(e2 -> {
+                                // Si ambas búsquedas de actividades fallan, continuar con citas
+                                verificarCitasProgramadasDetallado(proyectoNombre, resultado, callback);
+                            });
                 });
     }
 
@@ -289,56 +356,105 @@ public class ProyectosFragment extends Fragment {
      * Verifica si hay citas programadas (no completadas/canceladas) usando este proyecto
      */
     private void verificarCitasProgramadas(String proyectoNombre, Callback<Boolean> callback) {
+        ResultadoValidacion resultado = new ResultadoValidacion();
+        verificarCitasProgramadasDetallado(proyectoNombre, resultado, callback);
+    }
+
+    private void verificarCitasProgramadasDetallado(String proyectoNombre, ResultadoValidacion resultado, Callback<Boolean> callback) {
         android.util.Log.d("Proyectos", "🔍 Verificando citas programadas para proyecto: " + proyectoNombre);
 
+        // Primera búsqueda: whereEqualTo("proyecto", ...)
         db.collectionGroup("citas")
                 .whereEqualTo("proyecto", proyectoNombre)
-                .get()
+                .get(com.google.firebase.firestore.Source.SERVER)
                 .addOnSuccessListener(querySnapshot -> {
-                    // Filtrar manualmente para incluir citas sin estado o con estado programada
+                    android.util.Log.d("Proyectos", "  ✅ Query completado. Total encontradas: " + querySnapshot.size());
+                    android.util.Log.d("Proyectos", "  📡 Fuente de datos: " + (querySnapshot.getMetadata().isFromCache() ? "CACHE ⚠️" : "SERVER ✅"));
+                    android.util.Log.d("Proyectos", "   📍 Encontradas " + querySnapshot.size() + " citas con proyecto='" + proyectoNombre + "'");
+
+                    // Recopilar citas bloqueantes con campo "proyecto"
                     for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
                         String estado = doc.getString("estado");
-                        if (estado == null ||
-                            (!estado.equalsIgnoreCase("cancelada") &&
-                             !estado.equalsIgnoreCase("canceled") &&
-                             !estado.equalsIgnoreCase("completada") &&
-                             !estado.equalsIgnoreCase("completed") &&
-                             !estado.equalsIgnoreCase("finalizada"))) {
-                            android.util.Log.d("Proyectos", "❌ Encontrada cita programada: " + doc.getId() + " (estado: " + estado + ")");
-                            callback.onResult(true);
-                            return;
+
+                        // Excluir explícitamente las completadas
+                        boolean esCompletada = estado != null &&
+                            (estado.equalsIgnoreCase("completada") ||
+                             estado.equalsIgnoreCase("finalizada") ||
+                             estado.equalsIgnoreCase("cancelada") ||
+                             estado.equalsIgnoreCase("completed") ||
+                             estado.equalsIgnoreCase("canceled"));
+
+                        if (!esCompletada && (estado == null || estado.equalsIgnoreCase("programada") || estado.equalsIgnoreCase("reagendada"))) {
+                            String titulo = doc.getString("titulo");
+                            if (titulo == null) titulo = "Sin título";
+                            String estadoStr = (estado == null) ? "Programada" : estado;
+
+                            // Obtener fecha si existe
+                            Object fechaObj = doc.get("fecha");
+                            String fechaStr = "";
+                            if (fechaObj instanceof com.google.firebase.Timestamp) {
+                                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MMM/yyyy", java.util.Locale.getDefault());
+                                fechaStr = " - " + sdf.format(((com.google.firebase.Timestamp) fechaObj).toDate());
+                            }
+
+                            resultado.citasBloqueantes.add(titulo + " (" + estadoStr + fechaStr + ")");
+                            resultado.tieneBloqueantes = true;
                         }
                     }
 
-                    // Buscar con el otro nombre de campo
+                    // Segunda búsqueda (anidada): whereEqualTo("proyectoNombre", ...)
                     db.collectionGroup("citas")
                             .whereEqualTo("proyectoNombre", proyectoNombre)
-                            .get()
+                            .get(com.google.firebase.firestore.Source.SERVER)
                             .addOnSuccessListener(querySnapshot2 -> {
+                                android.util.Log.d("Proyectos", "  ✅ Query completado. Total encontradas: " + querySnapshot2.size());
+                                android.util.Log.d("Proyectos", "  📡 Fuente de datos: " + (querySnapshot2.getMetadata().isFromCache() ? "CACHE ⚠️" : "SERVER ✅"));
+                                android.util.Log.d("Proyectos", "   📍 Encontradas " + querySnapshot2.size() + " citas con proyectoNombre='" + proyectoNombre + "'");
+
+                                // Recopilar citas bloqueantes con campo "proyectoNombre"
                                 for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
                                     String estado = doc.getString("estado");
-                                    if (estado == null ||
-                                        (!estado.equalsIgnoreCase("cancelada") &&
-                                         !estado.equalsIgnoreCase("canceled") &&
-                                         !estado.equalsIgnoreCase("completada") &&
-                                         !estado.equalsIgnoreCase("completed") &&
-                                         !estado.equalsIgnoreCase("finalizada"))) {
-                                        android.util.Log.d("Proyectos", "❌ Encontrada cita programada: " + doc.getId() + " (estado: " + estado + ")");
-                                        callback.onResult(true);
-                                        return;
+
+                                    // Excluir explícitamente las completadas
+                                    boolean esCompletada = estado != null &&
+                                        (estado.equalsIgnoreCase("completada") ||
+                                         estado.equalsIgnoreCase("finalizada") ||
+                                         estado.equalsIgnoreCase("cancelada") ||
+                                         estado.equalsIgnoreCase("completed") ||
+                                         estado.equalsIgnoreCase("canceled"));
+
+                                    if (!esCompletada && (estado == null || estado.equalsIgnoreCase("programada") || estado.equalsIgnoreCase("reagendada"))) {
+                                        String titulo = doc.getString("titulo");
+                                        if (titulo == null) titulo = "Sin título";
+                                        String estadoStr = (estado == null) ? "Programada" : estado;
+
+                                        // Obtener fecha si existe
+                                        Object fechaObj = doc.get("fecha");
+                                        String fechaStr = "";
+                                        if (fechaObj instanceof com.google.firebase.Timestamp) {
+                                            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MMM/yyyy", java.util.Locale.getDefault());
+                                            fechaStr = " - " + sdf.format(((com.google.firebase.Timestamp) fechaObj).toDate());
+                                        }
+
+                                        resultado.citasBloqueantes.add(titulo + " (" + estadoStr + fechaStr + ")");
+                                        resultado.tieneBloqueantes = true;
                                     }
                                 }
-                                android.util.Log.d("Proyectos", "✅ No hay actividades ni citas activas");
-                                callback.onResult(false);
+
+                                // Solo llamar al callback después de procesar AMBOS resultados
+                                android.util.Log.d("Proyectos", resultado.tieneBloqueantes ? "❌ Encontradas actividades/citas bloqueantes" : "✅ No hay actividades ni citas activas");
+                                callback.onResult(resultado.tieneBloqueantes);
                             })
                             .addOnFailureListener(e -> {
-                                android.util.Log.w("Proyectos", "Error verificando citas: " + e.getMessage());
-                                callback.onResult(false);
+                                android.util.Log.w("Proyectos", "Error verificando citas (proyectoNombre): " + e.getMessage());
+                                // Si ya encontramos bloqueantes, retornar true aunque falle la búsqueda
+                                callback.onResult(resultado.tieneBloqueantes);
                             });
                 })
                 .addOnFailureListener(e -> {
-                    android.util.Log.w("Proyectos", "Error verificando citas: " + e.getMessage());
-                    callback.onResult(false);
+                    android.util.Log.w("Proyectos", "Error verificando citas (proyecto): " + e.getMessage());
+                    // Si ya encontramos bloqueantes, retornar true aunque falle la búsqueda
+                    callback.onResult(resultado.tieneBloqueantes);
                 });
     }
 
@@ -419,5 +535,45 @@ public class ProyectosFragment extends Fragment {
      */
     private interface Callback<T> {
         void onResult(T result);
+    }
+
+    /**
+     * Clase para almacenar información de actividades/citas bloqueantes
+     */
+    private static class ResultadoValidacion {
+        boolean tieneBloqueantes;
+        List<String> actividadesBloqueantes;
+        List<String> citasBloqueantes;
+
+        ResultadoValidacion() {
+            this.tieneBloqueantes = false;
+            this.actividadesBloqueantes = new java.util.ArrayList<>();
+            this.citasBloqueantes = new java.util.ArrayList<>();
+        }
+
+        String construirMensaje(String tipoMantenedor, String nombreMantenedor) {
+            if (!tieneBloqueantes) return "";
+
+            StringBuilder mensaje = new StringBuilder();
+            mensaje.append("El ").append(tipoMantenedor).append(" \"").append(nombreMantenedor).append("\" está asociado a:\n\n");
+
+            if (!actividadesBloqueantes.isEmpty()) {
+                mensaje.append("📋 ACTIVIDADES:\n");
+                for (String actividad : actividadesBloqueantes) {
+                    mensaje.append("• ").append(actividad).append("\n");
+                }
+            }
+
+            if (!citasBloqueantes.isEmpty()) {
+                if (!actividadesBloqueantes.isEmpty()) mensaje.append("\n");
+                mensaje.append("📅 CITAS:\n");
+                for (String cita : citasBloqueantes) {
+                    mensaje.append("• ").append(cita).append("\n");
+                }
+            }
+
+            mensaje.append("\nCompleta o cancela estas actividades/citas primero.");
+            return mensaje.toString();
+        }
     }
 }

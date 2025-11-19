@@ -1448,6 +1448,7 @@ public class ActivityFormFragment extends Fragment {
         Map<String, Object> activityDoc = new HashMap<>();
         activityDoc.put("nombre", nombre);
         activityDoc.put("periodicidad", modoPeriodica ? "PERIODICA" : "PUNTUAL");
+        activityDoc.put("estado", "programada"); // Estado inicial de la actividad
 
         if (!TextUtils.isEmpty(tipoActividad)) {
             activityDoc.put("tipo", tipoActividad);

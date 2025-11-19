@@ -15,7 +15,9 @@
       "Bash(nul)",
       "Bash(.gradlew assembleDebug:*)",
       "Bash(gradlew.bat assembleDebug:*)",
-      "Bash(./gradlew.bat assembleDebug)"
+      "Bash(./gradlew.bat assembleDebug)",
+      "Bash(./gradlew.bat compileDebugJavaWithJavac:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

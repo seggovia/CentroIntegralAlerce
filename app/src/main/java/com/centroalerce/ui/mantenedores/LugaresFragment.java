@@ -197,12 +197,13 @@ public class LugaresFragment extends Fragment {
         if (item == null || item.getId() == null) return;
 
         // Validar que no haya actividades activas usando este lugar
-        verificarActividadesActivas(item.getNombre(), tieneActividades -> {
+        ResultadoValidacion resultado = new ResultadoValidacion();
+        verificarActividadesActivasDetallado(item.getNombre(), resultado, tieneActividades -> {
             if (tieneActividades) {
+                String mensaje = resultado.construirMensaje("lugar", item.getNombre());
                 new MaterialAlertDialogBuilder(requireContext())
-                        .setTitle("No se puede eliminar")
-                        .setMessage("El lugar \"" + item.getNombre() + "\" está asociado a actividades activas.\n\n" +
-                                "Primero debes eliminar o modificar esas actividades.")
+                        .setTitle("❌ No se puede eliminar")
+                        .setMessage(mensaje)
                         .setPositiveButton("Entendido", null)
                         .show();
                 return;
@@ -232,12 +233,13 @@ public class LugaresFragment extends Fragment {
 
         // Si se va a desactivar, validar que no haya actividades activas
         if (!nuevo) {
-            verificarActividadesActivas(item.getNombre(), tieneActividades -> {
+            ResultadoValidacion resultado = new ResultadoValidacion();
+            verificarActividadesActivasDetallado(item.getNombre(), resultado, tieneActividades -> {
                 if (tieneActividades) {
+                    String mensaje = resultado.construirMensaje("lugar", item.getNombre());
                     new MaterialAlertDialogBuilder(requireContext())
-                            .setTitle("No se puede desactivar")
-                            .setMessage("El lugar \"" + item.getNombre() + "\" está asociado a actividades activas.\n\n" +
-                                    "Primero debes eliminar o modificar esas actividades.")
+                            .setTitle("❌ No se puede desactivar")
+                            .setMessage(mensaje)
                             .setPositiveButton("Entendido", null)
                             .show();
                     return;
@@ -260,58 +262,128 @@ public class LugaresFragment extends Fragment {
      * Verifica si hay actividades activas usando este lugar
      */
     private void verificarActividadesActivas(String lugarNombre, Callback<Boolean> callback) {
+        ResultadoValidacion resultado = new ResultadoValidacion();
+        verificarActividadesActivasDetallado(lugarNombre, resultado, callback);
+    }
+
+    private void verificarActividadesActivasDetallado(String lugarNombre, ResultadoValidacion resultado, Callback<Boolean> callback) {
         android.util.Log.d("Lugares", "🔍 Verificando actividades y citas para lugar: " + lugarNombre);
 
-        // Buscar actividades con campo 'lugar' (incluye actividades SIN campo estado)
+        // Set para evitar duplicados (usar ID del documento como clave)
+        java.util.Set<String> actividadesEncontradas = new java.util.HashSet<>();
+
+        // Buscar actividades con lugar
         db.collection("activities")
                 .whereEqualTo("lugar", lugarNombre)
-                .get()
+                .get(com.google.firebase.firestore.Source.SERVER)
                 .addOnSuccessListener(querySnapshot -> {
-                    // Filtrar manualmente para incluir actividades sin estado o con estado activo
+                    android.util.Log.d("Lugares", "  ✅ Query completado. Total encontradas: " + querySnapshot.size());
+                    android.util.Log.d("Lugares", "  📡 Fuente de datos: " + (querySnapshot.getMetadata().isFromCache() ? "CACHE ⚠️" : "SERVER ✅"));
+                    android.util.Log.d("Lugares", "  🔍 Primera búsqueda (campo 'lugar'): encontradas " + querySnapshot.size() + " actividades");
+                    // Recopilar actividades bloqueantes
                     for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
                         String estado = doc.getString("estado");
-                        // Si NO tiene estado, o tiene estado pero NO es cancelada/completada
-                        if (estado == null ||
-                            (!estado.equalsIgnoreCase("cancelada") &&
-                             !estado.equalsIgnoreCase("canceled") &&
-                             !estado.equalsIgnoreCase("completada") &&
-                             !estado.equalsIgnoreCase("completed") &&
-                             !estado.equalsIgnoreCase("finalizada"))) {
-                            android.util.Log.d("Lugares", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
-                            callback.onResult(true);
-                            return;
+                        String nombre = doc.getString("nombre");
+                        android.util.Log.d("Lugares", "  📄 Actividad: id=" + doc.getId() + ", nombre=" + nombre + ", estado='" + estado + "'");
+
+                        // Bloquear SOLO si está programada o reagendada
+                        // NO bloquear si está completada, cancelada o finalizada
+                        boolean esCompletada = estado != null &&
+                            (estado.equalsIgnoreCase("completada") ||
+                             estado.equalsIgnoreCase("finalizada") ||
+                             estado.equalsIgnoreCase("cancelada") ||
+                             estado.equalsIgnoreCase("completed") ||
+                             estado.equalsIgnoreCase("canceled"));
+
+                        if (!esCompletada && (estado == null || estado.equalsIgnoreCase("programada") || estado.equalsIgnoreCase("reagendada"))) {
+                            if (nombre == null) nombre = "Sin nombre";
+                            String estadoStr = (estado == null) ? "Programada" : estado;
+
+                            // Usar ID para evitar duplicados
+                            if (actividadesEncontradas.add(doc.getId())) {
+                                resultado.actividadesBloqueantes.add(nombre + " (" + estadoStr + ")");
+                                resultado.tieneBloqueantes = true;
+                                android.util.Log.d("Lugares", "  ✅ Agregada como bloqueante: " + nombre);
+                            }
+                        } else {
+                            android.util.Log.d("Lugares", "  ⏭️ Ignorada (completada/cancelada): " + nombre);
                         }
                     }
 
                     // Buscar con el otro nombre de campo
                     db.collection("activities")
                             .whereEqualTo("lugarNombre", lugarNombre)
+                            .get(com.google.firebase.firestore.Source.SERVER)
+                            .addOnSuccessListener(querySnapshot2 -> {
+                                android.util.Log.d("Lugares", "  ✅ Query completado. Total encontradas: " + querySnapshot2.size());
+                                android.util.Log.d("Lugares", "  📡 Fuente de datos: " + (querySnapshot2.getMetadata().isFromCache() ? "CACHE ⚠️" : "SERVER ✅"));
+                                android.util.Log.d("Lugares", "  🔍 Segunda búsqueda (campo 'lugarNombre'): encontradas " + querySnapshot2.size() + " actividades");
+                                for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
+                                    String estado = doc.getString("estado");
+                                    String nombre = doc.getString("nombre");
+                                    android.util.Log.d("Lugares", "  📄 Actividad: id=" + doc.getId() + ", nombre=" + nombre + ", estado='" + estado + "'");
+
+                                    // Bloquear SOLO si está programada o reagendada
+                                    // NO bloquear si está completada, cancelada o finalizada
+                                    boolean esCompletada = estado != null &&
+                                        (estado.equalsIgnoreCase("completada") ||
+                                         estado.equalsIgnoreCase("finalizada") ||
+                                         estado.equalsIgnoreCase("cancelada") ||
+                                         estado.equalsIgnoreCase("completed") ||
+                                         estado.equalsIgnoreCase("canceled"));
+
+                                    if (!esCompletada && (estado == null || estado.equalsIgnoreCase("programada") || estado.equalsIgnoreCase("reagendada"))) {
+                                        if (nombre == null) nombre = "Sin nombre";
+                                        String estadoStr = (estado == null) ? "Programada" : estado;
+
+                                        // Usar ID para evitar duplicados
+                                        if (actividadesEncontradas.add(doc.getId())) {
+                                            resultado.actividadesBloqueantes.add(nombre + " (" + estadoStr + ")");
+                                            resultado.tieneBloqueantes = true;
+                                            android.util.Log.d("Lugares", "  ✅ Agregada como bloqueante: " + nombre);
+                                        }
+                                    } else {
+                                        android.util.Log.d("Lugares", "  ⏭️ Ignorada (completada/cancelada): " + nombre);
+                                    }
+                                }
+                                // Verificar citas programadas
+                                android.util.Log.d("Lugares", "  📊 RESUMEN ACTIVIDADES: Total bloqueantes encontradas: " + resultado.actividadesBloqueantes.size() + ", tieneBloqueantes=" + resultado.tieneBloqueantes);
+                                verificarCitasProgramadasDetallado(lugarNombre, resultado, callback);
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.w("Lugares", "Error verificando actividades con lugarNombre: " + e.getMessage());
+                                // Si ya encontramos bloqueantes, retornar true aunque falle la búsqueda
+                                if (resultado.tieneBloqueantes) {
+                                    callback.onResult(true);
+                                } else {
+                                    // Si no había bloqueantes, continuar con citas
+                                    verificarCitasProgramadasDetallado(lugarNombre, resultado, callback);
+                                }
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.w("Lugares", "Error verificando actividades con lugar: " + e.getMessage());
+                    // Continuar buscando con el otro campo aunque falle
+                    db.collection("activities")
+                            .whereEqualTo("lugarNombre", lugarNombre)
                             .get()
                             .addOnSuccessListener(querySnapshot2 -> {
                                 for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
                                     String estado = doc.getString("estado");
-                                    if (estado == null ||
-                                        (!estado.equalsIgnoreCase("cancelada") &&
-                                         !estado.equalsIgnoreCase("canceled") &&
-                                         !estado.equalsIgnoreCase("completada") &&
-                                         !estado.equalsIgnoreCase("completed") &&
-                                         !estado.equalsIgnoreCase("finalizada"))) {
-                                        android.util.Log.d("Lugares", "❌ Encontrada actividad activa: " + doc.getId() + " (estado: " + estado + ")");
-                                        callback.onResult(true);
-                                        return;
+                                    if (estado == null || estado.equalsIgnoreCase("programada") || estado.equalsIgnoreCase("reagendada")) {
+                                        String nombre = doc.getString("nombre");
+                                        if (nombre == null) nombre = "Sin nombre";
+                                        String estadoStr = (estado == null) ? "Nueva" : estado;
+                                        resultado.actividadesBloqueantes.add(nombre + " (" + estadoStr + ")");
+                                        resultado.tieneBloqueantes = true;
                                     }
                                 }
-                                // Si no hay actividades activas, verificar citas programadas
-                                verificarCitasProgramadas(lugarNombre, callback);
+                                verificarCitasProgramadasDetallado(lugarNombre, resultado, callback);
                             })
-                            .addOnFailureListener(e -> {
-                                android.util.Log.w("Lugares", "Error verificando actividades: " + e.getMessage());
-                                callback.onResult(false);
+                            .addOnFailureListener(e2 -> {
+                                // Si ambas búsquedas de actividades fallan, continuar con citas
+                                verificarCitasProgramadasDetallado(lugarNombre, resultado, callback);
                             });
-                })
-                .addOnFailureListener(e -> {
-                    android.util.Log.w("Lugares", "Error verificando actividades: " + e.getMessage());
-                    callback.onResult(false);
                 });
     }
 
@@ -319,56 +391,97 @@ public class LugaresFragment extends Fragment {
      * Verifica si hay citas programadas (no completadas/canceladas) usando este lugar
      */
     private void verificarCitasProgramadas(String lugarNombre, Callback<Boolean> callback) {
+        ResultadoValidacion resultado = new ResultadoValidacion();
+        verificarCitasProgramadasDetallado(lugarNombre, resultado, callback);
+    }
+
+    private void verificarCitasProgramadasDetallado(String lugarNombre, ResultadoValidacion resultado, Callback<Boolean> callback) {
         android.util.Log.d("Lugares", "🔍 Verificando citas programadas para lugar: " + lugarNombre);
 
         db.collectionGroup("citas")
                 .whereEqualTo("lugar", lugarNombre)
-                .get()
+                .get(com.google.firebase.firestore.Source.SERVER)
                 .addOnSuccessListener(querySnapshot -> {
-                    // Filtrar manualmente para incluir citas sin estado o con estado programada
+                    android.util.Log.d("Lugares", "  ✅ Query completado. Total encontradas: " + querySnapshot.size());
+                    android.util.Log.d("Lugares", "  📡 Fuente de datos: " + (querySnapshot.getMetadata().isFromCache() ? "CACHE ⚠️" : "SERVER ✅"));
+                    // Recopilar citas bloqueantes
                     for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
                         String estado = doc.getString("estado");
-                        if (estado == null ||
-                            (!estado.equalsIgnoreCase("cancelada") &&
-                             !estado.equalsIgnoreCase("canceled") &&
-                             !estado.equalsIgnoreCase("completada") &&
-                             !estado.equalsIgnoreCase("completed") &&
-                             !estado.equalsIgnoreCase("finalizada"))) {
-                            android.util.Log.d("Lugares", "❌ Encontrada cita programada: " + doc.getId() + " (estado: " + estado + ")");
-                            callback.onResult(true);
-                            return;
+
+                        // Excluir explícitamente las completadas
+                        boolean esCompletada = estado != null &&
+                            (estado.equalsIgnoreCase("completada") ||
+                             estado.equalsIgnoreCase("finalizada") ||
+                             estado.equalsIgnoreCase("cancelada") ||
+                             estado.equalsIgnoreCase("completed") ||
+                             estado.equalsIgnoreCase("canceled"));
+
+                        if (!esCompletada && (estado == null || estado.equalsIgnoreCase("programada") || estado.equalsIgnoreCase("reagendada"))) {
+                            String titulo = doc.getString("titulo");
+                            if (titulo == null) titulo = "Sin título";
+                            String estadoStr = (estado == null) ? "Programada" : estado;
+
+                            // Obtener fecha si existe
+                            Object fechaObj = doc.get("fecha");
+                            String fechaStr = "";
+                            if (fechaObj instanceof com.google.firebase.Timestamp) {
+                                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MMM/yyyy", java.util.Locale.getDefault());
+                                fechaStr = " - " + sdf.format(((com.google.firebase.Timestamp) fechaObj).toDate());
+                            }
+
+                            resultado.citasBloqueantes.add(titulo + " (" + estadoStr + fechaStr + ")");
+                            resultado.tieneBloqueantes = true;
                         }
                     }
 
                     // Buscar con el otro nombre de campo
                     db.collectionGroup("citas")
                             .whereEqualTo("lugarNombre", lugarNombre)
-                            .get()
+                            .get(com.google.firebase.firestore.Source.SERVER)
                             .addOnSuccessListener(querySnapshot2 -> {
+                                android.util.Log.d("Lugares", "  ✅ Query completado. Total encontradas: " + querySnapshot2.size());
+                                android.util.Log.d("Lugares", "  📡 Fuente de datos: " + (querySnapshot2.getMetadata().isFromCache() ? "CACHE ⚠️" : "SERVER ✅"));
                                 for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot2) {
                                     String estado = doc.getString("estado");
-                                    if (estado == null ||
-                                        (!estado.equalsIgnoreCase("cancelada") &&
-                                         !estado.equalsIgnoreCase("canceled") &&
-                                         !estado.equalsIgnoreCase("completada") &&
-                                         !estado.equalsIgnoreCase("completed") &&
-                                         !estado.equalsIgnoreCase("finalizada"))) {
-                                        android.util.Log.d("Lugares", "❌ Encontrada cita programada: " + doc.getId() + " (estado: " + estado + ")");
-                                        callback.onResult(true);
-                                        return;
+
+                                    // Excluir explícitamente las completadas
+                                    boolean esCompletada = estado != null &&
+                                        (estado.equalsIgnoreCase("completada") ||
+                                         estado.equalsIgnoreCase("finalizada") ||
+                                         estado.equalsIgnoreCase("cancelada") ||
+                                         estado.equalsIgnoreCase("completed") ||
+                                         estado.equalsIgnoreCase("canceled"));
+
+                                    if (!esCompletada && (estado == null || estado.equalsIgnoreCase("programada") || estado.equalsIgnoreCase("reagendada"))) {
+                                        String titulo = doc.getString("titulo");
+                                        if (titulo == null) titulo = "Sin título";
+                                        String estadoStr = (estado == null) ? "Programada" : estado;
+
+                                        Object fechaObj = doc.get("fecha");
+                                        String fechaStr = "";
+                                        if (fechaObj instanceof com.google.firebase.Timestamp) {
+                                            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MMM/yyyy", java.util.Locale.getDefault());
+                                            fechaStr = " - " + sdf.format(((com.google.firebase.Timestamp) fechaObj).toDate());
+                                        }
+
+                                        resultado.citasBloqueantes.add(titulo + " (" + estadoStr + fechaStr + ")");
+                                        resultado.tieneBloqueantes = true;
                                     }
                                 }
-                                android.util.Log.d("Lugares", "✅ No hay actividades ni citas activas");
-                                callback.onResult(false);
+
+                                android.util.Log.d("Lugares", resultado.tieneBloqueantes ? "❌ Encontradas actividades/citas bloqueantes" : "✅ No hay actividades ni citas activas");
+                                callback.onResult(resultado.tieneBloqueantes);
                             })
                             .addOnFailureListener(e -> {
-                                android.util.Log.w("Lugares", "Error verificando citas: " + e.getMessage());
-                                callback.onResult(false);
+                                android.util.Log.w("Lugares", "Error verificando citas con lugarNombre: " + e.getMessage());
+                                // Si ya encontramos bloqueantes, retornar true aunque falle la búsqueda
+                                callback.onResult(resultado.tieneBloqueantes);
                             });
                 })
                 .addOnFailureListener(e -> {
-                    android.util.Log.w("Lugares", "Error verificando citas: " + e.getMessage());
-                    callback.onResult(false);
+                    android.util.Log.w("Lugares", "Error verificando citas con lugar: " + e.getMessage());
+                    // Si ya encontramos bloqueantes, retornar true aunque falle la búsqueda
+                    callback.onResult(resultado.tieneBloqueantes);
                 });
     }
 
@@ -442,6 +555,43 @@ public class LugaresFragment extends Fragment {
                         doc.getReference().update(updates);
                     }
                 });
+    }
+
+    private static class ResultadoValidacion {
+        boolean tieneBloqueantes;
+        List<String> actividadesBloqueantes;
+        List<String> citasBloqueantes;
+
+        ResultadoValidacion() {
+            this.tieneBloqueantes = false;
+            this.actividadesBloqueantes = new java.util.ArrayList<>();
+            this.citasBloqueantes = new java.util.ArrayList<>();
+        }
+
+        String construirMensaje(String tipoMantenedor, String nombreMantenedor) {
+            if (!tieneBloqueantes) return "";
+
+            StringBuilder mensaje = new StringBuilder();
+            mensaje.append("El ").append(tipoMantenedor).append(" \"").append(nombreMantenedor).append("\" está asociado a:\n\n");
+
+            if (!actividadesBloqueantes.isEmpty()) {
+                mensaje.append("📋 ACTIVIDADES:\n");
+                for (String actividad : actividadesBloqueantes) {
+                    mensaje.append("• ").append(actividad).append("\n");
+                }
+            }
+
+            if (!citasBloqueantes.isEmpty()) {
+                if (!actividadesBloqueantes.isEmpty()) mensaje.append("\n");
+                mensaje.append("📅 CITAS:\n");
+                for (String cita : citasBloqueantes) {
+                    mensaje.append("• ").append(cita).append("\n");
+                }
+            }
+
+            mensaje.append("\nCompleta o cancela estas actividades/citas primero.");
+            return mensaje.toString();
+        }
     }
 
     /**
