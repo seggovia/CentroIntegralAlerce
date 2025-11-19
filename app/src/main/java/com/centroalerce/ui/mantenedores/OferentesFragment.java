@@ -563,72 +563,79 @@ public class OferentesFragment extends Fragment {
      * Actualiza todas las actividades que usan este oferente, poniendo el campo en null
      */
     private void actualizarActividadesAlEliminar(String nombre) {
-        android.util.Log.d("Oferentes", "🗑️ Actualizando actividades que usaban oferente: " + nombre);
+        android.util.Log.d("Oferentes", "🔄 Actualizando oferente a '--' en actividades completadas/canceladas");
 
         // Buscar actividades con ese oferente (campo "oferente")
         db.collection("activities")
                 .whereEqualTo("oferente", nombre)
-                .get()
+                .get(com.google.firebase.firestore.Source.SERVER)
                 .addOnSuccessListener(querySnapshot -> {
-                    android.util.Log.d("Oferentes", "🔍 Encontradas " + querySnapshot.size() + " actividades con oferente='" + nombre + "'");
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("oferente", null);
-                        updates.put("oferenteNombre", null);
-                        updates.put("oferenteId", null);
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    final int[] count = {0};
 
-                        doc.getReference().update(updates)
-                                .addOnSuccessListener(aVoid -> android.util.Log.d("Oferentes", "✅ Actividad actualizada: " + doc.getId()))
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        boolean esCompletada = estado != null &&
+                            (estado.equalsIgnoreCase("completada") ||
+                             estado.equalsIgnoreCase("finalizada") ||
+                             estado.equalsIgnoreCase("cancelada") ||
+                             estado.equalsIgnoreCase("completed") ||
+                             estado.equalsIgnoreCase("canceled"));
+
+                        if (esCompletada) {
+                            Map<String, Object> updates = new HashMap<>();
+                            updates.put("oferente", "--");
+                            updates.put("oferenteNombre", "--");
+                            updates.put("oferentes", java.util.Collections.singletonList("--"));
+                            updates.put("oferentesNombres", java.util.Collections.singletonList("--"));
+                            batch.update(doc.getReference(), updates);
+                            count[0]++;
+                        }
+                    }
+
+                    if (count[0] > 0) {
+                        batch.commit()
+                                .addOnSuccessListener(unused -> android.util.Log.d("Oferentes", "✅ Actualizadas " + count[0] + " actividades"))
                                 .addOnFailureListener(e -> android.util.Log.e("Oferentes", "❌ Error: " + e.getMessage()));
                     }
-                });
+                })
+                .addOnFailureListener(e -> android.util.Log.e("Oferentes", "❌ Error obteniendo actividades: " + e.getMessage()));
 
         // Buscar por campo "oferenteNombre"
         db.collection("activities")
                 .whereEqualTo("oferenteNombre", nombre)
-                .get()
+                .get(com.google.firebase.firestore.Source.SERVER)
                 .addOnSuccessListener(querySnapshot -> {
-                    android.util.Log.d("Oferentes", "🔍 Encontradas " + querySnapshot.size() + " actividades con oferenteNombre='" + nombre + "'");
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("oferente", null);
-                        updates.put("oferenteNombre", null);
-                        updates.put("oferenteId", null);
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    final int[] count = {0};
 
-                        doc.getReference().update(updates)
-                                .addOnSuccessListener(aVoid -> android.util.Log.d("Oferentes", "✅ Actividad actualizada: " + doc.getId()))
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        boolean esCompletada = estado != null &&
+                            (estado.equalsIgnoreCase("completada") ||
+                             estado.equalsIgnoreCase("finalizada") ||
+                             estado.equalsIgnoreCase("cancelada") ||
+                             estado.equalsIgnoreCase("completed") ||
+                             estado.equalsIgnoreCase("canceled"));
+
+                        if (esCompletada) {
+                            Map<String, Object> updates = new HashMap<>();
+                            updates.put("oferente", "--");
+                            updates.put("oferenteNombre", "--");
+                            updates.put("oferentes", java.util.Collections.singletonList("--"));
+                            updates.put("oferentesNombres", java.util.Collections.singletonList("--"));
+                            batch.update(doc.getReference(), updates);
+                            count[0]++;
+                        }
+                    }
+
+                    if (count[0] > 0) {
+                        batch.commit()
+                                .addOnSuccessListener(unused -> android.util.Log.d("Oferentes", "✅ Actualizadas " + count[0] + " actividades por oferenteNombre"))
                                 .addOnFailureListener(e -> android.util.Log.e("Oferentes", "❌ Error: " + e.getMessage()));
                     }
-                });
-
-        // Buscar en colección "actividades" (ES)
-        db.collection("actividades")
-                .whereEqualTo("oferente", nombre)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("oferente", null);
-                        updates.put("oferenteNombre", null);
-                        updates.put("oferenteId", null);
-
-                        doc.getReference().update(updates);
-                    }
-                });
-
-        db.collection("actividades")
-                .whereEqualTo("oferenteNombre", nombre)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("oferente", null);
-                        updates.put("oferenteNombre", null);
-                        updates.put("oferenteId", null);
-
-                        doc.getReference().update(updates);
-                    }
-                });
+                })
+                .addOnFailureListener(e -> android.util.Log.e("Oferentes", "❌ Error: " + e.getMessage()));
     }
 
     /**

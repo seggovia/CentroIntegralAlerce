@@ -120,6 +120,10 @@ public class CancelarActividadSheet extends BottomSheetDialogFragment {
             ref.update(updates)
                     .addOnSuccessListener(u -> {
                         android.util.Log.d("CancelarSheet", "✅ Cita cancelada por usuario: " + userId);
+
+                        // También cancelar la actividad principal si es PUNTUAL
+                        cancelarActividadSiEsPuntual(actividadId, motivo);
+
                         toast("Cita cancelada");
                         registrarAuditoria("cancelar_cita", motivo);
                         notifyChanged();
@@ -173,6 +177,38 @@ public class CancelarActividadSheet extends BottomSheetDialogFragment {
                         });
             }).addOnFailureListener(e -> toast("Error listando citas: " + e.getMessage()));
         }).addOnFailureListener(e -> toast("Error: " + e.getMessage()));
+    }
+
+    /**
+     * Cancela la actividad principal si es PUNTUAL
+     */
+    private void cancelarActividadSiEsPuntual(String actividadId, String motivo) {
+        DocumentReference actRef = db.collection("activities").document(actividadId);
+
+        actRef.get().addOnSuccessListener(doc -> {
+            if (doc != null && doc.exists()) {
+                String periodicidad = doc.getString("periodicidad");
+                if ("PUNTUAL".equalsIgnoreCase(periodicidad)) {
+                    // Es PUNTUAL, cancelar también la actividad principal
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("estado", "cancelada");
+                    updates.put("motivo_cancelacion", motivo);
+                    updates.put("fecha_cancelacion", Timestamp.now());
+
+                    String userId = roleManager.getCurrentUserId();
+                    if (userId != null) {
+                        updates.put("lastModifiedBy", userId);
+                    }
+
+                    actRef.update(updates)
+                            .addOnSuccessListener(unused ->
+                                android.util.Log.d("CancelarSheet", "✅ Actividad PUNTUAL cancelada"))
+                            .addOnFailureListener(e ->
+                                android.util.Log.e("CancelarSheet", "❌ Error cancelando actividad principal: " + e.getMessage()));
+                }
+            }
+        }).addOnFailureListener(e ->
+            android.util.Log.e("CancelarSheet", "❌ Error obteniendo actividad: " + e.getMessage()));
     }
 
     private void registrarAuditoria(String accion, String motivo){

@@ -486,75 +486,78 @@ public class LugaresFragment extends Fragment {
     }
 
     /**
-     * Actualiza todas las actividades que usan este lugar, poniendo el campo en null
+     * Actualiza todas las actividades completadas/canceladas que usan este lugar, poniendo el campo como "--"
      */
     private void actualizarActividadesAlEliminar(String nombre) {
-        android.util.Log.d("Lugares", "🗑️ Actualizando actividades que usaban lugar: " + nombre);
+        android.util.Log.d("Lugares", "🔄 Actualizando lugar a '--' en actividades completadas/canceladas");
 
         // Buscar actividades con ese lugar (campo "lugar")
         db.collection("activities")
                 .whereEqualTo("lugar", nombre)
-                .get()
+                .get(com.google.firebase.firestore.Source.SERVER)
                 .addOnSuccessListener(querySnapshot -> {
-                    android.util.Log.d("Lugares", "🔍 Encontradas " + querySnapshot.size() + " actividades con lugar='" + nombre + "'");
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("lugar", null);
-                        updates.put("lugarNombre", null);
-                        updates.put("lugarId", null);
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    final int[] count = {0};
 
-                        doc.getReference().update(updates)
-                                .addOnSuccessListener(aVoid -> android.util.Log.d("Lugares", "✅ Actividad actualizada: " + doc.getId()))
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        boolean esCompletada = estado != null &&
+                            (estado.equalsIgnoreCase("completada") ||
+                             estado.equalsIgnoreCase("finalizada") ||
+                             estado.equalsIgnoreCase("cancelada") ||
+                             estado.equalsIgnoreCase("completed") ||
+                             estado.equalsIgnoreCase("canceled"));
+
+                        if (esCompletada) {
+                            Map<String, Object> updates = new HashMap<>();
+                            updates.put("lugar", "--");
+                            updates.put("lugarNombre", "--");
+                            batch.update(doc.getReference(), updates);
+                            count[0]++;
+                        }
+                    }
+
+                    if (count[0] > 0) {
+                        batch.commit()
+                                .addOnSuccessListener(unused -> android.util.Log.d("Lugares", "✅ Actualizadas " + count[0] + " actividades"))
                                 .addOnFailureListener(e -> android.util.Log.e("Lugares", "❌ Error: " + e.getMessage()));
                     }
-                });
+                })
+                .addOnFailureListener(e -> android.util.Log.e("Lugares", "❌ Error obteniendo actividades: " + e.getMessage()));
 
         // Buscar por campo "lugarNombre"
         db.collection("activities")
                 .whereEqualTo("lugarNombre", nombre)
-                .get()
+                .get(com.google.firebase.firestore.Source.SERVER)
                 .addOnSuccessListener(querySnapshot -> {
-                    android.util.Log.d("Lugares", "🔍 Encontradas " + querySnapshot.size() + " actividades con lugarNombre='" + nombre + "'");
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("lugar", null);
-                        updates.put("lugarNombre", null);
-                        updates.put("lugarId", null);
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    final int[] count = {0};
 
-                        doc.getReference().update(updates)
-                                .addOnSuccessListener(aVoid -> android.util.Log.d("Lugares", "✅ Actividad actualizada: " + doc.getId()))
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        boolean esCompletada = estado != null &&
+                            (estado.equalsIgnoreCase("completada") ||
+                             estado.equalsIgnoreCase("finalizada") ||
+                             estado.equalsIgnoreCase("cancelada") ||
+                             estado.equalsIgnoreCase("completed") ||
+                             estado.equalsIgnoreCase("canceled"));
+
+                        if (esCompletada) {
+                            Map<String, Object> updates = new HashMap<>();
+                            updates.put("lugar", "--");
+                            updates.put("lugarNombre", "--");
+                            batch.update(doc.getReference(), updates);
+                            count[0]++;
+                        }
+                    }
+
+                    if (count[0] > 0) {
+                        batch.commit()
+                                .addOnSuccessListener(unused -> android.util.Log.d("Lugares", "✅ Actualizadas " + count[0] + " actividades por lugarNombre"))
                                 .addOnFailureListener(e -> android.util.Log.e("Lugares", "❌ Error: " + e.getMessage()));
                     }
-                });
-
-        // Buscar en colección "actividades" (ES)
-        db.collection("actividades")
-                .whereEqualTo("lugar", nombre)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("lugar", null);
-                        updates.put("lugarNombre", null);
-                        updates.put("lugarId", null);
-
-                        doc.getReference().update(updates);
-                    }
-                });
-
-        db.collection("actividades")
-                .whereEqualTo("lugarNombre", nombre)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("lugar", null);
-                        updates.put("lugarNombre", null);
-                        updates.put("lugarId", null);
-
-                        doc.getReference().update(updates);
-                    }
-                });
+                })
+                .addOnFailureListener(e -> android.util.Log.e("Lugares", "❌ Error: " + e.getMessage()));
     }
 
     private static class ResultadoValidacion {

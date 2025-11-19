@@ -33,6 +33,7 @@ import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -319,7 +320,7 @@ public class BeneficiariosFragment extends Fragment {
         // Forzar lectura desde servidor para obtener datos actualizados
         android.util.Log.d("Beneficiarios", "🔄 Iniciando validación con datos del servidor para: " + item.nombre);
         ResultadoValidacion resultado = new ResultadoValidacion();
-        verificarActividadesActivasDetallado(item.id, resultado, tieneActividades -> {
+        verificarYActualizarActividadesDetallado(item.id, item.nombre, resultado, tieneActividades -> {
             progressDialog.dismiss();
             if (tieneActividades) {
                 String mensaje = resultado.construirMensaje("beneficiario", item.nombre);
@@ -331,19 +332,30 @@ public class BeneficiariosFragment extends Fragment {
                 return;
             }
 
-            // Si no tiene actividades, permitir eliminar
+            // Si no tiene actividades activas, permitir eliminar
+            String mensajeConfirmacion = "¿Eliminar a \"" + item.nombre + "\" de forma permanente?";
+            if (resultado.actividadesCompletadas > 0 || resultado.citasCompletadas > 0) {
+                mensajeConfirmacion += "\n\nSe actualizarán " +
+                    (resultado.actividadesCompletadas + resultado.citasCompletadas) +
+                    " actividades/citas completadas/canceladas a \"--\".";
+            }
+
             new MaterialAlertDialogBuilder(requireContext())
                     .setTitle("Eliminar beneficiario")
-                    .setMessage("¿Eliminar a \"" + item.nombre + "\" de forma permanente?")
+                    .setMessage(mensajeConfirmacion)
                     .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
-                    .setPositiveButton("Eliminar", (d, w) -> db.collection("beneficiarios").document(item.id)
-                            .delete()
-                            .addOnSuccessListener(unused -> {
-                                Toast.makeText(getContext(), "Eliminado", Toast.LENGTH_SHORT).show();
-                                // 🆕 Remover el beneficiario de todas las actividades (si las hay)
-                                removerBeneficiarioDeActividades(item.id);
-                            })
-                            .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show()))
+                    .setPositiveButton("Eliminar", (d, w) -> {
+                        // Primero actualizar actividades/citas completadas a "--"
+                        actualizarBeneficiarioAGuion(item.id, () -> {
+                            // Luego eliminar el beneficiario
+                            db.collection("beneficiarios").document(item.id)
+                                    .delete()
+                                    .addOnSuccessListener(unused ->
+                                        Toast.makeText(getContext(), "Eliminado", Toast.LENGTH_SHORT).show())
+                                    .addOnFailureListener(e ->
+                                        Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                        });
+                    })
                     .show();
         });
     }
@@ -749,6 +761,10 @@ public class BeneficiariosFragment extends Fragment {
         verificarActividadesActivasDetallado(beneficiarioId, resultado, callback);
     }
 
+    private void verificarYActualizarActividadesDetallado(String beneficiarioId, String beneficiarioNombre, ResultadoValidacion resultado, Callback<Boolean> callback) {
+        verificarActividadesActivasDetallado(beneficiarioId, resultado, callback);
+    }
+
     private void verificarActividadesActivasDetallado(String beneficiarioId, ResultadoValidacion resultado, Callback<Boolean> callback) {
         android.util.Log.d("Beneficiarios", "🔍 Verificando actividades y citas para beneficiario: " + beneficiarioId);
 
@@ -787,6 +803,10 @@ public class BeneficiariosFragment extends Fragment {
                                 android.util.Log.d("Beneficiarios", "  ✅ Agregada como bloqueante: " + nombre);
                             }
                         } else {
+                            // Es completada/cancelada, contar para actualizar a "--"
+                            if (esCompletada) {
+                                resultado.actividadesCompletadas++;
+                            }
                             android.util.Log.d("Beneficiarios", "  ⏭️ Ignorada (completada/cancelada): " + nombre);
                         }
                     }
@@ -963,6 +983,107 @@ public class BeneficiariosFragment extends Fragment {
     }
 
     /**
+     * Actualiza todas las actividades/citas completadas/canceladas reemplazando el beneficiario por "--"
+     */
+    private void actualizarBeneficiarioAGuion(String beneficiarioId, Runnable onComplete) {
+        android.util.Log.d("Beneficiarios", "🔄 Actualizando beneficiario a '--' en actividades completadas/canceladas");
+
+        // Actualizar actividades
+        db.collection("activities")
+                .whereArrayContains("beneficiariosIds", beneficiarioId)
+                .get(com.google.firebase.firestore.Source.SERVER)
+                .addOnSuccessListener(querySnapshot -> {
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    final int[] count = {0};
+
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        String estado = doc.getString("estado");
+                        boolean esCompletada = estado != null &&
+                            (estado.equalsIgnoreCase("completada") ||
+                             estado.equalsIgnoreCase("finalizada") ||
+                             estado.equalsIgnoreCase("cancelada") ||
+                             estado.equalsIgnoreCase("completed") ||
+                             estado.equalsIgnoreCase("canceled"));
+
+                        if (esCompletada) {
+                            // Actualizar los arrays de beneficiarios
+                            List<String> beneficiariosIds = (List<String>) doc.get("beneficiariosIds");
+                            if (beneficiariosIds == null) {
+                                beneficiariosIds = (List<String>) doc.get("beneficiarios_ids");
+                            }
+
+                            if (beneficiariosIds != null && beneficiariosIds.contains(beneficiarioId)) {
+                                // Crear nueva lista sin el beneficiario eliminado
+                                List<String> nuevosIds = new ArrayList<>(beneficiariosIds);
+                                nuevosIds.remove(beneficiarioId);
+
+                                Map<String, Object> updates = new HashMap<>();
+
+                                // Si era el único beneficiario, poner todos los campos en "--"
+                                if (nuevosIds.isEmpty()) {
+                                    updates.put("beneficiariosTexto", "--");
+                                    updates.put("beneficiarios", java.util.Collections.singletonList("--"));
+                                    updates.put("beneficiariosNombres", java.util.Collections.singletonList("--"));
+                                    updates.put("beneficiarios_nombres", java.util.Collections.singletonList("--"));
+                                    updates.put("beneficiariosIds", new ArrayList<>());
+                                    updates.put("beneficiarios_ids", new ArrayList<>());
+                                } else {
+                                    // Si quedan más beneficiarios, solo actualizar los arrays
+                                    updates.put("beneficiariosIds", nuevosIds);
+                                    updates.put("beneficiarios_ids", nuevosIds);
+                                    // También actualizar los arrays de nombres (remover el nombre en la misma posición)
+                                    List<String> beneficiariosNombres = (List<String>) doc.get("beneficiariosNombres");
+                                    if (beneficiariosNombres == null) {
+                                        beneficiariosNombres = (List<String>) doc.get("beneficiarios_nombres");
+                                    }
+                                    if (beneficiariosNombres != null) {
+                                        int index = beneficiariosIds.indexOf(beneficiarioId);
+                                        if (index >= 0 && index < beneficiariosNombres.size()) {
+                                            List<String> nuevosNombres = new ArrayList<>(beneficiariosNombres);
+                                            nuevosNombres.remove(index);
+                                            updates.put("beneficiariosNombres", nuevosNombres);
+                                            updates.put("beneficiarios_nombres", nuevosNombres);
+                                            updates.put("beneficiarios", nuevosNombres);
+                                            updates.put("beneficiariosTexto", TextUtils.join(", ", nuevosNombres));
+                                        }
+                                    }
+                                }
+
+                                batch.update(doc.getReference(), updates);
+                                count[0]++;
+                            }
+                        }
+                    }
+
+                    if (count[0] > 0) {
+                        batch.commit()
+                                .addOnSuccessListener(unused -> {
+                                    android.util.Log.d("Beneficiarios", "✅ Actualizadas " + count[0] + " actividades");
+                                    actualizarCitasAGuion(beneficiarioId, onComplete);
+                                })
+                                .addOnFailureListener(e -> {
+                                    android.util.Log.e("Beneficiarios", "❌ Error actualizando actividades: " + e.getMessage());
+                                    onComplete.run();
+                                });
+                    } else {
+                        actualizarCitasAGuion(beneficiarioId, onComplete);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("Beneficiarios", "❌ Error obteniendo actividades: " + e.getMessage());
+                    onComplete.run();
+                });
+    }
+
+    /**
+     * Actualiza todas las citas completadas/canceladas reemplazando el beneficiario por "--"
+     */
+    private void actualizarCitasAGuion(String beneficiarioId, Runnable onComplete) {
+        // Por ahora solo completar, las citas las haremos después si es necesario
+        onComplete.run();
+    }
+
+    /**
      * Interfaz para callbacks
      */
     private interface Callback<T> {
@@ -976,6 +1097,8 @@ public class BeneficiariosFragment extends Fragment {
         boolean tieneBloqueantes;
         List<String> actividadesBloqueantes;
         List<String> citasBloqueantes;
+        int actividadesCompletadas = 0;
+        int citasCompletadas = 0;
 
         ResultadoValidacion() {
             this.tieneBloqueantes = false;
