@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.Lugar;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.centroalerce.ui.mantenedores.adapter.LugarAdapter;
 import com.centroalerce.ui.mantenedores.dialog.LugarDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -90,16 +91,23 @@ public class LugaresFragment extends Fragment {
     private void abrirDialogo(@Nullable Lugar original) {
         LugarDialog dialog = new LugarDialog(original, lugar -> {
             if (lugar.getId() == null) {
-                db.collection("lugares").add(lugar);
+                db.collection("lugares").add(lugar)
+                        .addOnSuccessListener(documentReference ->
+                            CustomToast.showSuccess(getContext(), "Lugar creado con éxito"))
+                        .addOnFailureListener(e ->
+                            CustomToast.showError(getContext(), "Error al crear: " + e.getMessage()));
             } else {
                 db.collection("lugares").document(lugar.getId()).set(lugar)
                         .addOnSuccessListener(aVoid -> {
+                            CustomToast.showSuccess(getContext(), "Lugar actualizado con éxito");
                             // 🆕 Actualizar el nombre en todas las actividades que usan este lugar
                             if (original != null && !lugar.getNombre().equals(original.getNombre())) {
                                 android.util.Log.d("Lugares", "🔄 Nombre cambió de '" + original.getNombre() + "' a '" + lugar.getNombre() + "' - actualizando actividades...");
                                 actualizarNombreEnActividades(original.getNombre(), lugar.getNombre());
                             }
-                        });
+                        })
+                        .addOnFailureListener(e ->
+                            CustomToast.showError(getContext(), "Error al actualizar: " + e.getMessage()));
             }
         });
         dialog.show(getParentFragmentManager(), "LugarDialog");
@@ -196,9 +204,16 @@ public class LugaresFragment extends Fragment {
     private void confirmarEliminar(Lugar item) {
         if (item == null || item.getId() == null) return;
 
+        // Mostrar diálogo de carga mientras se verifican las actividades
+        android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
+        progressDialog.setMessage("Verificando actividades asociadas...");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
+
         // Validar que no haya actividades activas usando este lugar
         ResultadoValidacion resultado = new ResultadoValidacion();
         verificarActividadesActivasDetallado(item.getNombre(), resultado, tieneActividades -> {
+            progressDialog.dismiss();
             if (tieneActividades) {
                 String mensaje = resultado.construirMensaje("lugar", item.getNombre());
                 new MaterialAlertDialogBuilder(requireContext())
@@ -217,11 +232,11 @@ public class LugaresFragment extends Fragment {
                     .setPositiveButton("Eliminar", (d, w) -> db.collection("lugares").document(item.getId())
                             .delete()
                             .addOnSuccessListener(unused -> {
-                                android.widget.Toast.makeText(getContext(), "Eliminado", android.widget.Toast.LENGTH_SHORT).show();
+                                CustomToast.showSuccess(getContext(), "Lugar eliminado con éxito");
                                 // Actualizar actividades poniendo el campo en null
                                 actualizarActividadesAlEliminar(item.getNombre());
                             })
-                            .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show()))
+                            .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error al eliminar: " + e.getMessage())))
                     .show();
         });
     }
@@ -248,13 +263,13 @@ public class LugaresFragment extends Fragment {
                 // Si no tiene actividades, permitir desactivar
                 db.collection("lugares").document(item.getId())
                         .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
-                        .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                        .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
             });
         } else {
             // Si se va a activar, no necesita validación
             db.collection("lugares").document(item.getId())
                     .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
-                    .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                    .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
         }
     }
 

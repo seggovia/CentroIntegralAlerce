@@ -279,52 +279,6 @@
                 android:textColor="@color/textPrimary"
                 android:layout_marginBottom="12dp"/>
 
-            <!-- Editar perfil -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardEditarPerfil"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?android:attr/selectableItemBackground"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
-                app:strokeColor="@color/cardStroke"
-                app:strokeWidth="1dp"
-                app:cardBackgroundColor="@color/card_surface">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_edit"
-                        app:tint="@color/primary"/>
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="16dp"
-                        android:text="Editar información"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:textColor="@color/textPrimary"/>
-
-                    <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:src="@android:drawable/ic_menu_info_details"
-                        app:tint="@color/textSecondary"/>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
             <!-- Cambiar contraseña -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardCambiarPassword"

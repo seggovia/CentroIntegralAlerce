@@ -9,6 +9,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.*;
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.TipoActividad;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.centroalerce.ui.mantenedores.adapter.TipoActividadAdapter;
 import com.centroalerce.ui.mantenedores.dialog.TipoActividadDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -69,10 +70,10 @@ public class TiposActividadFragment extends Fragment {
                         .addOnSuccessListener(docRef -> {
                             // Actualizar el ID generado
                             docRef.update("id", docRef.getId());
-                            Toast.makeText(getContext(), "Tipo creado exitosamente", Toast.LENGTH_SHORT).show();
+                            CustomToast.showSuccess(getContext(), "Tipo de actividad creado con éxito");
                         })
                         .addOnFailureListener(e ->
-                                Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                                CustomToast.showError(getContext(), "Error al crear: " + e.getMessage()));
             } else {
                 // ACTUALIZAR EXISTENTE
                 db.collection("tiposActividad").document(t.getId()).set(t)
@@ -82,10 +83,10 @@ public class TiposActividadFragment extends Fragment {
                                 android.util.Log.d("TiposActividad", "🔄 Nombre cambió de '" + original.getNombre() + "' a '" + t.getNombre() + "' - actualizando actividades...");
                                 actualizarNombreEnActividades(original.getNombre(), t.getNombre());
                             }
-                            Toast.makeText(getContext(), "Tipo actualizado exitosamente", Toast.LENGTH_SHORT).show();
+                            CustomToast.showSuccess(getContext(), "Tipo de actividad actualizado con éxito");
                         })
                         .addOnFailureListener(e ->
-                                Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                                CustomToast.showError(getContext(), "Error al actualizar: " + e.getMessage()));
             }
         }).show(getParentFragmentManager(), "TipoActividadDialog");
     }
@@ -180,9 +181,16 @@ public class TiposActividadFragment extends Fragment {
     private void confirmarEliminar(TipoActividad item) {
         if (item == null || item.getId() == null) return;
 
+        // Mostrar diálogo de carga mientras se verifican las actividades
+        android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
+        progressDialog.setMessage("Verificando actividades asociadas...");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
+
         // 🆕 Validar que no haya actividades activas usando este tipo
         ResultadoValidacion resultado = new ResultadoValidacion();
         verificarActividadesActivasDetallado(item.getNombre(), resultado, tieneActividades -> {
+            progressDialog.dismiss();
             if (tieneActividades) {
                 String mensaje = resultado.construirMensaje("tipo de actividad", item.getNombre());
                 new MaterialAlertDialogBuilder(requireContext())
@@ -201,11 +209,11 @@ public class TiposActividadFragment extends Fragment {
                     .setPositiveButton("Eliminar", (d, w) -> db.collection("tiposActividad").document(item.getId())
                             .delete()
                             .addOnSuccessListener(unused -> {
-                                Toast.makeText(getContext(), "Eliminado", Toast.LENGTH_SHORT).show();
+                                CustomToast.showSuccess(getContext(), "Tipo de actividad eliminado con éxito");
                                 // Actualizar actividades poniendo el campo en null
                                 actualizarActividadesAlEliminar(item.getNombre());
                             })
-                            .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show()))
+                            .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error al eliminar: " + e.getMessage())))
                     .show();
         });
     }
@@ -232,13 +240,13 @@ public class TiposActividadFragment extends Fragment {
                 // Si no tiene actividades, permitir desactivar
                 db.collection("tiposActividad").document(item.getId())
                         .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
-                        .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                        .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
             });
         } else {
             // Si se va a activar, no necesita validación
             db.collection("tiposActividad").document(item.getId())
                     .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
-                    .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                    .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
         }
     }
 

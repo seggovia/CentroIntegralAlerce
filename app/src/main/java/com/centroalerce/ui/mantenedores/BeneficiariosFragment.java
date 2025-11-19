@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.centroalerce.gestion.utils.ValidationUtils;
 import com.centroalerce.ui.mantenedores.adapter.BeneficiarioAdapter;
 import com.google.android.material.button.MaterialButton;            // ← NUEVO
@@ -281,10 +282,10 @@ public class BeneficiariosFragment extends Fragment {
             if (editar == null) {
                 db.collection("beneficiarios").add(data)
                         .addOnSuccessListener(ref -> {
-                            Toast.makeText(getContext(), "✅ Beneficiario creado", Toast.LENGTH_SHORT).show();
+                            CustomToast.showSuccess(getContext(), "Beneficiario creado con éxito");
                             dialog.dismiss();
                         })
-                        .addOnFailureListener(e -> Toast.makeText(getContext(), "❌ Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                        .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
             } else {
                 db.collection("beneficiarios").document(editar.id).update(data)
                         .addOnSuccessListener(unused -> {
@@ -293,10 +294,10 @@ public class BeneficiariosFragment extends Fragment {
                                 android.util.Log.d("Beneficiarios", "🔄 Nombre cambió de '" + editar.nombre + "' a '" + nombre + "' - actualizando actividades...");
                                 actualizarNombreEnActividades(editar.id, nombre);
                             }
-                            Toast.makeText(getContext(), "✅ Beneficiario actualizado", Toast.LENGTH_SHORT).show();
+                            CustomToast.showSuccess(getContext(), "Beneficiario actualizado con éxito");
                             dialog.dismiss();
                         })
-                        .addOnFailureListener(e -> Toast.makeText(getContext(), "❌ Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                        .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
             }
         });
     }
@@ -351,9 +352,9 @@ public class BeneficiariosFragment extends Fragment {
                             db.collection("beneficiarios").document(item.id)
                                     .delete()
                                     .addOnSuccessListener(unused ->
-                                        Toast.makeText(getContext(), "Eliminado", Toast.LENGTH_SHORT).show())
+                                        CustomToast.showSuccess(getContext(), "Beneficiario eliminado con éxito"))
                                     .addOnFailureListener(e ->
-                                        Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                                        CustomToast.showError(getContext(), "Error al eliminar: " + e.getMessage()));
                         });
                     })
                     .show();
@@ -380,13 +381,13 @@ public class BeneficiariosFragment extends Fragment {
                 // Si no tiene actividades, permitir desactivar
                 db.collection("beneficiarios").document(item.id)
                         .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
-                        .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                        .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
             });
         } else {
             // Si se va a activar, no necesita validación
             db.collection("beneficiarios").document(item.id)
                     .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
-                    .addOnFailureListener(e -> Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                    .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
         }
     }
 

@@ -8,6 +8,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.*;
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.Proyecto;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.centroalerce.ui.mantenedores.adapter.ProyectoAdapter;
 import com.centroalerce.ui.mantenedores.dialog.ProyectoDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -62,16 +63,23 @@ public class ProyectosFragment extends Fragment {
     private void abrirDialogo(@Nullable Proyecto original){
         new ProyectoDialog(original, p -> {
             if(p.getId()==null) {
-                db.collection("proyectos").add(p);
+                db.collection("proyectos").add(p)
+                        .addOnSuccessListener(documentReference ->
+                            CustomToast.showSuccess(getContext(), "Proyecto creado con éxito"))
+                        .addOnFailureListener(e ->
+                            CustomToast.showError(getContext(), "Error al crear: " + e.getMessage()));
             } else {
                 db.collection("proyectos").document(p.getId()).set(p)
                         .addOnSuccessListener(unused -> {
+                            CustomToast.showSuccess(getContext(), "Proyecto actualizado con éxito");
                             // 🆕 Actualizar el nombre en todas las actividades que usan este proyecto
                             if (original != null && !p.getNombre().equals(original.getNombre())) {
                                 android.util.Log.d("Proyectos", "🔄 Nombre cambió de '" + original.getNombre() + "' a '" + p.getNombre() + "' - actualizando actividades...");
                                 actualizarNombreEnActividades(original.getNombre(), p.getNombre());
                             }
-                        });
+                        })
+                        .addOnFailureListener(e ->
+                            CustomToast.showError(getContext(), "Error al actualizar: " + e.getMessage()));
             }
         }).show(getParentFragmentManager(),"ProyectoDialog");
     }
@@ -166,9 +174,16 @@ public class ProyectosFragment extends Fragment {
     private void confirmarEliminar(Proyecto item) {
         if (item == null || item.getId() == null) return;
 
+        // Mostrar diálogo de carga mientras se verifican las actividades
+        android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
+        progressDialog.setMessage("Verificando actividades asociadas...");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
+
         // 🆕 Validar que no haya actividades activas usando este proyecto
         ResultadoValidacion resultado = new ResultadoValidacion();
         verificarActividadesActivasDetallado(item.getNombre(), resultado, tieneActividades -> {
+            progressDialog.dismiss();
             if (tieneActividades) {
                 String mensaje = resultado.construirMensaje("proyecto", item.getNombre());
                 new MaterialAlertDialogBuilder(requireContext())
@@ -187,11 +202,11 @@ public class ProyectosFragment extends Fragment {
                     .setPositiveButton("Eliminar", (d, w) -> db.collection("proyectos").document(item.getId())
                             .delete()
                             .addOnSuccessListener(unused -> {
-                                android.widget.Toast.makeText(getContext(), "Eliminado", android.widget.Toast.LENGTH_SHORT).show();
+                                CustomToast.showSuccess(getContext(), "Proyecto eliminado con éxito");
                                 // Actualizar actividades poniendo el campo en null
                                 actualizarActividadesAlEliminar(item.getNombre());
                             })
-                            .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show()))
+                            .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error al eliminar: " + e.getMessage())))
                     .show();
         });
     }
@@ -218,13 +233,13 @@ public class ProyectosFragment extends Fragment {
                 // Si no tiene actividades, permitir desactivar
                 db.collection("proyectos").document(item.getId())
                         .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
-                        .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                        .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
             });
         } else {
             // Si se va a activar, no necesita validación
             db.collection("proyectos").document(item.getId())
                     .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
-                    .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                    .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
         }
     }
 

@@ -8,6 +8,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.*;
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.SocioComunitario;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.centroalerce.ui.mantenedores.adapter.SocioAdapter;
 import com.centroalerce.ui.mantenedores.dialog.SocioDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -62,16 +63,23 @@ public class SociosFragment extends Fragment {
     private void abrirDialogo(@Nullable SocioComunitario original){
         new SocioDialog(original, s -> {
             if(s.getId()==null) {
-                db.collection("socios").add(s);
+                db.collection("socios").add(s)
+                        .addOnSuccessListener(documentReference ->
+                            CustomToast.showSuccess(getContext(), "Socio comunitario creado con éxito"))
+                        .addOnFailureListener(e ->
+                            CustomToast.showError(getContext(), "Error al crear: " + e.getMessage()));
             } else {
                 db.collection("socios").document(s.getId()).set(s)
                         .addOnSuccessListener(unused -> {
+                            CustomToast.showSuccess(getContext(), "Socio comunitario actualizado con éxito");
                             // 🆕 Actualizar el nombre en todas las actividades que usan este socio
                             if (original != null && !s.getNombre().equals(original.getNombre())) {
                                 android.util.Log.d("Socios", "🔄 Nombre cambió de '" + original.getNombre() + "' a '" + s.getNombre() + "' - actualizando actividades...");
                                 actualizarNombreEnActividades(original.getNombre(), s.getNombre());
                             }
-                        });
+                        })
+                        .addOnFailureListener(e ->
+                            CustomToast.showError(getContext(), "Error al actualizar: " + e.getMessage()));
             }
         }).show(getParentFragmentManager(),"SocioDialog");
     }
@@ -199,9 +207,16 @@ public class SociosFragment extends Fragment {
     private void confirmarEliminar(SocioComunitario item) {
         if (item == null || item.getId() == null) return;
 
+        // Mostrar diálogo de carga mientras se verifican las actividades
+        android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
+        progressDialog.setMessage("Verificando actividades asociadas...");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
+
         // Validar que no haya actividades activas usando este socio
         ResultadoValidacion resultado = new ResultadoValidacion();
         verificarActividadesActivasDetallado(item.getNombre(), resultado, tieneActividades -> {
+            progressDialog.dismiss();
             if (tieneActividades) {
                 String mensaje = resultado.construirMensaje("socio comunitario", item.getNombre());
                 new MaterialAlertDialogBuilder(requireContext())
@@ -220,11 +235,11 @@ public class SociosFragment extends Fragment {
                     .setPositiveButton("Eliminar", (d, w) -> db.collection("socios").document(item.getId())
                             .delete()
                             .addOnSuccessListener(unused -> {
-                                android.widget.Toast.makeText(getContext(), "Eliminado", android.widget.Toast.LENGTH_SHORT).show();
+                                CustomToast.showSuccess(getContext(), "Socio comunitario eliminado con éxito");
                                 // Actualizar actividades poniendo el campo en null
                                 actualizarActividadesAlEliminar(item.getNombre());
                             })
-                            .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show()))
+                            .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error al eliminar: " + e.getMessage())))
                     .show();
         });
     }
@@ -251,13 +266,13 @@ public class SociosFragment extends Fragment {
                 // Si no tiene actividades, permitir desactivar
                 db.collection("socios").document(item.getId())
                         .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
-                        .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                        .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
             });
         } else {
             // Si se va a activar, no necesita validación
             db.collection("socios").document(item.getId())
                     .update("activo", nuevo, "updatedAt", FieldValue.serverTimestamp())
-                    .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                    .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error: " + e.getMessage()));
         }
     }
 

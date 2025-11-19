@@ -20,6 +20,7 @@ import android.widget.TextView;
 import android.widget.AutoCompleteTextView;
 
 import com.centroalerce.gestion.utils.ActividadValidator;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.centroalerce.gestion.utils.DateUtils;
 import com.centroalerce.gestion.utils.ValidationResult;
 import com.centroalerce.gestion.repositories.LugarRepository;
@@ -985,7 +986,6 @@ public class ActivityFormFragment extends Fragment {
         }
 
         btnGuardar.setEnabled(false);
-        btnGuardar.setText("Validando...");
 
         boolean modoPeriodica = (tgPeriodicidad.getCheckedButtonId() == R.id.btnPeriodica);
         String fecha = getText(etFecha);
@@ -1004,7 +1004,6 @@ public class ActivityFormFragment extends Fragment {
             }
             Snackbar.make(root, "Completa Fecha y Hora", Snackbar.LENGTH_SHORT).show();
             btnGuardar.setEnabled(true);
-            btnGuardar.setText("Guardar actividad");
             return;
         }
 
@@ -1013,7 +1012,6 @@ public class ActivityFormFragment extends Fragment {
             if (fechaInicioPeriodo == null || fechaFinPeriodo == null) {
                 Snackbar.make(root, "Configura el rango de fechas en la periodicidad", Snackbar.LENGTH_LONG).show();
                 btnGuardar.setEnabled(true);
-                btnGuardar.setText("Guardar actividad");
                 return;
             }
 
@@ -1194,24 +1192,30 @@ public class ActivityFormFragment extends Fragment {
                     aRevisar.add(startAtPuntual);
                 }
 
-                btnGuardar.setText("Verificando horarios...");
+                // Mostrar diálogo de progreso para verificación
+                android.app.ProgressDialog verificandoDialog = new android.app.ProgressDialog(requireContext());
+                verificandoDialog.setMessage("Verificando horarios...");
+                verificandoDialog.setCancelable(false);
+                verificandoDialog.show();
+
                 android.util.Log.d("FORM", "🔍 Iniciando verificación de conflictos para lugar: " + lugar.getNombre());
 
                 verificarConflictosConValidacion(lugar.getNombre(), aRevisar, new ConflictoCallback() {
                     @Override
                     public void onConflictoDetectado(String mensaje) {
+                        verificandoDialog.dismiss();
                         android.util.Log.w("FORM", "⚠️ CONFLICTO DETECTADO: " + mensaje);
                         mostrarDialogoConflicto(mensaje, root);
                         btnGuardar.setEnabled(true);
-                        btnGuardar.setText("Guardar actividad");
                     }
 
                     @Override
                     public void onSinConflictos() {
+                        // Cambiar el mensaje del diálogo en lugar de cerrarlo
+                        verificandoDialog.setMessage("Guardando actividad...");
                         android.util.Log.d("FORM", "✅ Sin conflictos - procediendo a guardar");
-                        btnGuardar.setText("Guardando...");
                         subirAdjuntosYGuardar(
-                                root,
+                                root, verificandoDialog,
                                 nombreFinal, tipoActividadFinal, cupoFinal,
                                 oferenteFinal, socioFinal, null,
                                 lugarFinal, modoPeriodicaFinal,
@@ -1222,10 +1226,10 @@ public class ActivityFormFragment extends Fragment {
 
                     @Override
                     public void onError(String error) {
+                        verificandoDialog.dismiss();
                         android.util.Log.e("FORM", "❌ Error en validación: " + error);
                         Snackbar.make(root, "Error al validar: " + error, Snackbar.LENGTH_LONG).show();
                         btnGuardar.setEnabled(true);
-                        btnGuardar.setText("Guardar actividad");
                     }
                 });
             }
@@ -1234,12 +1238,11 @@ public class ActivityFormFragment extends Fragment {
             public void onError(String error) {
                 Snackbar.make(root, "Error al obtener lugar: " + error, Snackbar.LENGTH_LONG).show();
                 btnGuardar.setEnabled(true);
-                btnGuardar.setText("Guardar actividad");
             }
         });
     }
 
-    private void subirAdjuntosYGuardar(View root,
+    private void subirAdjuntosYGuardar(View root, android.app.ProgressDialog progressDialog,
                                        String nombre, String tipoActividad, Integer cupo,
                                        String oferente, String socio, String beneficiarios,
                                        String lugar, boolean modoPeriodica,
@@ -1251,7 +1254,7 @@ public class ActivityFormFragment extends Fragment {
 
         if (attachmentUris.isEmpty()) {
             android.util.Log.d("FS-UPLOAD", "✅ Sin archivos adjuntos - continuando");
-            escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
+            escribirActividadYCitas(root, progressDialog, activityId, nombre, tipoActividad, cupo, oferente, socio,
                     null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
             return;
         }
@@ -1265,12 +1268,12 @@ public class ActivityFormFragment extends Fragment {
                     .setTitle("Usuario no autenticado")
                     .setMessage("Debes estar autenticado para subir archivos. ¿Deseas guardar la actividad sin archivos?")
                     .setPositiveButton("Guardar sin archivos", (d, w) -> {
-                        escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
+                        escribirActividadYCitas(root, progressDialog, activityId, nombre, tipoActividad, cupo, oferente, socio,
                                 null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
                     })
                     .setNegativeButton("Cancelar", (d, w) -> {
+                        progressDialog.dismiss();
                         btnGuardar.setEnabled(true);
-                        btnGuardar.setText("Guardar actividad");
                     })
                     .show();
             return;
@@ -1397,39 +1400,45 @@ public class ActivityFormFragment extends Fragment {
                                         "3. Que los archivos no excedan 5MB\n\n" +
                                         "¿Deseas guardar la actividad sin archivos?")
                                 .setPositiveButton("Guardar sin archivos", (d, w) -> {
-                                    escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
+                                    escribirActividadYCitas(root, progressDialog, activityId, nombre, tipoActividad, cupo, oferente, socio,
                                             null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
                                 })
                                 .setNegativeButton("Cancelar", (d, w) -> {
+                                    progressDialog.dismiss();
                                     btnGuardar.setEnabled(true);
-                                    btnGuardar.setText("Guardar actividad");
                                 })
                                 .show();
                         return;
                     }
 
-                    escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
+                    escribirActividadYCitas(root, progressDialog, activityId, nombre, tipoActividad, cupo, oferente, socio,
                             null, lugar, modoPeriodica, startAtPuntual, timestamps, adj, proyecto, diasAvisoPrevio);
                 })
                 .addOnFailureListener(e -> {
                     android.util.Log.e("FS-UPLOAD", "❌ Error general al subir archivos: " + e.getMessage(), e);
+                    progressDialog.dismiss();
 
                     new MaterialAlertDialogBuilder(requireContext())
                             .setTitle("Error al subir archivos")
                             .setMessage("No se pudieron subir los archivos.\n\nError: " + e.getMessage() + "\n\n¿Deseas guardar sin archivos?")
                             .setPositiveButton("Guardar sin archivos", (d, w) -> {
-                                escribirActividadYCitas(root, activityId, nombre, tipoActividad, cupo, oferente, socio,
+                                // Crear nuevo ProgressDialog ya que el anterior fue cerrado
+                                android.app.ProgressDialog nuevoDialog = new android.app.ProgressDialog(requireContext());
+                                nuevoDialog.setMessage("Guardando actividad...");
+                                nuevoDialog.setCancelable(false);
+                                nuevoDialog.show();
+                                escribirActividadYCitas(root, nuevoDialog, activityId, nombre, tipoActividad, cupo, oferente, socio,
                                         null, lugar, modoPeriodica, startAtPuntual, timestamps, new ArrayList<>(), proyecto, diasAvisoPrevio);
                             })
                             .setNegativeButton("Cancelar", (d, w) -> {
                                 btnGuardar.setEnabled(true);
-                                btnGuardar.setText("Guardar actividad");
                             })
                             .show();
                 });
     }
 
-    private void escribirActividadYCitas(View root, String activityId,
+    private void escribirActividadYCitas(View root, android.app.ProgressDialog progressDialog,
+                                         String activityId,
                                          String nombre, String tipoActividad, Integer cupo,
                                          String oferente, String socio, String beneficiarios /*unused*/,
                                          String lugar, boolean modoPeriodica,
@@ -1437,6 +1446,8 @@ public class ActivityFormFragment extends Fragment {
                                          List<Timestamp> timestamps,
                                          List<Map<String, Object>> adjuntos,
                                          @Nullable String proyecto, int diasAvisoPrevio) {
+
+        // El ProgressDialog ya viene del método anterior, no lo creamos aquí
 
         List<String> oferentesList = splitToList(oferente);
 
@@ -1617,6 +1628,8 @@ public class ActivityFormFragment extends Fragment {
 
         batch.commit()
                 .addOnSuccessListener(ignored -> {
+                    progressDialog.dismiss();
+
                     android.util.Log.d("FS",
                             "✅ Actividad " + activityId + " creada con " + citaRefs.size() +
                                     " cita(s) y " + (adjuntos == null ? 0 : adjuntos.size()) + " adjunto(s)");
@@ -1648,18 +1661,18 @@ public class ActivityFormFragment extends Fragment {
                         ns.programarNotificacionesCita(c, act, usuariosNotificar);
                     }
 
-                    Snackbar.make(root,
+                    // Mostrar Toast personalizado de éxito
+                    CustomToast.showSuccess(getContext(),
                             modoPeriodica
-                                    ? "Actividad creada. " + timestamps.size() + " fechas programadas."
-                                    : "Actividad creada y cita generada.",
-                            Snackbar.LENGTH_LONG).show();
+                                    ? "Actividad creada con éxito. " + timestamps.size() + " fechas programadas."
+                                    : "Actividad creada con éxito");
 
                     Navigation.findNavController(root).popBackStack();
                 })
                 .addOnFailureListener(e -> {
+                    progressDialog.dismiss();
                     btnGuardar.setEnabled(true);
-                    btnGuardar.setText("Guardar actividad");
-                    Snackbar.make(root, "Error al guardar: " + e.getMessage(), Snackbar.LENGTH_LONG).show();
+                    CustomToast.showError(getContext(), "Error al guardar: " + e.getMessage());
                 });
     }
 

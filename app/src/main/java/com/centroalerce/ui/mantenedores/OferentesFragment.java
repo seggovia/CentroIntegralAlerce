@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.*;
 
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.Oferente;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.centroalerce.ui.mantenedores.adapter.OferenteAdapter;
 import com.centroalerce.ui.mantenedores.dialog.OferenteDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -84,11 +85,16 @@ public class OferentesFragment extends Fragment {
                 if (o.getId() == null || o.getId().isEmpty()) {
                     // Aseguramos que los nuevos queden activos
                     o.setActivo(true);
-                    db.collection(COL_OFERENTES).add(o);
+                    db.collection(COL_OFERENTES).add(o)
+                            .addOnSuccessListener(documentReference ->
+                                CustomToast.showSuccess(getContext(), "Oferente creado con éxito"))
+                            .addOnFailureListener(e ->
+                                CustomToast.showError(getContext(), "Error al crear: " + e.getMessage()));
                 } else {
                     // Guardar el oferente
                     db.collection(COL_OFERENTES).document(o.getId()).set(o)
                             .addOnSuccessListener(aVoid -> {
+                                CustomToast.showSuccess(getContext(), "Oferente actualizado con éxito");
                                 // 🆕 Actualizar el nombre en todas las actividades que usan este oferente
                                 if (original != null) {
                                     android.util.Log.d("Oferentes", "🔍 DEBUG: Comparando nombres:");
@@ -273,9 +279,16 @@ public class OferentesFragment extends Fragment {
     private void confirmarEliminar(Oferente item) {
         if (item == null || item.getId() == null || item.getId().isEmpty()) return;
 
+        // Mostrar diálogo de carga mientras se verifican las actividades
+        android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
+        progressDialog.setMessage("Verificando actividades asociadas...");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
+
         // 🆕 Validar que no haya actividades activas usando este oferente
         ResultadoValidacion resultado = new ResultadoValidacion();
         verificarActividadesActivasDetallado(item.getNombre(), resultado, tieneActividades -> {
+            progressDialog.dismiss();
             if (tieneActividades) {
                 String mensaje = resultado.construirMensaje("oferente", item.getNombre());
                 new MaterialAlertDialogBuilder(requireContext())
@@ -294,11 +307,11 @@ public class OferentesFragment extends Fragment {
                     .setPositiveButton("Eliminar", (d, w) -> db.collection(COL_OFERENTES).document(item.getId())
                             .delete()
                             .addOnSuccessListener(unused -> {
-                                android.widget.Toast.makeText(getContext(), "Eliminado", android.widget.Toast.LENGTH_SHORT).show();
+                                CustomToast.showSuccess(getContext(), "Oferente eliminado con éxito");
                                 // Actualizar actividades poniendo el campo en null
                                 actualizarActividadesAlEliminar(item.getNombre());
                             })
-                            .addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show()))
+                            .addOnFailureListener(e -> CustomToast.showError(getContext(), "Error al eliminar: " + e.getMessage())))
                     .show();
         });
     }
