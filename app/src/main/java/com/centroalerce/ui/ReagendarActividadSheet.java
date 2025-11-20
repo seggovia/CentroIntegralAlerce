@@ -8,6 +8,7 @@ import android.widget.Toast;
 import androidx.annotation.*;
 import com.centroalerce.gestion.R;
 // ✅ IMPORTS COMBINADOS de ambas ramas
+import com.centroalerce.gestion.utils.CustomToast;
 import com.centroalerce.gestion.utils.PermissionChecker;
 import com.centroalerce.gestion.utils.RoleManager;
 import com.centroalerce.gestion.repositories.LugarRepository;
@@ -199,23 +200,29 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
             return;
         }
 
+        // Crear ProgressDialog
+        android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
+        progressDialog.setMessage("Reagendando actividad...");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
+
         // ✅ Validar cupo del lugar si está definido
         if (!TextUtils.isEmpty(lugarNombreActual)) {
-            validarCupoYConflicto(motivo, nuevaFecha);
+            validarCupoYConflicto(motivo, nuevaFecha, progressDialog);
         } else {
             // Sin lugar definido, proceder directo
             if (!TextUtils.isEmpty(citaId)) {
-                reagendarCita(citaId, motivo, nuevaFecha);
+                reagendarCita(citaId, motivo, nuevaFecha, progressDialog);
             } else {
-                proximaCitaYReagendar(motivo, nuevaFecha);
+                proximaCitaYReagendar(motivo, nuevaFecha, progressDialog);
             }
         }
     }
 
     // ===== Validación de cupo del lugar =====
-    private void validarCupoYConflicto(String motivo, Date nuevaFecha) {
+    private void validarCupoYConflicto(String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog) {
         if (TextUtils.isEmpty(lugarNombreActual)) {
-            validarConflictoGlobal(motivo, nuevaFecha);
+            validarConflictoGlobal(motivo, nuevaFecha, progressDialog);
             return;
         }
 
@@ -226,7 +233,7 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                 .get()
                 .addOnSuccessListener(qs -> {
                     if (qs.isEmpty()) {
-                        validarConflictoGlobal(motivo, nuevaFecha);
+                        validarConflictoGlobal(motivo, nuevaFecha, progressDialog);
                         return;
                     }
 
@@ -237,6 +244,7 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                             if (lugar.tieneCupo() && cupoActividad != null) {
                                 ValidationResult validacionCupo = ActividadValidator.validarCupoLugar(lugar, cupoActividad);
                                 if (!validacionCupo.isValid()) {
+                                    progressDialog.dismiss();
                                     mostrarDialogoErrorConAlternativa(
                                             "Cupo insuficiente",
                                             validacionCupo.getErrorMessage(),
@@ -245,20 +253,20 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                                     return;
                                 }
                             }
-                            validarConflictoGlobal(motivo, nuevaFecha);
+                            validarConflictoGlobal(motivo, nuevaFecha, progressDialog);
                         }
 
                         @Override
                         public void onError(String error) {
-                            validarConflictoGlobal(motivo, nuevaFecha);
+                            validarConflictoGlobal(motivo, nuevaFecha, progressDialog);
                         }
                     });
                 })
-                .addOnFailureListener(e -> validarConflictoGlobal(motivo, nuevaFecha));
+                .addOnFailureListener(e -> validarConflictoGlobal(motivo, nuevaFecha, progressDialog));
     }
 
     // ===== Validación de conflicto global =====
-    private void validarConflictoGlobal(String motivo, Date nuevaFecha) {
+    private void validarConflictoGlobal(String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog) {
         TimeZone tz = TimeZone.getTimeZone("America/Santiago");
         Calendar day = Calendar.getInstance(tz);
         day.setTime(nuevaFecha);
@@ -322,28 +330,32 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                     }
 
                     if (hayConflicto) {
+                        progressDialog.dismiss();
                         mostrarDialogoConflicto(
                                 "Ya existe una cita a esa hora (" + tf.format(nuevaFecha) +
                                         ") para el mismo lugar u oferente.\n\n¿Qué deseas hacer?"
                         );
                     } else {
                         if (!TextUtils.isEmpty(citaId)) {
-                            reagendarCita(citaId, motivo, nuevaFecha);
+                            reagendarCita(citaId, motivo, nuevaFecha, progressDialog);
                         } else {
-                            proximaCitaYReagendar(motivo, nuevaFecha);
+                            proximaCitaYReagendar(motivo, nuevaFecha, progressDialog);
                         }
                     }
                 })
-                .addOnFailureListener(e -> toast("Error al validar: " + e.getMessage()));
+                .addOnFailureListener(e -> {
+                    progressDialog.dismiss();
+                    CustomToast.showError(getContext(), "Error al validar: " + e.getMessage());
+                });
     }
 
-    private void proximaCitaYReagendar(String motivo, Date nuevaFecha){
+    private void proximaCitaYReagendar(String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog){
         act(actividadId,true).collection("citas")
                 .whereGreaterThan("startAt", Timestamp.now())
                 .orderBy("startAt", Query.Direction.ASCENDING)
                 .limit(1).get().addOnSuccessListener(q -> {
                     if (!q.isEmpty()){
-                        reagendarCita(q.getDocuments().get(0).getId(), motivo, nuevaFecha);
+                        reagendarCita(q.getDocuments().get(0).getId(), motivo, nuevaFecha, progressDialog);
                         return;
                     }
                     act(actividadId,false).collection("citas")
@@ -351,15 +363,19 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                             .orderBy("startAt", Query.Direction.ASCENDING)
                             .limit(1).get().addOnSuccessListener(q2 -> {
                                 if (!q2.isEmpty()){
-                                    reagendarCita(q2.getDocuments().get(0).getId(), motivo, nuevaFecha);
+                                    reagendarCita(q2.getDocuments().get(0).getId(), motivo, nuevaFecha, progressDialog);
                                     return;
                                 }
-                                toast("No hay citas futuras para reagendar");
+                                progressDialog.dismiss();
+                                CustomToast.showError(getContext(), "No hay citas futuras para reagendar");
                             });
-                }).addOnFailureListener(e -> toast("Error: "+e.getMessage()));
+                }).addOnFailureListener(e -> {
+                    progressDialog.dismiss();
+                    CustomToast.showError(getContext(), "Error: " + e.getMessage());
+                });
     }
 
-    private void reagendarCita(String citaId, String motivo, Date nuevaFecha){
+    private void reagendarCita(String citaId, String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog){
         DocumentReference citaES = act(actividadId,false).collection("citas").document(citaId);
         DocumentReference citaEN = act(actividadId,true ).collection("citas").document(citaId);
 
@@ -383,13 +399,20 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
             ref.update(up)
                     .addOnSuccessListener(u -> {
                         android.util.Log.d("ReagendarSheet", "✅ Cita reagendada por usuario: " + userId);
-                        toast("Cita reagendada con éxito ✅");
+                        progressDialog.dismiss();
+                        CustomToast.showSuccess(getContext(), "Cita reagendada con éxito");
                         registrarAuditoria("reagendar_cita", motivo);
                         notifyChanged();
                         dismiss();
                     })
-                    .addOnFailureListener(e -> toast("Error: "+e.getMessage()));
-        }).addOnFailureListener(e -> toast("Error: "+e.getMessage()));
+                    .addOnFailureListener(e -> {
+                        progressDialog.dismiss();
+                        CustomToast.showError(getContext(), "Error al reagendar: " + e.getMessage());
+                    });
+        }).addOnFailureListener(e -> {
+            progressDialog.dismiss();
+            CustomToast.showError(getContext(), "Error al reagendar: " + e.getMessage());
+        });
     }
 
     private void registrarAuditoria(String accion, String motivo){

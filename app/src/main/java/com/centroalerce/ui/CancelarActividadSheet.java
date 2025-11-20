@@ -6,6 +6,7 @@ import android.view.*;
 import android.widget.Toast;
 import androidx.annotation.*;
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.centroalerce.gestion.utils.PermissionChecker;
 import com.centroalerce.gestion.utils.RoleManager;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
@@ -93,14 +94,20 @@ public class CancelarActividadSheet extends BottomSheetDialogFragment {
                     return;
                 }
 
+                // Crear ProgressDialog
+                android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
+                progressDialog.setMessage("Cancelando actividad...");
+                progressDialog.setCancelable(false);
+                progressDialog.show();
+
                 // Acción: cancelar cita específica o toda la actividad
-                if (!TextUtils.isEmpty(citaId)) cancelarSoloCita(motivo);
-                else cancelarActividadCompleta(motivo);
+                if (!TextUtils.isEmpty(citaId)) cancelarSoloCita(motivo, progressDialog);
+                else cancelarActividadCompleta(motivo, progressDialog);
             });
         }
     }
 
-    private void cancelarSoloCita(String motivo){
+    private void cancelarSoloCita(String motivo, android.app.ProgressDialog progressDialog){
         DocumentReference citaES = act(actividadId, false).collection("citas").document(citaId);
         DocumentReference citaEN = act(actividadId, true).collection("citas").document(citaId);
 
@@ -124,19 +131,24 @@ public class CancelarActividadSheet extends BottomSheetDialogFragment {
                         // También cancelar la actividad principal si es PUNTUAL
                         cancelarActividadSiEsPuntual(actividadId, motivo);
 
-                        toast("Cita cancelada");
+                        progressDialog.dismiss();
+                        CustomToast.showSuccess(getContext(), "Cita cancelada con éxito");
                         registrarAuditoria("cancelar_cita", motivo);
                         notifyChanged();
                         dismiss();
                     })
                     .addOnFailureListener(e -> {
                         android.util.Log.e("CancelarSheet", "❌ Error al cancelar cita: " + e.getMessage());
-                        toast("Error: " + e.getMessage());
+                        progressDialog.dismiss();
+                        CustomToast.showError(getContext(), "Error al cancelar: " + e.getMessage());
                     });
-        }).addOnFailureListener(e -> toast("Error: " + e.getMessage()));
+        }).addOnFailureListener(e -> {
+            progressDialog.dismiss();
+            CustomToast.showError(getContext(), "Error al cancelar: " + e.getMessage());
+        });
     }
 
-    private void cancelarActividadCompleta(String motivo){
+    private void cancelarActividadCompleta(String motivo, android.app.ProgressDialog progressDialog){
         WriteBatch batch = db.batch();
         DocumentReference actES = act(actividadId, false);
         DocumentReference actEN = act(actividadId, true);
@@ -166,17 +178,25 @@ public class CancelarActividadSheet extends BottomSheetDialogFragment {
                 batch.commit()
                         .addOnSuccessListener(u -> {
                             android.util.Log.d("CancelarSheet", "✅ Actividad cancelada por usuario: " + userId);
-                            toast("Actividad cancelada");
+                            progressDialog.dismiss();
+                            CustomToast.showSuccess(getContext(), "Actividad cancelada con éxito");
                             registrarAuditoria("cancelar_actividad", motivo);
                             notifyChanged();
                             dismiss();
                         })
                         .addOnFailureListener(e -> {
                             android.util.Log.e("CancelarSheet", "❌ Error al cancelar actividad: " + e.getMessage());
-                            toast("Error: " + e.getMessage());
+                            progressDialog.dismiss();
+                            CustomToast.showError(getContext(), "Error al cancelar: " + e.getMessage());
                         });
-            }).addOnFailureListener(e -> toast("Error listando citas: " + e.getMessage()));
-        }).addOnFailureListener(e -> toast("Error: " + e.getMessage()));
+            }).addOnFailureListener(e -> {
+                progressDialog.dismiss();
+                CustomToast.showError(getContext(), "Error al listar citas: " + e.getMessage());
+            });
+        }).addOnFailureListener(e -> {
+            progressDialog.dismiss();
+            CustomToast.showError(getContext(), "Error al cancelar: " + e.getMessage());
+        });
     }
 
     /**

@@ -16,6 +16,7 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -327,6 +328,22 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 (req,b) -> { loadActividad(actividadId); loadCita(actividadId, citaId); });
         requireActivity().getSupportFragmentManager().setFragmentResultListener("actividad_change", getViewLifecycleOwner(),
                 (req,b) -> { loadActividad(actividadId); loadCita(actividadId, citaId); });
+
+        // ✅ NUEVO: Listener para cambios en adjuntos (solo uno para evitar duplicados)
+        requireActivity().getSupportFragmentManager().setFragmentResultListener("adjuntos_change", getViewLifecycleOwner(),
+                (req,b) -> {
+                    Log.d(TAG, "📎 Evento adjuntos_change recibido");
+                    Log.d(TAG, "📎 actividadId: " + actividadId + ", citaId: " + citaId);
+
+                    // ✅ Recargar INMEDIATAMENTE primero (puede mostrar caché, pero algo es mejor que nada)
+                    loadAdjuntosAllFromServer(actividadId, citaId);
+
+                    // ✅ Luego recargar de nuevo con delay para asegurar datos frescos del servidor
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        Log.d(TAG, "📎 Recarga con delay - obteniendo datos frescos del servidor");
+                        loadAdjuntosAllFromServer(actividadId, citaId);
+                    }, 1500);
+                });
     }
 
 
@@ -769,6 +786,12 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .setMessage("¿Confirmas que esta cita fue completada exitosamente?")
                 .setNegativeButton("Cancelar", null)
                 .setPositiveButton("Sí, completar", (d, which) -> {
+                    // Crear ProgressDialog
+                    android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
+                    progressDialog.setMessage("Completando cita...");
+                    progressDialog.setCancelable(false);
+                    progressDialog.show();
+
                     // ✅ DESUSCRIBIR LISTENERS ANTES DE ACTUALIZAR
                     if (actReg != null) {
                         actReg.remove();
@@ -782,7 +805,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                     // Buscar en ambas colecciones de forma segura
                     completarCitaEnColeccion(actividadId, citaId, true, success -> {
                         if (success) {
-                            toast("Cita marcada como completada ✅");
+                            progressDialog.dismiss();
+                            CustomToast.showSuccess(getContext(), "Cita completada con éxito");
                             estadoActual = "completada"; // Actualizar estado local
                             notifyChanged();
 
@@ -793,7 +817,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                             // Intentar en la colección alternativa
                             completarCitaEnColeccion(actividadId, citaId, false, success2 -> {
                                 if (success2) {
-                                    toast("Cita marcada como completada ✅");
+                                    progressDialog.dismiss();
+                                    CustomToast.showSuccess(getContext(), "Cita completada con éxito");
                                     estadoActual = "completada";
                                     notifyChanged();
 
@@ -801,7 +826,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                                     new android.os.Handler(android.os.Looper.getMainLooper())
                                             .postDelayed(this::dismiss, 300);
                                 } else {
-                                    toast("Error: No se pudo encontrar la cita");
+                                    progressDialog.dismiss();
+                                    CustomToast.showError(getContext(), "Error: No se pudo encontrar la cita");
                                 }
                             });
                         }
@@ -913,6 +939,12 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 .setMessage("¿Confirmas que esta actividad fue completada exitosamente?")
                 .setNegativeButton("Cancelar", null)
                 .setPositiveButton("Sí, completar", (d, which) -> {
+                    // Crear ProgressDialog
+                    android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
+                    progressDialog.setMessage("Completando actividad...");
+                    progressDialog.setCancelable(false);
+                    progressDialog.show();
+
                     // Desuscribir listeners antes de actualizar
                     if (actReg != null) {
                         actReg.remove();
@@ -927,7 +959,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                     db.collection("activities").document(actividadId)
                             .update(updates)
                             .addOnSuccessListener(unused -> {
-                                toast("Actividad marcada como completada ✅");
+                                progressDialog.dismiss();
+                                CustomToast.showSuccess(getContext(), "Actividad completada con éxito");
                                 estadoActual = "completada";
                                 notifyChanged();
 
@@ -937,7 +970,8 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "Error completando actividad: " + e.getMessage());
-                                toast("Error al completar la actividad");
+                                progressDialog.dismiss();
+                                CustomToast.showError(getContext(), "Error al completar la actividad");
                             });
                 })
                 .show();
@@ -1047,6 +1081,24 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         loadAdjuntosAllInCollection(actividadId, citaId, true, () ->
                 loadAdjuntosAllInCollection(actividadId, citaId, false, this::showPlaceholderIfEmpty));
     }
+
+    /**
+     * ✅ NUEVO: Carga adjuntos FORZANDO obtención desde el servidor (no caché)
+     * Usado cuando se recibe el evento "adjuntos_change" para asegurar datos frescos
+     */
+    private void loadAdjuntosAllFromServer(String actividadId, String citaId) {
+        if (llAdjuntos == null) return;
+        android.util.Log.d("DETAIL", "🚀 Cargando adjuntos DESDE SERVIDOR - Actividad: " + actividadId + ", Cita: " + citaId);
+
+        // 🔥 Limpiar la lista temporal
+        adjuntosTemporales.clear();
+
+        llAdjuntos.removeAllViews();
+        addNoFilesRow();
+
+        loadAdjuntosAllInCollectionFromServer(actividadId, citaId, true, () ->
+                loadAdjuntosAllInCollectionFromServer(actividadId, citaId, false, this::showPlaceholderIfEmpty));
+    }
     private void loadAdjuntosAllInCollection(String actividadId, String citaId, boolean preferEN, Done onEmpty) {
         if (!TextUtils.isEmpty(actividadId) && !TextUtils.isEmpty(citaId)) {
             act(actividadId, preferEN).collection("citas").document(citaId).get()
@@ -1089,6 +1141,152 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             loadAdjuntosActividad(actividadId, preferEN, onEmpty);
         }
     }
+    /**
+     * ✅ NUEVO: Versión que fuerza obtención desde el servidor (Source.SERVER)
+     */
+    private void loadAdjuntosAllInCollectionFromServer(String actividadId, String citaId, boolean preferEN, Done onEmpty) {
+        if (!TextUtils.isEmpty(actividadId) && !TextUtils.isEmpty(citaId)) {
+            // ✅ Usar Source.SERVER para forzar obtención desde servidor
+            act(actividadId, preferEN).collection("citas").document(citaId)
+                    .get(com.google.firebase.firestore.Source.SERVER)
+                    .addOnSuccessListener(doc -> {
+                        boolean any = false;
+                        if (doc != null && doc.exists()) {
+                            Object raw = doc.get("adjuntos");
+                            if (raw instanceof List) {
+                                List<?> arr = (List<?>) raw;
+                                if (!arr.isEmpty()) {
+                                    for (Object o : arr) {
+                                        if (o instanceof Map) {
+                                            @SuppressWarnings("unchecked")
+                                            Map<String, Object> it = (Map<String, Object>) o;
+                                            String nombre = firstNonEmpty(
+                                                    stringOr(it.get("name"), null),
+                                                    stringOr(it.get("nombre"), null));
+                                            String url = stringOr(it.get("url"), null);
+                                            String id = stringOr(it.get("id"), null);
+                                            addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, TextUtils.isEmpty(id) ? null : id);
+                                            any = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (any) {
+                            showPlaceholderIfEmpty();
+                            return;
+                        }
+
+                        loadAdjuntosFromCitaSubcollectionFromServer(actividadId, citaId, "adjuntos", preferEN, () ->
+                                loadAdjuntosFromCitaSubcollectionFromServer(actividadId, citaId, "archivos", preferEN, () ->
+                                        loadAdjuntosFromCitaSubcollectionFromServer(actividadId, citaId, "attachments", preferEN, () ->
+                                                loadAdjuntosActividadFromServer(actividadId, preferEN, onEmpty))));
+                    })
+                    .addOnFailureListener(e -> loadAdjuntosActividadFromServer(actividadId, preferEN, onEmpty));
+        } else {
+            loadAdjuntosActividadFromServer(actividadId, preferEN, onEmpty);
+        }
+    }
+
+    /**
+     * ✅ NUEVO: Carga adjuntos de subcolección de cita desde servidor
+     */
+    private void loadAdjuntosFromCitaSubcollectionFromServer(String actividadId, String citaId, String sub, boolean preferEN, Done onEmpty) {
+        act(actividadId, preferEN).collection("citas").document(citaId)
+                .collection(sub)
+                .orderBy("creadoEn", Query.Direction.DESCENDING)
+                .get(com.google.firebase.firestore.Source.SERVER)
+                .addOnSuccessListener(q -> {
+                    if (q == null || q.isEmpty()) { onEmpty.run(); return; }
+                    int added = 0;
+                    for (DocumentSnapshot d : q.getDocuments()) {
+                        String nombre = firstNonEmpty(d.getString("nombre"), d.getString("name"));
+                        String url    = d.getString("url");
+                        String did    = d.getId();
+                        addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, did);
+                        added++;
+                    }
+                    if (added > 0) {
+                        showPlaceholderIfEmpty();
+                    } else {
+                        onEmpty.run();
+                    }
+                })
+                .addOnFailureListener(e -> onEmpty.run());
+    }
+
+    /**
+     * ✅ NUEVO: Carga adjuntos de actividad desde servidor
+     */
+    private void loadAdjuntosActividadFromServer(String actividadId, boolean preferEN, Done onEmpty) {
+        if (TextUtils.isEmpty(actividadId)) { onEmpty.run(); return; }
+        act(actividadId, preferEN).get(com.google.firebase.firestore.Source.SERVER)
+                .addOnSuccessListener(doc -> {
+                    boolean any = false;
+                    if (doc != null && doc.exists()) {
+                        Object raw = doc.get("adjuntos");
+                        if (raw instanceof List) {
+                            List<?> arr = (List<?>) raw;
+                            if (!arr.isEmpty()) {
+                                for (Object o : arr) {
+                                    if (o instanceof Map) {
+                                        @SuppressWarnings("unchecked")
+                                        Map<String, Object> it = (Map<String, Object>) o;
+                                        String nombre = firstNonEmpty(
+                                                stringOr(it.get("name"), null),
+                                                stringOr(it.get("nombre"), null));
+                                        String url = stringOr(it.get("url"), null);
+                                        String id = stringOr(it.get("id"), null);
+                                        addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, TextUtils.isEmpty(id) ? null : id);
+                                        any = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (any) {
+                        showPlaceholderIfEmpty();
+                        return;
+                    }
+                    loadAdjuntosFromSubcollectionFromServer(actividadId, "adjuntos", preferEN, () ->
+                            loadAdjuntosFromSubcollectionFromServer(actividadId, "archivos", preferEN, () ->
+                                    loadAdjuntosFromSubcollectionFromServer(actividadId, "attachments", preferEN, onEmpty)));
+                })
+                .addOnFailureListener(e -> onEmpty.run());
+    }
+
+    /**
+     * ✅ NUEVO: Carga adjuntos de subcolección de actividad desde servidor
+     */
+    private void loadAdjuntosFromSubcollectionFromServer(String actividadId, String sub, boolean preferEN, Done onEmpty) {
+        act(actividadId, preferEN).collection(sub)
+                .orderBy("creadoEn", Query.Direction.DESCENDING)
+                .get(com.google.firebase.firestore.Source.SERVER)
+                .addOnSuccessListener(q -> {
+                    android.util.Log.d("DETAIL", "📄 Query desde SERVIDOR para " + sub + ": " + (q != null ? q.size() : "null") + " documentos");
+                    if (q == null || q.isEmpty()) {
+                        android.util.Log.d("DETAIL", "❌ Sin documentos en subcolección " + sub);
+                        onEmpty.run();
+                        return;
+                    }
+                    int added = 0;
+                    for (DocumentSnapshot d : q.getDocuments()) {
+                        String nombre = firstNonEmpty(d.getString("nombre"), d.getString("name"));
+                        String url    = d.getString("url");
+                        String did    = d.getId();
+                        addAdjuntoRow(nonEmpty(nombre, "(archivo)"), url, did);
+                        added++;
+                    }
+                    if (added > 0) {
+                        android.util.Log.d("DETAIL", "✅ Cargados " + added + " archivos de subcolección " + sub + " desde SERVIDOR");
+                        showPlaceholderIfEmpty();
+                    } else {
+                        onEmpty.run();
+                    }
+                })
+                .addOnFailureListener(e -> onEmpty.run());
+    }
+
     private void loadAdjuntosActividad(String actividadId, boolean preferEN, Done onEmpty) {
         if (TextUtils.isEmpty(actividadId)) { onEmpty.run(); return; }
         act(actividadId, preferEN).get()
@@ -1278,6 +1476,17 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private void addAdjuntoRow(String nombre, @Nullable String url, @Nullable String adjuntoId) {
         if (llAdjuntos == null) return;
 
+        // ✅ NUEVO: Verificar si ya existe un archivo con la misma URL para evitar duplicados
+        if (!TextUtils.isEmpty(url)) {
+            for (Map<String, Object> existente : adjuntosTemporales) {
+                String urlExistente = (String) existente.get("url");
+                if (url.equals(urlExistente)) {
+                    android.util.Log.d("DETAIL", "⚠️ Archivo duplicado ignorado: " + nombre);
+                    return; // Ya existe, no agregar
+                }
+            }
+        }
+
         // 🔥 NUEVO: En lugar de agregar el row directamente, guardar en lista temporal
         Map<String, Object> adjunto = new HashMap<>();
         adjunto.put("nombre", nombre != null ? nombre : "");
@@ -1287,6 +1496,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             adjunto.put("id", adjuntoId);
         }
         adjuntosTemporales.add(adjunto);
+        android.util.Log.d("DETAIL", "✅ Archivo agregado: " + nombre + " (Total: " + adjuntosTemporales.size() + ")");
 
         // Nota: Ya no agregamos rows individuales aquí
         // Los archivos se mostrarán con un botón al final

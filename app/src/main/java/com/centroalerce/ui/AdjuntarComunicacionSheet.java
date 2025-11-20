@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.centroalerce.gestion.utils.CustomToast;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.FieldValue;
@@ -95,18 +96,22 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
 
         btnSubir.setOnClickListener(view -> {
             if (fileUri == null) {
-                Toast.makeText(requireContext(), "Selecciona un archivo", Toast.LENGTH_SHORT).show();
+                CustomToast.showError(getContext(), "Selecciona un archivo");
                 return;
             }
             if (TextUtils.isEmpty(actividadId)) {
-                Toast.makeText(requireContext(), "Falta actividadId", Toast.LENGTH_SHORT).show();
+                CustomToast.showError(getContext(), "Falta actividadId");
                 return;
             }
 
-            // ✅ Cambiar texto del botón mientras sube
+            // Crear ProgressDialog
+            android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
+            progressDialog.setMessage("Subiendo archivo...");
+            progressDialog.setCancelable(false);
+            progressDialog.show();
+
+            // ✅ Deshabilitar botón mientras sube
             btnSubir.setEnabled(false);
-            btnSubir.setText("Subiendo archivo...");
-            btnSubir.setIcon(null);
 
             FirebaseStorage storage = FirebaseStorage.getInstance();
             String fileName = obtenerNombreArchivo(fileUri);
@@ -145,37 +150,71 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
                                             .addOnSuccessListener(aVoid -> {
                                                 // También actualizar en colección ES
                                                 db.collection("actividades").document(actividadId)
-                                                        .update("adjuntos", FieldValue.arrayUnion(meta));
+                                                        .update("adjuntos", FieldValue.arrayUnion(meta))
+                                                        .addOnSuccessListener(aVoid2 -> {
+                                                            // ✅ AHORA SÍ: Ambas actualizaciones completadas, notificar
+                                                            android.util.Log.d("AdjuntarSheet", "✅ Adjuntos actualizados en ambas colecciones - enviando evento");
+                                                            enviarEventoYCerrar(progressDialog);
+                                                        })
+                                                        .addOnFailureListener(e -> {
+                                                            // Si falla la actualización en ES, igual notificar (EN ya se actualizó)
+                                                            android.util.Log.w("AdjuntarSheet", "⚠️ Error actualizando en ES, pero EN OK: " + e.getMessage());
+                                                            enviarEventoYCerrar(progressDialog);
+                                                        });
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                android.util.Log.e("AdjuntarSheet", "❌ Error actualizando adjuntos en EN: " + e.getMessage());
+                                                progressDialog.dismiss();
+                                                btnSubir.setEnabled(true);
+                                                CustomToast.showError(getContext(), "Error al actualizar actividad: " + e.getMessage());
                                             });
-
-                                    // Notifica al detalle para que recargue
-                                    Bundle res = new Bundle();
-                                    res.putBoolean("adjunto_subido", true);
-                                    res.putLong("timestamp", System.currentTimeMillis());
-                                    getParentFragmentManager().setFragmentResult("adjuntos_change", res);
-
-                                    try {
-                                        requireActivity().getSupportFragmentManager()
-                                                .setFragmentResult("adjuntos_change", res);
-                                    } catch (Exception ignore) {}
-
-                                    Toast.makeText(requireContext(), "✅ Archivo adjuntado", Toast.LENGTH_SHORT).show();
-                                    dismiss();
                                 })
                                 .addOnFailureListener(e -> {
+                                    progressDialog.dismiss();
                                     btnSubir.setEnabled(true);
-                                    btnSubir.setText("Guardar archivo");
-                                    btnSubir.setIcon(requireContext().getDrawable(android.R.drawable.ic_menu_upload));
-                                    Toast.makeText(requireContext(), "Error al guardar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                    CustomToast.showError(getContext(), "Error al guardar: " + e.getMessage());
                                 });
                     })
                     .addOnFailureListener(e -> {
+                        progressDialog.dismiss();
                         btnSubir.setEnabled(true);
-                        btnSubir.setText("Guardar archivo");
-                        btnSubir.setIcon(requireContext().getDrawable(android.R.drawable.ic_menu_upload));
-                        Toast.makeText(requireContext(), "Error al subir: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        CustomToast.showError(getContext(), "Error al subir: " + e.getMessage());
                     });
         });
+    }
+
+    /**
+     * ✅ NUEVO: Envía el evento y cierra el sheet CON DELAY para que el listener lo procese
+     */
+    private void enviarEventoYCerrar(android.app.ProgressDialog progressDialog) {
+        Bundle res = new Bundle();
+        res.putBoolean("adjunto_subido", true);
+        res.putLong("timestamp", System.currentTimeMillis());
+
+        android.util.Log.d("AdjuntarSheet", "📤 Enviando evento adjuntos_change...");
+
+        try {
+            getParentFragmentManager().setFragmentResult("adjuntos_change", res);
+            android.util.Log.d("AdjuntarSheet", "✅ Evento enviado a ParentFragmentManager");
+        } catch (Exception e) {
+            android.util.Log.w("AdjuntarSheet", "⚠️ Error enviando a ParentFragmentManager: " + e.getMessage());
+        }
+
+        try {
+            requireActivity().getSupportFragmentManager().setFragmentResult("adjuntos_change", res);
+            android.util.Log.d("AdjuntarSheet", "✅ Evento enviado a Activity FragmentManager");
+        } catch (Exception e) {
+            android.util.Log.w("AdjuntarSheet", "⚠️ Error enviando a Activity: " + e.getMessage());
+        }
+
+        progressDialog.dismiss();
+        CustomToast.showSuccess(getContext(), "Archivo adjuntado con éxito");
+
+        // ✅ NO cerrar inmediatamente - esperar 300ms para que el listener procese el evento
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            android.util.Log.d("AdjuntarSheet", "🚪 Cerrando sheet después de enviar evento");
+            dismiss();
+        }, 300);
     }
 
     private String obtenerNombreArchivo(Uri uri) {
