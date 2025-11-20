@@ -71,13 +71,6 @@ public class PerfilFragment extends Fragment {
         cargarDatosDesdeFirestore();
         cargarRolConRoleManager();
 
-        // Botón editar perfil
-        v.findViewById(R.id.cardEditarPerfil).setOnClickListener(view -> {
-            if (getContext() != null) {
-                Toast.makeText(getContext(), "Función en desarrollo", Toast.LENGTH_SHORT).show();
-            }
-        });
-
         // Botón cambiar contraseña
         v.findViewById(R.id.cardCambiarPassword).setOnClickListener(view -> enviarCorreoRestablecimiento());
 

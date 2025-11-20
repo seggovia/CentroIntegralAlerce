@@ -21,6 +21,7 @@ import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.models.Beneficiario;
 import com.centroalerce.gestion.repositories.LugarRepository;
 import com.centroalerce.gestion.utils.ActividadValidator;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.centroalerce.gestion.utils.DateUtils;
 import com.centroalerce.gestion.utils.ValidationResult;
 import com.centroalerce.ui.mantenedores.dialog.BeneficiariosPickerSheet;
@@ -282,9 +283,30 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
     // ================== Guardar ==================
     private void guardar(){
-        String nombre = val(etNombre); if (nombre.isEmpty()){ etNombre.setError("Requerido"); return; }
-        String tipo = val(actTipo); if (tipo.isEmpty()){ actTipo.setError("Selecciona tipo"); return; }
-        String periodicidad = val(actPeriodicidad); if (periodicidad.isEmpty()){ actPeriodicidad.setError("Selecciona periodicidad"); return; }
+        // Mostrar ProgressDialog
+        android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
+        progressDialog.setMessage("Guardando cambios...");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
+
+        String nombre = val(etNombre);
+        if (nombre.isEmpty()){
+            progressDialog.dismiss();
+            etNombre.setError("Requerido");
+            return;
+        }
+        String tipo = val(actTipo);
+        if (tipo.isEmpty()){
+            progressDialog.dismiss();
+            actTipo.setError("Selecciona tipo");
+            return;
+        }
+        String periodicidad = val(actPeriodicidad);
+        if (periodicidad.isEmpty()){
+            progressDialog.dismiss();
+            actPeriodicidad.setError("Selecciona periodicidad");
+            return;
+        }
 
         String lugarNuevo = val(actLugar);
         String oferente = val(actOferente);
@@ -301,11 +323,13 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 cupoNuevo = Integer.parseInt(cupoStr);
                 ValidationResult validacionCupo = ActividadValidator.validarCupoActividad(cupoNuevo);
                 if (!validacionCupo.isValid()) {
+                    progressDialog.dismiss();
                     etCupo.setError(validacionCupo.getErrorMessage());
                     toast(validacionCupo.getErrorMessage());
                     return;
                 }
             } catch (NumberFormatException e) {
+                progressDialog.dismiss();
                 etCupo.setError("Número inválido");
                 return;
             }
@@ -325,17 +349,19 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                     if (cupoNuevo != null) {
                         ValidationResult validacionCupoLugar = ActividadValidator.validarCupoLugar(lugar, cupoNuevo);
                         if (!validacionCupoLugar.isValid()) {
+                            progressDialog.dismiss();
                             mostrarDialogoErrorCupo(validacionCupoLugar.getErrorMessage());
                             return;
                         }
                     }
 
                     // Si pasa validación de cupo, continuar con validación de conflictos
-                    verificarConflictosYGuardar(nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+                    verificarConflictosYGuardar(progressDialog, nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
                 }
 
                 @Override
                 public void onError(String error) {
+                    progressDialog.dismiss();
                     toast("Error al obtener lugar: " + error);
                 }
             });
@@ -349,16 +375,18 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 public void onSuccess(com.centroalerce.gestion.models.Lugar lugar) {
                     ValidationResult validacionCupoLugar = ActividadValidator.validarCupoLugar(lugar, cupoNuevo);
                     if (!validacionCupoLugar.isValid()) {
+                        progressDialog.dismiss();
                         mostrarDialogoErrorCupo(validacionCupoLugar.getErrorMessage());
                         return;
                     }
 
                     // Si pasa la validación, guardar
-                    realizarGuardado(nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+                    realizarGuardado(progressDialog, nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
                 }
 
                 @Override
                 public void onError(String error) {
+                    progressDialog.dismiss();
                     toast("Error al obtener lugar: " + error);
                 }
             });
@@ -366,7 +394,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         }
 
         // Si no hay cambios que requieran validación, guardar directamente
-        realizarGuardado(nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+        realizarGuardado(progressDialog, nombre, tipo, periodicidad, lugarNuevo, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
     }
 
     /**
@@ -391,7 +419,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     /**
      * Verifica conflictos de horario con el nuevo lugar antes de guardar
      */
-    private void verificarConflictosYGuardar(String nombre, String tipo, String periodicidad, String lugar,
+    private void verificarConflictosYGuardar(android.app.ProgressDialog progressDialog, String nombre, String tipo, String periodicidad, String lugar,
                                              String oferente, String cupoStr, String socio, String beneficiariosTxt,
                                              String proyecto, String diasAvisoStr) {
         // Obtener todas las citas de esta actividad para verificar conflictos
@@ -401,7 +429,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 .addOnSuccessListener(querySnapshot -> {
                     if (querySnapshot.isEmpty()) {
                         android.util.Log.d("ModificarActividad", "✅ Sin citas - guardando sin validar");
-                        realizarGuardado(nombre, tipo, periodicidad, lugar, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+                        realizarGuardado(progressDialog, nombre, tipo, periodicidad, lugar, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
                         return;
                     }
 
@@ -417,7 +445,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
                     if (fechasCitas.isEmpty()) {
                         android.util.Log.d("ModificarActividad", "✅ Sin fechas en citas - guardando sin validar");
-                        realizarGuardado(nombre, tipo, periodicidad, lugar, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+                        realizarGuardado(progressDialog, nombre, tipo, periodicidad, lugar, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
                         return;
                     }
 
@@ -427,6 +455,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                     verificarTodasLasFechas(lugar, fechasCitas, 0, new ConflictoCallback() {
                         @Override
                         public void onConflictoDetectado(String mensaje) {
+                            progressDialog.dismiss();
                             android.util.Log.w("ModificarActividad", "⚠️ CONFLICTO: " + mensaje);
                             mostrarDialogoConflicto(mensaje);
                         }
@@ -434,17 +463,19 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                         @Override
                         public void onSinConflictos() {
                             android.util.Log.d("ModificarActividad", "✅ Sin conflictos - procediendo a guardar");
-                            realizarGuardado(nombre, tipo, periodicidad, lugar, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
+                            realizarGuardado(progressDialog, nombre, tipo, periodicidad, lugar, oferente, cupoStr, socio, beneficiariosTxt, proyecto, diasAvisoStr);
                         }
 
                         @Override
                         public void onError(String error) {
+                            progressDialog.dismiss();
                             android.util.Log.e("ModificarActividad", "❌ Error: " + error);
                             toast("Error al verificar conflictos: " + error);
                         }
                     });
                 })
                 .addOnFailureListener(e -> {
+                    progressDialog.dismiss();
                     android.util.Log.e("ModificarActividad", "❌ Error obteniendo citas: " + e.getMessage());
                     toast("Error al verificar conflictos: " + e.getMessage());
                 });
@@ -521,7 +552,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     /**
      * Realiza el guardado efectivo de los cambios
      */
-    private void realizarGuardado(String nombre, String tipo, String periodicidad, String lugar,
+    private void realizarGuardado(android.app.ProgressDialog progressDialog, String nombre, String tipo, String periodicidad, String lugar,
                                   String oferente, String cupoStr, String socio, String beneficiariosTxt,
                                   String proyecto, String diasAvisoStr) {
 
@@ -534,7 +565,11 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         up.put("periodicidad", periodicidad.toUpperCase(java.util.Locale.ROOT)); // tú guardas "PUNTUAL"
         if (!TextUtils.isEmpty(cupoStr)) {
             try { up.put("cupo", Integer.parseInt(cupoStr)); }
-            catch (NumberFormatException e){ etCupo.setError("Número inválido"); return; }
+            catch (NumberFormatException e){
+                progressDialog.dismiss();
+                etCupo.setError("Número inválido");
+                return;
+            }
         }
 
         if (!TextUtils.isEmpty(oferente)) {
@@ -583,7 +618,11 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 up.put("dias_aviso", dias);
                 up.put("diasAvisoCancelacion", dias);
                 up.put("diasAvisoPrevio", dias);
-            } catch (NumberFormatException e){ etDiasAviso.setError("Número inválido"); return; }
+            } catch (NumberFormatException e){
+                progressDialog.dismiss();
+                etDiasAviso.setError("Número inválido");
+                return;
+            }
         }
 
         // Aunque el lugar no está en el doc de actividad en tu modelo, lo dejamos por compat si alguna UI lo lee
@@ -623,8 +662,9 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
             return null;
         }).addOnSuccessListener(u -> {
+            progressDialog.dismiss();
             android.util.Log.d("MOD_ACT", "✅ Transacción exitosa - cambios guardados en Firestore");
-            toast("Cambios guardados");
+            CustomToast.showSuccess(getContext(), "Cambios guardados con éxito");
 
             // 🔥 NUEVO: Actualizar las citas asociadas con el nuevo nombre y lugar
             actualizarCitasAsociadas(nombre, lugar);
@@ -637,8 +677,9 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             notifyChanged();   // ya refresca Detalle y Calendario
             dismiss();
         }).addOnFailureListener(e -> {
+            progressDialog.dismiss();
             android.util.Log.e("MOD_ACT", "❌ Error en transacción: " + e.getMessage(), e);
-            toast("Error: "+e.getMessage());
+            CustomToast.showError(getContext(), "Error al guardar: " + e.getMessage());
         });
     }
 
