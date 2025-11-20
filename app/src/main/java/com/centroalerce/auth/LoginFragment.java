@@ -9,6 +9,9 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.*;
+import android.widget.AdapterView;
+import android.widget.AutoCompleteTextView;
+import android.widget.CheckBox;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -18,18 +21,27 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 import androidx.navigation.NavOptions;
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.adapters.EmailAutocompleteAdapter;
+import com.centroalerce.gestion.utils.EmailHistoryManager;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 
+import java.util.List;
+
 public class LoginFragment extends Fragment {
 
-    private TextInputEditText etEmail, etPass;
+    private AutoCompleteTextView etEmail;
+    private TextInputEditText etPass;
     private com.google.android.material.textfield.TextInputLayout tilEmail, tilPass;
     private MaterialButton btnLogin;
+    private CheckBox cbRememberMe;
+    private TextView tvRememberLabel;
     private ProgressBar progressBar;
     private FirebaseAuth auth;
     private FirebaseFirestore db;
+    private EmailHistoryManager emailHistoryManager;
+    private EmailAutocompleteAdapter emailAdapter;
 
     public LoginFragment(){}
 
@@ -37,18 +49,26 @@ public class LoginFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle b) {
         View v = inf.inflate(R.layout.fragment_login, c, false);
 
+        // Inicializar componentes
         etEmail = v.findViewById(R.id.etEmail);
         etPass  = v.findViewById(R.id.etPass);
-        // Obtener los TextInputLayout padres para mostrar errores inline
         try { tilEmail = (com.google.android.material.textfield.TextInputLayout) ((View) etEmail.getParent()).getParent(); } catch (Exception ignore) {}
         try { tilPass  = (com.google.android.material.textfield.TextInputLayout) ((View) etPass.getParent()).getParent(); } catch (Exception ignore) {}
         btnLogin= v.findViewById(R.id.btnLogin);
-        btnLogin.setEnabled(true); // Siempre habilitado, las validaciones se hacen al hacer clic
+        cbRememberMe = v.findViewById(R.id.cbRememberMe);
         progressBar = v.findViewById(R.id.progressBarLogin);
         TextView tvForgot = v.findViewById(R.id.tvForgot);
 
+        // Inicializar sistema de historial de emails
+        emailHistoryManager = new EmailHistoryManager(requireContext());
+
+        // Configurar autocompletado de emails
+        setupEmailAutocomplete();
+
+        // Cargar último email si estaba marcado "recordar"
+        loadRememberedEmail();
+
         // TextWatcher: limpiar errores mientras escribe
-        // Las validaciones se harán al hacer clic
         TextWatcher watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -62,11 +82,12 @@ public class LoginFragment extends Fragment {
         etEmail.addTextChangedListener(watcher);
         etPass.addTextChangedListener(watcher);
 
-        // Inicializa Auth y Firestore
+        // Inicializar Firebase
         if (auth == null) auth = FirebaseAuth.getInstance();
         if (db == null) db = FirebaseFirestore.getInstance();
         auth.setLanguageCode("es");
 
+        // Configurar listeners
         btnLogin.setOnClickListener(x -> doLogin(v));
         tvForgot.setOnClickListener(x ->
                 Navigation.findNavController(v).navigate(R.id.action_loginFragment_to_forgotPasswordFragment)
@@ -79,21 +100,83 @@ public class LoginFragment extends Fragment {
     }
 
     /**
+     * Configura el autocompletado de emails
+     */
+    private void setupEmailAutocomplete() {
+        // Obtener historial de emails
+        List<String> emailHistory = emailHistoryManager.getEmailHistory();
+
+        // Crear adaptador
+        emailAdapter = new EmailAutocompleteAdapter(requireContext(), emailHistory);
+        etEmail.setAdapter(emailAdapter);
+
+        // Configurar threshold (cuántos caracteres antes de mostrar sugerencias)
+        etEmail.setThreshold(1);
+
+        // Listener cuando se selecciona un email
+        etEmail.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                String selectedEmail = (String) parent.getItemAtPosition(position);
+                etEmail.setText(selectedEmail);
+                etEmail.setSelection(selectedEmail.length());
+
+                // Marcar checkbox si este email estaba recordado
+                if (selectedEmail.equals(emailHistoryManager.getLastEmail())) {
+                    cbRememberMe.setChecked(true);
+                }
+            }
+        });
+
+        // Mostrar todas las sugerencias al hacer clic
+        etEmail.setOnClickListener(v -> {
+            if (etEmail.getText().toString().isEmpty()) {
+                etEmail.showDropDown();
+            }
+        });
+
+        // Actualizar adapter cuando cambia el texto
+        etEmail.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // El adapter ya tiene su propio filtro, solo aseguramos que se muestre
+                if (s.length() == 0) {
+                    emailAdapter.updateEmails(emailHistoryManager.getEmailHistory());
+                }
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+    }
+
+    /**
+     * Carga el email recordado si existe
+     */
+    private void loadRememberedEmail() {
+        if (emailHistoryManager.shouldRememberEmail()) {
+            String lastEmail = emailHistoryManager.getLastEmail();
+            if (!lastEmail.isEmpty()) {
+                etEmail.setText(lastEmail);
+                etEmail.setSelection(lastEmail.length());
+                cbRememberMe.setChecked(true);
+            }
+        }
+    }
+
+    /**
      * Animaciones profesionales de entrada para la pantalla de login
      */
     private void startEntranceAnimations(View root) {
-        // Obtener referencias a los elementos
         View logo = root.findViewById(R.id.ivLogo);
         View title = root.findViewById(R.id.tvTitle);
         View subtitle1 = root.findViewById(R.id.tvSubtitle1);
         View subtitle2 = root.findViewById(R.id.tvSubtitle2);
         View emailLayout = root.findViewById(R.id.tilEmail);
         View passLayout = root.findViewById(R.id.tilPassword);
+        View rememberLayout = root.findViewById(R.id.llRememberMe);
         View forgotLink = root.findViewById(R.id.tvForgot);
         View loginButton = root.findViewById(R.id.btnLogin);
 
-        // Hacer todos los elementos invisibles inicialmente
-        View[] views = {logo, title, subtitle1, subtitle2, emailLayout, passLayout, forgotLink, loginButton};
+        View[] views = {logo, title, subtitle1, subtitle2, emailLayout, passLayout, rememberLayout, forgotLink, loginButton};
         for (View v : views) {
             if (v != null) {
                 v.setAlpha(0f);
@@ -101,27 +184,23 @@ public class LoginFragment extends Fragment {
             }
         }
 
-        // Animar cada elemento con delay escalonado
         animateView(logo, 0, 100);
         animateView(title, 150, 100);
         animateView(subtitle1, 200, 100);
         animateView(subtitle2, 250, 100);
         animateView(emailLayout, 350, 100);
         animateView(passLayout, 400, 100);
-        animateView(forgotLink, 450, 100);
-        animateView(loginButton, 500, 100);
+        animateView(rememberLayout, 450, 100);
+        animateView(forgotLink, 500, 100);
+        animateView(loginButton, 550, 100);
     }
 
-    /**
-     * Anima un view con fade in y slide up
-     */
     private void animateView(View view, long delay, long duration) {
         if (view == null) return;
-
         view.animate()
                 .alpha(1f)
                 .translationY(0)
-                .setDuration(duration + 400) // Duración total: 500ms
+                .setDuration(duration + 400)
                 .setStartDelay(delay)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f))
                 .start();
@@ -133,12 +212,11 @@ public class LoginFragment extends Fragment {
 
     private void doLogin(View root){
         if (etEmail == null || etPass == null) {
-            // Mostrar error inline si hay problema de inicialización
             if (tilEmail != null) { tilEmail.setError("Campo no disponible"); tilEmail.setErrorEnabled(true); }
             if (tilPass  != null) { tilPass.setError("Campo no disponible"); tilPass.setErrorEnabled(true); }
             return;
         }
-        
+
         String email = etEmail.getText()==null ? "" : etEmail.getText().toString().trim();
         String pass  = etPass.getText()==null ? "" : etPass.getText().toString();
 
@@ -156,9 +234,7 @@ public class LoginFragment extends Fragment {
             if (ok) etPass.requestFocus();
             ok = false;
         }
-        if (!ok){
-            return;
-        }
+        if (!ok) return;
 
         // Validar formato de email
         if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){
@@ -187,7 +263,6 @@ public class LoginFragment extends Fragment {
         auth.signInWithEmailAndPassword(email, pass)
                 .addOnCompleteListener(task -> {
                     if (!task.isSuccessful()){
-                        // Ocultar loading y restaurar botón
                         showLoading(false);
                         btnLogin.setEnabled(true);
                         btnLogin.setText("Iniciar sesión");
@@ -215,6 +290,13 @@ public class LoginFragment extends Fragment {
                         return;
                     }
 
+                    // ✅ LOGIN EXITOSO - Guardar email si está marcado "recordar"
+                    boolean rememberMe = cbRememberMe.isChecked();
+                    emailHistoryManager.saveLastEmail(email, rememberMe);
+
+                    // Siempre agregar al historial (para autocompletado)
+                    emailHistoryManager.saveEmail(email);
+
                     FirebaseUser user = auth.getCurrentUser();
                     if (user == null) {
                         showLoading(false);
@@ -224,10 +306,8 @@ public class LoginFragment extends Fragment {
                         return;
                     }
 
-                    // Actualizar texto del loading
                     btnLogin.setText("Verificando cuenta...");
 
-                    // Refresca info antes de verificar
                     user.reload().addOnCompleteListener((Task<Void> r) -> {
                         if (!r.isSuccessful()) {
                             showLoading(false);
@@ -261,10 +341,8 @@ public class LoginFragment extends Fragment {
                             return;
                         }
 
-                        // Actualizar texto del loading
                         btnLogin.setText("Verificando estado...");
 
-                        // Verificar si el usuario existe y está activo en Firestore
                         if (db == null) db = FirebaseFirestore.getInstance();
 
                         db.collection("usuarios")
@@ -272,7 +350,6 @@ public class LoginFragment extends Fragment {
                                 .get()
                                 .addOnSuccessListener(documentSnapshot -> {
                                     if (!documentSnapshot.exists()) {
-                                        // El usuario no existe en Firestore
                                         showLoading(false);
                                         btnLogin.setEnabled(true);
                                         btnLogin.setText("Iniciar sesión");
@@ -287,29 +364,23 @@ public class LoginFragment extends Fragment {
                                         return;
                                     }
 
-                                    // Verificar si el usuario está activo
                                     Boolean activo = documentSnapshot.getBoolean("activo");
 
-                                    // Si el campo "activo" no existe, verificar si tiene "estado" (usuarios antiguos)
                                     if (activo == null) {
                                         String estado = documentSnapshot.getString("estado");
-                                        // Si tiene estado="activo" o no tiene ninguno de los dos campos, considerar como activo
-                                        // Esto es para compatibilidad con usuarios creados antes del cambio
                                         activo = (estado == null || estado.equalsIgnoreCase("activo"));
 
-                                        // Actualizar el campo para futuros logins
                                         if (activo) {
                                             db.collection("usuarios")
                                                     .document(user.getUid())
                                                     .update("activo", true)
                                                     .addOnFailureListener(e ->
-                                                        android.util.Log.e("LoginFragment", "Error actualizando campo activo", e)
+                                                            android.util.Log.e("LoginFragment", "Error actualizando campo activo", e)
                                                     );
                                         }
                                     }
 
                                     if (!activo) {
-                                        // El usuario está inactivo (eliminado)
                                         showLoading(false);
                                         btnLogin.setEnabled(true);
                                         btnLogin.setText("Iniciar sesión");
@@ -324,10 +395,8 @@ public class LoginFragment extends Fragment {
                                         return;
                                     }
 
-                                    // Usuario activo, continuar con el login
                                     btnLogin.setText("Finalizando...");
 
-                                    // Actualizar emailVerificado en Firestore
                                     db.collection("usuarios")
                                             .document(user.getUid())
                                             .update("emailVerificado", true)
@@ -342,7 +411,6 @@ public class LoginFragment extends Fragment {
                                                 Navigation.findNavController(root).navigate(R.id.action_loginFragment_to_calendarFragment, null, navOptions);
                                             })
                                             .addOnFailureListener(e -> {
-                                                // Si falla la actualización, igual permitir continuar
                                                 showLoading(false);
                                                 btnLogin.setText("Iniciar sesión");
 
@@ -354,7 +422,6 @@ public class LoginFragment extends Fragment {
                                             });
                                 })
                                 .addOnFailureListener(e -> {
-                                    // Error al consultar Firestore
                                     showLoading(false);
                                     btnLogin.setEnabled(true);
                                     btnLogin.setText("Iniciar sesión");

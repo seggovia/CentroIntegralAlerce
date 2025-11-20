@@ -63,7 +63,7 @@
             android:textColor="@color/textSecondary"
             android:textSize="15sp"/>
 
-        <!-- Email -->
+        <!-- Email con AUTOCOMPLETADO -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilEmail"
             style="@style/TextInputLayout.Alerce"
@@ -76,13 +76,18 @@
             app:endIconMode="clear_text"
             app:endIconTint="@color/textSecondary">
 
-            <com.google.android.material.textfield.TextInputEditText
+            <!-- ✅ CAMBIADO A AutoCompleteTextView -->
+            <AutoCompleteTextView
                 android:id="@+id/etEmail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textEmailAddress"
                 android:textColor="@color/textPrimary"
-                android:textSize="16sp"/>
+                android:textSize="16sp"
+                android:completionThreshold="1"
+                android:dropDownHeight="wrap_content"
+                android:dropDownAnchor="@id/tilEmail"
+                android:popupBackground="@drawable/bg_dropdown"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Contraseña -->
@@ -107,20 +112,52 @@
                 android:textSize="16sp"/>
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Link olvidé contraseña -->
-        <TextView
-            android:id="@+id/tvForgot"
-            android:layout_width="wrap_content"
+        <!-- ✅ NUEVO: Checkbox "Recordar usuario" -->
+        <LinearLayout
+            android:id="@+id/llRememberMe"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="¿Olvidaste tu contraseña?"
-            android:textColor="@color/primary"
-            android:textStyle="bold"
-            android:layout_gravity="end"
-            android:layout_marginTop="16dp"
-            android:padding="8dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?attr/selectableItemBackground"/>
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="16dp">
+
+            <CheckBox
+                android:id="@+id/cbRememberMe"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:buttonTint="@color/primary"
+                android:minWidth="0dp"
+                android:minHeight="0dp"/>
+
+            <TextView
+                android:id="@+id/tvRememberLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Recordar usuario"
+                android:textColor="@color/textSecondary"
+                android:textSize="14sp"
+                android:layout_marginStart="8dp"
+                android:padding="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground"/>
+
+            <!-- Link olvidé contraseña -->
+            <TextView
+                android:id="@+id/tvForgot"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="¿Olvidaste tu contraseña?"
+                android:textColor="@color/primary"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:padding="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground"/>
+
+        </LinearLayout>
 
         <!-- Botón iniciar sesión -->
         <com.google.android.material.button.MaterialButton
@@ -130,7 +167,6 @@
             android:layout_height="56dp"
             android:layout_marginTop="32dp"
             android:text="Iniciar sesión"
-            android:enabled="false"
             app:icon="@android:drawable/ic_media_play"
             app:iconGravity="textStart"
             app:iconTint="@android:color/white"/>
@@ -143,7 +179,6 @@
             android:layout_marginTop="20dp"
             android:visibility="gone"
             android:indeterminateTint="@color/primary"/>
-
 
         <!-- Espaciador flexible -->
         <View
