@@ -15,8 +15,8 @@
     <color name="secondary_light">#7BA8C3</color>   <!-- Azul cielo -->
 
     <!-- Acentos: Tierra/madera -->
-    <color name="accent">#8B6F47</color>            <!-- Café madera -->
-    <color name="accent_warm">#B8956A</color>       <!-- Beige cálido -->
+    <color name="accent">#8B6F47</color>            <!-- CafÃ© madera -->
+    <color name="accent_warm">#B8956A</color>       <!-- Beige cÃ¡lido -->
 
     <!-- ============================================ -->
     <!-- BACKGROUNDS Y SUPERFICIES -->
@@ -29,7 +29,7 @@
     <!-- ============================================ -->
     <!-- TEXTOS -->
     <!-- ============================================ -->
-    <color name="textPrimary">#1F2937</color>       <!-- Gris carbón -->
+    <color name="textPrimary">#1F2937</color>       <!-- Gris carbÃ³n -->
     <color name="textSecondary">#6B7280</color>     <!-- Gris medio -->
     <color name="textTertiary">#9CA3AF</color>      <!-- Gris claro -->
     <color name="textOnPrimary">#FFFFFF</color>     <!-- Blanco sobre primary -->
@@ -45,7 +45,7 @@
     <!-- ============================================ -->
     <!-- STATUS COLORS -->
     <!-- ============================================ -->
-    <color name="success">#059669</color>           <!-- Verde éxito -->
+    <color name="success">#059669</color>           <!-- Verde Ã©xito -->
     <color name="error">#DC2626</color>             <!-- Rojo error -->
     <color name="warning">#F59E0B</color>           <!-- Amarillo advertencia -->
     <color name="info">#3B82F6</color>              <!-- Azul info -->
@@ -60,7 +60,7 @@
     <color name="state_programada_pill">#5A9B82</color>
     <color name="state_programada_text">#1A3D2F</color>
 
-    <!-- REAGENDADA: Amarillo/Ámbar -->
+    <!-- REAGENDADA: Amarillo/Ãmbar -->
     <color name="state_reagendada_bg">#FEF3C7</color>
     <color name="state_reagendada_stroke">#F59E0B</color>
     <color name="state_reagendada_pill">#F59E0B</color>
@@ -72,7 +72,7 @@
     <color name="state_cancelada_pill">#DC2626</color>
     <color name="state_cancelada_text">#991B1B</color>
 
-    <!-- COMPLETADA: Verde éxito suave -->
+    <!-- COMPLETADA: Verde Ã©xito suave -->
     <color name="state_finalizada_bg">#D1FAE5</color>
     <color name="state_finalizada_stroke">#059669</color>
     <color name="state_finalizada_pill">#059669</color>
@@ -86,7 +86,7 @@
     <color name="gradient_overlay">#1A2D5F4F</color><!-- Overlay suave -->
 
     <!-- ============================================ -->
-    <!-- AVATARES Y CÍRCULOS -->
+    <!-- AVATARES Y CÃRCULOS -->
     <!-- ============================================ -->
     <color name="avatarBg">#C7E6D8</color>          <!-- Verde menta claro -->
     <color name="avatarText">#2D5F4F</color>        <!-- Verde oscuro -->
@@ -98,7 +98,7 @@
     <color name="toggle_stroke">#C7E6D8</color>
     <color name="toggle_text">#2D5F4F</color>
 
-    <!-- Transparentes útiles -->
+    <!-- Transparentes Ãºtiles -->
     <color name="transparent">#00000000</color>
     <color name="scrim">#80000000</color>           <!-- Negro 50% -->
 

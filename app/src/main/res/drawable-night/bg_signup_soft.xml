@@ -1,0 +1,23 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Base: degradado oscuro suave -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="@color/background"
+                android:endColor="@color/surface"
+                android:angle="135" />
+        </shape>
+    </item>
+
+    <!-- Mancha diagonal oscura -->
+    <item android:gravity="top|end">
+        <shape android:shape="rectangle">
+            <size android:width="320dp" android:height="320dp"/>
+            <corners android:radius="48dp"/>
+            <gradient
+                android:startColor="#1A2D5F4F"
+                android:endColor="@android:color/transparent"
+                android:angle="315" />
+        </shape>
+    </item>
+</layer-list>

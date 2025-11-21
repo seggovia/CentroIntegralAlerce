@@ -14,7 +14,9 @@ import androidx.fragment.app.Fragment;
 
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.utils.RoleManager;
+import com.centroalerce.gestion.utils.ThemeManager;
 import com.centroalerce.gestion.utils.UserRole;
+import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -31,7 +33,7 @@ public class PerfilFragment extends Fragment {
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
     private RoleManager roleManager;
-
+    private ThemeManager themeManager;
     // Header
     private TextView tvAvatarInitials;
     private TextView tvNombreUsuario;
@@ -42,6 +44,7 @@ public class PerfilFragment extends Fragment {
     private TextView tvEmail;
     private TextView tvRol;
     private TextView tvFechaRegistro;
+    private MaterialSwitch switchDarkMode;
 
     // Rol obtenido de Firestore por si RoleManager falla/tarda
     private String rolDesdeFirestore;
@@ -55,6 +58,7 @@ public class PerfilFragment extends Fragment {
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         roleManager = RoleManager.getInstance();
+        themeManager = new ThemeManager(requireContext());
 
         // Referencias UI
         tvAvatarInitials = v.findViewById(R.id.tvAvatarInitials);
@@ -65,17 +69,52 @@ public class PerfilFragment extends Fragment {
         tvEmail = v.findViewById(R.id.tvEmail);
         tvRol = v.findViewById(R.id.tvRol);
         tvFechaRegistro = v.findViewById(R.id.tvFechaRegistro);
+        switchDarkMode = v.findViewById(R.id.switchDarkMode);
 
         // Cargar datos
         cargarDatosAuthInmediatos();
         cargarDatosDesdeFirestore();
         cargarRolConRoleManager();
-
+        configurarSwitchModoOscuro();
         // Botón cambiar contraseña
         v.findViewById(R.id.cardCambiarPassword).setOnClickListener(view -> enviarCorreoRestablecimiento());
 
         return v;
     }
+    private void configurarSwitchModoOscuro() {
+        if (switchDarkMode == null) {
+            Log.e(TAG, "❌ Switch de modo oscuro no encontrado en el layout");
+            return;
+        }
+
+        // Cargar estado guardado
+        boolean isDarkMode = themeManager.isDarkMode();
+        switchDarkMode.setChecked(isDarkMode);
+        Log.d(TAG, "🌙 Modo oscuro actual: " + (isDarkMode ? "ACTIVO" : "INACTIVO"));
+
+        // Listener para cambios
+        switchDarkMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            Log.d(TAG, "🔄 Switch cambiado a: " + (isChecked ? "OSCURO" : "CLARO"));
+
+            // Guardar preferencia
+            int newMode = isChecked ? ThemeManager.MODE_DARK : ThemeManager.MODE_LIGHT;
+            themeManager.saveThemeMode(newMode);
+
+            // Aplicar tema inmediatamente
+            themeManager.applyTheme();
+
+            // Mostrar feedback
+            Toast.makeText(getContext(),
+                    isChecked ? "Modo oscuro activado" : "Modo claro activado",
+                    Toast.LENGTH_SHORT).show();
+
+            // Recrear la actividad para aplicar el tema
+            if (getActivity() != null) {
+                getActivity().recreate();
+            }
+        });
+    }
+
 
     private void cargarDatosAuthInmediatos() {
         FirebaseUser currentUser = mAuth.getCurrentUser();
@@ -321,5 +360,6 @@ public class PerfilFragment extends Fragment {
         tvEmail = null;
         tvRol = null;
         tvFechaRegistro = null;
+        switchDarkMode = null;
     }
 }

@@ -89,7 +89,7 @@
                     app:chipCornerRadius="12dp"
                     app:chipMinHeight="32dp"/>
 
-                <!-- Chip Fecha/Hora (azul suave) -->
+                <!-- Chip Fecha/Hora - CORREGIDO -->
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chFechaHora"
                     style="@style/Widget.Material3.Chip.Assist"
@@ -103,8 +103,8 @@
                     app:chipIconTint="@color/info"
                     app:chipIconVisible="true"
                     app:chipIconSize="16dp"
-                    app:chipBackgroundColor="@color/primary_light"
-                    app:chipStrokeColor="@color/primary"
+                    app:chipBackgroundColor="@android:color/transparent"
+                    app:chipStrokeColor="@color/divider"
                     app:chipStrokeWidth="1dp"
                     app:chipCornerRadius="12dp"
                     app:chipMinHeight="32dp"/>
@@ -123,8 +123,8 @@
                     app:chipIconTint="@color/success"
                     app:chipIconVisible="true"
                     app:chipIconSize="16dp"
-                    app:chipBackgroundColor="@color/chipBg"
-                    app:chipStrokeColor="@color/success"
+                    app:chipBackgroundColor="@android:color/transparent"
+                    app:chipStrokeColor="@color/divider"
                     app:chipStrokeWidth="1dp"
                     app:chipCornerRadius="12dp"
                     app:chipMinHeight="32dp"

@@ -1,15 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="@android:color/white"/>
-    <!-- ajusta radios a gusto -->
+    <solid android:color="@color/surface"/>
     <corners
         android:topLeftRadius="16dp"
         android:topRightRadius="16dp"
         android:bottomLeftRadius="24dp"
         android:bottomRightRadius="24dp"/>
-    <padding
-        android:left="0dp"
-        android:top="0dp"
-        android:right="0dp"
-        android:bottom="0dp"/>
 </shape>

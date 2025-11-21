@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- res/drawable-night/bg_header_alerce.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="135"
+        android:startColor="#1C3D34"
+        android:centerColor="#243D48"
+        android:endColor="#2D4F6B"
+        android:type="linear"/>
+    <corners
+        android:bottomLeftRadius="24dp"
+        android:bottomRightRadius="24dp"/>
+</shape>

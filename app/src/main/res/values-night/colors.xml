@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ============================================ -->
+    <!-- MODO OSCURO - PALETA ALERCE MEJORADA -->
+    <!-- ============================================ -->
+
+    <!-- Primarios: Verde más claro para contraste -->
+    <color name="primary">#5A9B82</color>
+    <color name="primary_dark">#2D5F4F</color>
+    <color name="primary_light">#7DBAA0</color>
+
+    <!-- Secundarios: Azul más claro -->
+    <color name="secondary">#7BA8C3</color>
+    <color name="secondary_dark">#4A7C9E</color>
+    <color name="secondary_light">#9BC4D8</color>
+
+    <!-- Acentos -->
+    <color name="accent">#B8956A</color>
+    <color name="accent_warm">#D4B896</color>
+
+    <!-- ============================================ -->
+    <!-- BACKGROUNDS Y SUPERFICIES - MÁS OSCUROS -->
+    <!-- ============================================ -->
+    <color name="background">#0D1117</color>        <!-- Casi negro -->
+    <color name="surface">#161B22</color>           <!-- Gris muy oscuro -->
+    <color name="card_surface">#1C2128</color>      <!-- Gris oscuro cards -->
+    <color name="surface_overlay">#22272E</color>   <!-- Gris overlay -->
+
+    <!-- ============================================ -->
+    <!-- TEXTOS - MÁS CLAROS PARA MEJOR CONTRASTE -->
+    <!-- ============================================ -->
+    <color name="textPrimary">#F0F6FC</color>       <!-- Casi blanco -->
+    <color name="textSecondary">#ADBAC7</color>     <!-- Gris claro -->
+    <color name="textTertiary">#909DAB</color>      <!-- Gris medio -->
+    <color name="textOnPrimary">#FFFFFF</color>     <!-- Blanco puro -->
+
+    <!-- ============================================ -->
+    <!-- UI ELEMENTS - MÁS VISIBLES -->
+    <!-- ============================================ -->
+    <color name="divider">#21262D</color>           <!-- Divider más oscuro -->
+    <color name="cardStroke">#30363D</color>        <!-- Borde más claro -->
+    <color name="chipBg">#22272E</color>            <!-- Fondo chips -->
+    <color name="ripple">#1A5A9B82</color>          <!-- Ripple verde -->
+
+    <!-- ============================================ -->
+    <!-- STATUS COLORS - MÁS VIBRANTES -->
+    <!-- ============================================ -->
+    <color name="success">#3FB950</color>           <!-- Verde éxito -->
+    <color name="error">#F85149</color>             <!-- Rojo error -->
+    <color name="warning">#F0883E</color>           <!-- Naranja advertencia -->
+    <color name="info">#58A6FF</color>              <!-- Azul info -->
+
+    <!-- ============================================ -->
+    <!-- ESTADOS DE ACTIVIDAD - MODO OSCURO -->
+    <!-- ============================================ -->
+    <color name="state_programada_bg">#1C2E26</color>
+    <color name="state_programada_stroke">#5A9B82</color>
+    <color name="state_programada_pill">#5A9B82</color>
+    <color name="state_programada_text">#AADBC4</color>
+
+    <color name="state_reagendada_bg">#2E2A1C</color>
+    <color name="state_reagendada_stroke">#F0883E</color>
+    <color name="state_reagendada_pill">#F0883E</color>
+    <color name="state_reagendada_text">#FFCC99</color>
+
+    <color name="state_cancelada_bg">#2E1C1C</color>
+    <color name="state_cancelada_stroke">#F85149</color>
+    <color name="state_cancelada_pill">#F85149</color>
+    <color name="state_cancelada_text">#FFAAAA</color>
+
+    <color name="state_finalizada_bg">#1C2E21</color>
+    <color name="state_finalizada_stroke">#3FB950</color>
+    <color name="state_finalizada_pill">#3FB950</color>
+    <color name="state_finalizada_text">#AAFFB4</color>
+
+    <!-- ============================================ -->
+    <!-- GRADIENTES - VERSIÓN OSCURA -->
+    <!-- ============================================ -->
+    <color name="gradient_start">#1C3D34</color>    <!-- Verde oscuro -->
+    <color name="gradient_end">#2D4F6B</color>      <!-- Azul oscuro -->
+    <color name="gradient_overlay">#1A2D5F4F</color>
+
+    <!-- ============================================ -->
+    <!-- AVATARES -->
+    <!-- ============================================ -->
+    <color name="avatarBg">#2D5F4F</color>          <!-- Verde oscuro -->
+    <color name="avatarText">#AADBC4</color>        <!-- Verde claro -->
+
+    <!-- ============================================ -->
+    <!-- OTROS ELEMENTOS -->
+    <!-- ============================================ -->
+    <color name="toggle_bg">#22272E</color>
+    <color name="toggle_stroke">#30363D</color>
+    <color name="toggle_text">#AADBC4</color>
+
+    <!-- Transparentes -->
+    <color name="transparent">#00000000</color>
+    <color name="scrim">#80000000</color>
+</resources>

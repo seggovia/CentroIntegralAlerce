@@ -23,6 +23,7 @@ import androidx.navigation.ui.NavigationUI;
 
 import com.centroalerce.gestion.utils.PermissionChecker;
 import com.centroalerce.gestion.utils.RoleManager;
+import com.centroalerce.gestion.utils.ThemeManager;
 import com.centroalerce.gestion.utils.UserRole;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -44,12 +45,13 @@ public class MainActivity extends AppCompatActivity {
     private NavController navController;
     private BottomNavigationView bottomNav;
 
-    // ✅ Sistema de roles (TU CÓDIGO)
+    // ✅ Sistema de roles
     private RoleManager roleManager;
     private PermissionChecker permissionChecker;
     private FirebaseAuth auth;
     private UserRole currentUserRole;
     private boolean navControllerReady = false;
+    private ThemeManager themeManager;
 
     // Control de navegación para evitar clicks múltiples durante animaciones
     private boolean isNavigating = false;
@@ -68,8 +70,12 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
+        themeManager = new ThemeManager(this);
+        themeManager.applyTheme();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        Log.d(TAG, "🌙 Tema aplicado: " + (themeManager.isDarkMode() ? "OSCURO" : "CLARO"));
 
         // ✅ Inicializar Firebase App Check - TEMPORALMENTE DESACTIVADO PARA DEBUG
         FirebaseApp.initializeApp(this);
@@ -459,7 +465,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // ✅ Limpiar listener de roles (TU CÓDIGO)
+        // Limpiar listener de roles
         if (roleManager != null) {
             roleManager.unsubscribeFromRoleChanges();
         }

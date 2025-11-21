@@ -3,63 +3,65 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_mantenedores_soft">
+    android:background="@color/background">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Header con gradiente y avatar -->
+        <!-- Header con gradiente -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="220dp"
+            android:layout_height="200dp"
             android:background="@drawable/bg_header_alerce">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center"
                 android:orientation="vertical"
                 android:gravity="center"
-                android:layout_gravity="center"
                 android:padding="24dp">
 
                 <!-- Avatar circular -->
                 <FrameLayout
-                    android:layout_width="96dp"
-                    android:layout_height="96dp"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
                     android:background="@drawable/bg_avatar_circle">
 
                     <TextView
                         android:id="@+id/tvAvatarInitials"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:text="CA"
-                        android:textStyle="bold"
-                        android:textSize="32sp"
-                        android:textColor="@color/avatarText"/>
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="US"
+                        android:textColor="@color/avatarText"
+                        android:textSize="28sp"
+                        android:textStyle="bold"/>
                 </FrameLayout>
 
+                <!-- Nombre -->
                 <TextView
                     android:id="@+id/tvNombreUsuario"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:text="Usuario"
-                    android:textStyle="bold"
+                    android:textColor="@android:color/white"
                     android:textSize="22sp"
-                    android:textColor="@android:color/white"/>
+                    android:textStyle="bold"/>
 
+                <!-- Rol -->
                 <TextView
                     android:id="@+id/tvRolUsuario"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Administrador"
+                    android:text="Usuario"
+                    android:textColor="@android:color/white"
                     android:textSize="15sp"
-                    android:alpha="0.9"
-                    android:textColor="@android:color/white"/>
+                    android:alpha="0.9"/>
             </LinearLayout>
         </FrameLayout>
 
@@ -70,20 +72,11 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- Sección: Información personal -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Información personal"
-                android:textStyle="bold"
-                android:textSize="18sp"
-                android:textColor="@color/textPrimary"
-                android:layout_marginBottom="12dp"/>
-
+            <!-- Card: Información personal -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
+                android:layout_marginBottom="16dp"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="2dp"
                 app:strokeColor="@color/cardStroke"
@@ -93,183 +86,248 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="20dp"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Información personal"
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:textColor="@color/textPrimary"
+                        android:layout_marginBottom="16dp"/>
 
                     <!-- Nombre completo -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingVertical="8dp">
+                        android:layout_marginBottom="12dp">
 
                         <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
                             android:src="@android:drawable/ic_menu_myplaces"
-                            app:tint="@color/primary"/>
+                            app:tint="@color/textSecondary"
+                            android:layout_marginEnd="12dp"/>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:layout_marginStart="12dp"
                             android:orientation="vertical">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Nombre completo"
-                                android:textSize="12sp"
+                                android:textSize="13sp"
                                 android:textColor="@color/textSecondary"/>
 
                             <TextView
                                 android:id="@+id/tvNombreCompleto"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Usuario del Sistema"
+                                android:text="Usuario"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
                                 android:textColor="@color/textPrimary"/>
                         </LinearLayout>
                     </LinearLayout>
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginVertical="8dp"
-                        android:background="@color/divider"/>
-
-                    <!-- Email -->
+                    <!-- Correo electrónico -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingVertical="8dp">
+                        android:layout_marginBottom="12dp">
 
                         <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
                             android:src="@android:drawable/ic_dialog_email"
-                            app:tint="@color/primary"/>
+                            app:tint="@color/textSecondary"
+                            android:layout_marginEnd="12dp"/>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:layout_marginStart="12dp"
                             android:orientation="vertical">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Correo electrónico"
-                                android:textSize="12sp"
+                                android:textSize="13sp"
                                 android:textColor="@color/textSecondary"/>
 
                             <TextView
                                 android:id="@+id/tvEmail"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="usuario@centroalerce.cl"
+                                android:text="usuario@email.com"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
                                 android:textColor="@color/textPrimary"/>
                         </LinearLayout>
                     </LinearLayout>
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginVertical="8dp"
-                        android:background="@color/divider"/>
-
-                    <!-- Rol -->
+                    <!-- Rol en el sistema -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingVertical="8dp">
+                        android:layout_marginBottom="12dp">
 
                         <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
                             android:src="@android:drawable/ic_menu_info_details"
-                            app:tint="@color/primary"/>
+                            app:tint="@color/textSecondary"
+                            android:layout_marginEnd="12dp"/>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:layout_marginStart="12dp"
                             android:orientation="vertical">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Rol en el sistema"
-                                android:textSize="12sp"
+                                android:textSize="13sp"
                                 android:textColor="@color/textSecondary"/>
 
                             <TextView
                                 android:id="@+id/tvRol"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Administrador"
+                                android:text="Usuario"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
                                 android:textColor="@color/textPrimary"/>
                         </LinearLayout>
                     </LinearLayout>
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginVertical="8dp"
-                        android:background="@color/divider"/>
-
-                    <!-- Fecha de registro -->
+                    <!-- Miembro desde -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingVertical="8dp">
+                        android:orientation="horizontal">
 
                         <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
                             android:src="@android:drawable/ic_menu_recent_history"
-                            app:tint="@color/primary"/>
+                            app:tint="@color/textSecondary"
+                            android:layout_marginEnd="12dp"/>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:layout_marginStart="12dp"
                             android:orientation="vertical">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Miembro desde"
-                                android:textSize="12sp"
+                                android:textSize="13sp"
                                 android:textColor="@color/textSecondary"/>
 
                             <TextView
                                 android:id="@+id/tvFechaRegistro"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Octubre 2024"
+                                android:text="Noviembre 2025"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
                                 android:textColor="@color/textPrimary"/>
                         </LinearLayout>
                     </LinearLayout>
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Sección: Acciones -->
+            <!-- ✅ NUEVO: Card Preferencias (con Modo Oscuro) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:strokeColor="@color/cardStroke"
+                app:strokeWidth="1dp"
+                app:cardBackgroundColor="@color/card_surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Preferencias"
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:textColor="@color/textPrimary"
+                        android:layout_marginBottom="16dp"/>
+
+                    <!-- Switch Modo Oscuro -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@android:drawable/ic_menu_day"
+                            app:tint="@color/textSecondary"
+                            android:layout_marginEnd="12dp"/>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Modo oscuro"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/textPrimary"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Tema oscuro para una mejor experiencia visual"
+                                android:textSize="13sp"
+                                android:textColor="@color/textSecondary"/>
+                        </LinearLayout>
+
+                        <!-- ✅ SWITCH MODO OSCURO -->
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchDarkMode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            app:thumbTint="@color/surface"
+                            app:trackTint="@color/primary"
+                            app:trackDecorationTint="@color/cardStroke"/>
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Card: Acciones -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -277,7 +335,8 @@
                 android:textStyle="bold"
                 android:textSize="18sp"
                 android:textColor="@color/textPrimary"
-                android:layout_marginBottom="12dp"/>
+                android:layout_marginBottom="12dp"
+                android:layout_marginTop="8dp"/>
 
             <!-- Cambiar contraseña -->
             <com.google.android.material.card.MaterialCardView
@@ -297,38 +356,52 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:padding="16dp"
+                    android:padding="20dp"
                     android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:src="@android:drawable/ic_lock_lock"
+                        android:padding="8dp"
+                        app:tint="@color/primary"/>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Cambiar contraseña"
+                            android:textStyle="bold"
+                            android:textSize="16sp"
+                            android:textColor="@color/textPrimary"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Recibir correo para cambiar contraseña"
+                            android:textSize="13sp"
+                            android:textColor="@color/textSecondary"/>
+                    </LinearLayout>
 
                     <ImageView
                         android:layout_width="24dp"
                         android:layout_height="24dp"
-                        android:src="@android:drawable/ic_lock_lock"
-                        app:tint="@color/primary"/>
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="16dp"
-                        android:text="Cambiar contraseña"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:textColor="@color/textPrimary"/>
-
-                    <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
                         android:src="@android:drawable/ic_menu_info_details"
                         app:tint="@color/textSecondary"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-
-            <!-- Espaciador inferior -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="80dp"/>
-
         </LinearLayout>
+
+        <!-- Espaciador inferior -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="96dp"/>
     </LinearLayout>
 </ScrollView>

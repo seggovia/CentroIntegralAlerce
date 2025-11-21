@@ -1,12 +1,43 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- DESACTIVADO: Forzamos tema claro siempre -->
-    <style name="Base.Theme.CentroIntegralAlerce" parent="Theme.Material3.Light.NoActionBar">
+    <!-- MODO OSCURO - Material 3 Dark -->
+    <style name="Base.Theme.CentroIntegralAlerce" parent="Theme.Material3.Dark.NoActionBar">
+        <!-- Colores primarios -->
         <item name="colorPrimary">@color/primary</item>
-        <item name="colorOnPrimary">@color/textOnPrimary</item>
-        <item name="colorPrimaryContainer">@color/primary_light</item>
+        <item name="colorOnPrimary">@color/textPrimary</item>
+        <item name="colorPrimaryContainer">@color/primary_dark</item>
+        <item name="colorOnPrimaryContainer">@color/textPrimary</item>
+
+        <!-- Colores secundarios -->
         <item name="colorSecondary">@color/secondary</item>
+        <item name="colorOnSecondary">@color/textPrimary</item>
+        <item name="colorSecondaryContainer">@color/secondary_dark</item>
+        <item name="colorOnSecondaryContainer">@color/textPrimary</item>
+
+        <!-- Superficie y fondo -->
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/textPrimary</item>
-        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
+        <item name="colorSurfaceVariant">@color/surface_overlay</item>
+        <item name="colorOnSurfaceVariant">@color/textSecondary</item>
+
+        <item name="android:colorBackground">@color/background</item>
+        <item name="colorOnBackground">@color/textPrimary</item>
+
+        <!-- Dividers y outlines -->
+        <item name="colorOutline">@color/divider</item>
+        <item name="colorOutlineVariant">@color/cardStroke</item>
+
+        <!-- Status bar y navigation bar -->
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+        <!-- Error colors -->
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/textPrimary</item>
+
+        <!-- Force dark mode -->
+        <item name="android:forceDarkAllowed" tools:targetApi="q">true</item>
     </style>
+
+    <style name="Theme.CentroIntegralAlerce" parent="Base.Theme.CentroIntegralAlerce" />
 </resources>
