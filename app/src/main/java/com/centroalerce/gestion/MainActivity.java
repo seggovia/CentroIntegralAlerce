@@ -9,7 +9,9 @@ import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
-
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
@@ -37,7 +39,8 @@ import com.google.firebase.auth.FirebaseUser;
 import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
-
+    // 🆕 RECEIVER PARA SESIÓN EXPIRADA
+    private BroadcastReceiver sessionExpiredReceiver;
     private static final String TAG = "MainActivity";
 
     private FloatingActionButton fabGlobal;
@@ -77,33 +80,20 @@ public class MainActivity extends AppCompatActivity {
 
         Log.d(TAG, "🌙 Tema aplicado: " + (themeManager.isDarkMode() ? "OSCURO" : "CLARO"));
 
-        // ✅ Inicializar Firebase App Check - TEMPORALMENTE DESACTIVADO PARA DEBUG
         FirebaseApp.initializeApp(this);
-        // FirebaseAppCheck firebaseAppCheck = FirebaseAppCheck.getInstance();
-
-        // Usar Debug provider en desarrollo (BuildConfig.DEBUG)
-        // Cambiar a Play Integrity para producción
-        // if (BuildConfig.DEBUG) {
-        //     firebaseAppCheck.installAppCheckProviderFactory(
-        //             DebugAppCheckProviderFactory.getInstance());
-        //     Log.d(TAG, "✅ App Check inicializado con DEBUG provider");
-        // } else {
-        //     firebaseAppCheck.installAppCheckProviderFactory(
-        //             PlayIntegrityAppCheckProviderFactory.getInstance());
-        //     Log.d(TAG, "✅ App Check inicializado con Play Integrity");
-        // }
         Log.d(TAG, "⚠️ App Check DESACTIVADO temporalmente para debug");
 
-        // ✅ Inicializar Firebase Auth (TU CÓDIGO)
         auth = FirebaseAuth.getInstance();
 
-        // ✅ Verificar usuario autenticado (TU CÓDIGO)
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null) {
             Log.d(TAG, "⚠️ No hay usuario autenticado");
         }
 
-        // 🆕 Pedir permiso de notificaciones (CÓDIGO DE TU COMPAÑERO)
+        // 🆕 AGREGAR ESTA LÍNEA AQUÍ (después de verificar usuario)
+        setupSessionExpiredReceiver();
+
+        // 🆕 Pedir permiso de notificaciones
         asegurarPermisoNotificaciones();
 
         // 1) Obtener NavController desde el NavHostFragment
@@ -156,8 +146,8 @@ public class MainActivity extends AppCompatActivity {
 
         // 4) ✅ Configurar click del FAB "+" CON VALIDACIÓN DE PERMISOS
         fabGlobal.setOnClickListener(v -> {
-            // Solo usuarios comunes y admins pueden crear actividades
-            if (currentUserRole != null && currentUserRole.canInteractWithActivities()) {
+            // Verificar permisos: Si el rol es null O puede interactuar, permitir crear
+            if (currentUserRole == null || currentUserRole.canInteractWithActivities()) {
                 // Navegar con animaciones slide desde la izquierda
                 NavOptions navOptions = new NavOptions.Builder()
                         .setEnterAnim(R.anim.slide_in_left)
@@ -167,6 +157,7 @@ public class MainActivity extends AppCompatActivity {
                         .build();
                 navController.navigate(R.id.activityFormFragment, null, navOptions);
             } else {
+                // Solo mostrar error si sabemos que NO tiene permisos (Visualizador)
                 Toast.makeText(this, "No tienes permisos para crear actividades", Toast.LENGTH_SHORT).show();
             }
         });
@@ -183,10 +174,10 @@ public class MainActivity extends AppCompatActivity {
             navController.navigate(R.id.calendarFragment, null, navOptions);
         });
 
-        // ✅ Inicializar sistema de roles ANTES de los listeners (TU CÓDIGO)
+        // ✅ Inicializar sistema de roles ANTES de los listeners
         initializeRoleSystem();
 
-        // 5) Mostrar/ocultar BottomNav y FAB según destino
+        // 6) Mostrar/ocultar BottomNav y FAB según destino
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
             int id = destination.getId();
 
@@ -224,31 +215,23 @@ public class MainActivity extends AppCompatActivity {
             fabCalendar.setVisibility(hideBottomNav ? View.GONE : View.VISIBLE);
 
             // ✅ LÓGICA MEJORADA: Mostrar FAB "+" en CalendarFragment y ActivitiesListFragment
-            // pero SOLO si el usuario tiene permisos
             if (id == R.id.calendarFragment || id == R.id.activitiesListFragment) {
-                // Mostrar por defecto mientras se carga el rol, solo ocultar si es VISUALIZADOR
                 if (currentUserRole == null) {
-                    // Rol aún no cargado, mostrar FAB por defecto (optimista)
                     Log.d(TAG, "⚠️ FAB: Rol null, mostrando optimistamente");
                     fabGlobal.show();
                 } else if (currentUserRole.canInteractWithActivities()) {
                     Log.d(TAG, "✅ FAB: Mostrando (rol: " + currentUserRole.getValue() + ")");
-                    fabGlobal.show(); // ✅ Usuario/Admin pueden crear
+                    fabGlobal.show();
                 } else {
                     Log.d(TAG, "❌ FAB: Ocultando (rol: " + currentUserRole.getValue() + ")");
-                    fabGlobal.hide(); // ❌ Visualizador no puede crear
+                    fabGlobal.hide();
                 }
             } else {
-                fabGlobal.hide(); // Ocultar en otros fragments
+                fabGlobal.hide();
             }
         });
     }
 
-    // ✅ ==================== MÉTODOS DE ROLES (TU CÓDIGO) ====================
-
-    /**
-     * ✅ Inicializa el sistema de roles
-     */
     private void initializeRoleSystem() {
         Log.d(TAG, "🔧 initializeRoleSystem() llamado");
         roleManager = RoleManager.getInstance();
@@ -452,6 +435,7 @@ public class MainActivity extends AppCompatActivity {
         return newOrder > currentOrder;
     }
 
+
     /**
      * Obtiene el orden de la vista en el bottom navigation
      */
@@ -465,9 +449,98 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+
         // Limpiar listener de roles
         if (roleManager != null) {
             roleManager.unsubscribeFromRoleChanges();
         }
+
+        // 🆕 Desregistrar receiver de sesión expirada
+        if (sessionExpiredReceiver != null) {
+            try {
+                unregisterReceiver(sessionExpiredReceiver);
+                Log.d(TAG, "✅ Receiver de sesión expirada desregistrado");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error al desregistrar receiver", e);
+            }
+        }
+    }
+    // 🆕 ==================== MÉTODOS DE SESIÓN EXPIRADA ====================
+
+    /**
+     * 🆕 Configura el receiver para detectar cuando la sesión expira
+     */
+
+    @SuppressWarnings("UnspecifiedRegisterReceiverFlag")
+    private void setupSessionExpiredReceiver() {
+        sessionExpiredReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if ("SESSION_EXPIRED".equals(intent.getAction())) {
+                    Log.d(TAG, "📩 Broadcast recibido: SESSION_EXPIRED");
+                    showSessionExpiredDialog();
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter("SESSION_EXPIRED");
+
+        // Registrar el receiver según la versión de Android
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(sessionExpiredReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            // Para versiones anteriores, usar sin flags
+            try {
+                registerReceiver(sessionExpiredReceiver, filter);
+            } catch (Exception e) {
+                Log.e(TAG, "Error registrando receiver", e);
+            }
+        }
+
+        Log.d(TAG, "✅ Receiver de sesión expirada registrado");
+    }
+
+    /**
+     * 🆕 Muestra el diálogo de sesión expirada
+     */
+    /**
+     * 🆕 Muestra el diálogo de sesión expirada
+     */
+    private void showSessionExpiredDialog() {
+        runOnUiThread(() -> {
+            new AlertDialog.Builder(this)
+                    .setTitle("La sesión ha caducado")
+                    .setMessage("Vuelve a iniciar sesión.")
+                    .setCancelable(false)
+                    .setPositiveButton("Aceptar", (dialog, which) -> {
+                        Log.d(TAG, "🔄 Usuario aceptó diálogo de sesión expirada, navegando a login");
+
+                        // Asegurarse de que el navController esté disponible
+                        if (navController != null && navController.getCurrentDestination() != null) {
+                            try {
+                                // Limpiar toda la pila y navegar al login
+                                NavOptions navOptions = new NavOptions.Builder()
+                                        .setPopUpTo(R.id.nav_graph, true)
+                                        .setEnterAnim(R.anim.fade_in)
+                                        .setExitAnim(R.anim.fade_out)
+                                        .build();
+
+                                navController.navigate(R.id.loginFragment, null, navOptions);
+                                Log.d(TAG, "✅ Navegación a login exitosa");
+                            } catch (Exception e) {
+                                Log.e(TAG, "❌ Error navegando a login", e);
+                                // Plan B: Reiniciar la activity
+                                finish();
+                                startActivity(getIntent());
+                            }
+                        } else {
+                            Log.e(TAG, "❌ NavController no disponible, reiniciando activity");
+                            // Plan B: Reiniciar la activity
+                            finish();
+                            startActivity(getIntent());
+                        }
+                    })
+                    .show();
+        });
     }
 }

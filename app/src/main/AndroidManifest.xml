@@ -26,6 +26,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
     <application
+        android:name=".MyApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -34,7 +35,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.CentroIntegralAlerce"
-        android:usesCleartextTraffic="true">  <!-- 🆕 Permite HTTP si es necesario -->
+        android:usesCleartextTraffic="true">
 
         <activity
             android:name="com.centroalerce.gestion.MainActivity"
