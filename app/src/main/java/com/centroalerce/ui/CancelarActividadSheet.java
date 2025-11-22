@@ -100,14 +100,19 @@ public class CancelarActividadSheet extends BottomSheetDialogFragment {
                 progressDialog.setCancelable(false);
                 progressDialog.show();
 
+                // Deshabilitar botón y cambiar texto mientras se cancela
+                btnCancelar.setEnabled(false);
+                CharSequence originalText = btnCancelar.getText();
+                btnCancelar.setText("Cancelando...");
+
                 // Acción: cancelar cita específica o toda la actividad
-                if (!TextUtils.isEmpty(citaId)) cancelarSoloCita(motivo, progressDialog);
-                else cancelarActividadCompleta(motivo, progressDialog);
+                if (!TextUtils.isEmpty(citaId)) cancelarSoloCita(motivo, progressDialog, btnCancelar, originalText);
+                else cancelarActividadCompleta(motivo, progressDialog, btnCancelar, originalText);
             });
         }
     }
 
-    private void cancelarSoloCita(String motivo, android.app.ProgressDialog progressDialog){
+    private void cancelarSoloCita(String motivo, android.app.ProgressDialog progressDialog, MaterialButton btnCancelar, CharSequence originalText){
         DocumentReference citaES = act(actividadId, false).collection("citas").document(citaId);
         DocumentReference citaEN = act(actividadId, true).collection("citas").document(citaId);
 
@@ -132,6 +137,7 @@ public class CancelarActividadSheet extends BottomSheetDialogFragment {
                         cancelarActividadSiEsPuntual(actividadId, motivo);
 
                         progressDialog.dismiss();
+                        // En éxito se cierra el sheet; no es necesario restaurar texto
                         CustomToast.showSuccess(getContext(), "Cita cancelada con éxito");
                         registrarAuditoria("cancelar_cita", motivo);
                         notifyChanged();
@@ -140,15 +146,24 @@ public class CancelarActividadSheet extends BottomSheetDialogFragment {
                     .addOnFailureListener(e -> {
                         android.util.Log.e("CancelarSheet", "❌ Error al cancelar cita: " + e.getMessage());
                         progressDialog.dismiss();
+                        // Restaurar botón en error
+                        if (btnCancelar != null) {
+                            btnCancelar.setEnabled(true);
+                            btnCancelar.setText(originalText);
+                        }
                         CustomToast.showError(getContext(), "Error al cancelar: " + e.getMessage());
                     });
         }).addOnFailureListener(e -> {
             progressDialog.dismiss();
+            if (btnCancelar != null) {
+                btnCancelar.setEnabled(true);
+                btnCancelar.setText(originalText);
+            }
             CustomToast.showError(getContext(), "Error al cancelar: " + e.getMessage());
         });
     }
 
-    private void cancelarActividadCompleta(String motivo, android.app.ProgressDialog progressDialog){
+    private void cancelarActividadCompleta(String motivo, android.app.ProgressDialog progressDialog, MaterialButton btnCancelar, CharSequence originalText){
         WriteBatch batch = db.batch();
         DocumentReference actES = act(actividadId, false);
         DocumentReference actEN = act(actividadId, true);
@@ -179,6 +194,7 @@ public class CancelarActividadSheet extends BottomSheetDialogFragment {
                         .addOnSuccessListener(u -> {
                             android.util.Log.d("CancelarSheet", "✅ Actividad cancelada por usuario: " + userId);
                             progressDialog.dismiss();
+                            // En éxito se cierra el sheet; no es necesario restaurar texto
                             CustomToast.showSuccess(getContext(), "Actividad cancelada con éxito");
                             registrarAuditoria("cancelar_actividad", motivo);
                             notifyChanged();
@@ -187,14 +203,26 @@ public class CancelarActividadSheet extends BottomSheetDialogFragment {
                         .addOnFailureListener(e -> {
                             android.util.Log.e("CancelarSheet", "❌ Error al cancelar actividad: " + e.getMessage());
                             progressDialog.dismiss();
+                            if (btnCancelar != null) {
+                                btnCancelar.setEnabled(true);
+                                btnCancelar.setText(originalText);
+                            }
                             CustomToast.showError(getContext(), "Error al cancelar: " + e.getMessage());
                         });
             }).addOnFailureListener(e -> {
                 progressDialog.dismiss();
+                if (btnCancelar != null) {
+                    btnCancelar.setEnabled(true);
+                    btnCancelar.setText(originalText);
+                }
                 CustomToast.showError(getContext(), "Error al listar citas: " + e.getMessage());
             });
         }).addOnFailureListener(e -> {
             progressDialog.dismiss();
+            if (btnCancelar != null) {
+                btnCancelar.setEnabled(true);
+                btnCancelar.setText(originalText);
+            }
             CustomToast.showError(getContext(), "Error al cancelar: " + e.getMessage());
         });
     }

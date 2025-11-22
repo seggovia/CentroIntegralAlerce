@@ -106,7 +106,12 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                 // Doble verificación antes de guardar
                 if (permissionChecker.checkAndNotify(getContext(),
                         PermissionChecker.Permission.RESCHEDULE_ACTIVITY)) {
-                    reagendar();
+                    // Deshabilitar botón y cambiar texto mientras se reagenda
+                    btnGuardar.setEnabled(false);
+                    CharSequence originalText = btnGuardar.getText();
+                    btnGuardar.setText("Reagendando...");
+
+                    reagendar(btnGuardar, originalText);
                 }
             });
         }
@@ -173,7 +178,7 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
         }, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE), true).show();
     }
 
-    private void reagendar(){
+    private void reagendar(MaterialButton btnGuardar, CharSequence originalText){
         String motivo = txt(etMotivo);
         if (motivo.length() < 6){
             etMotivo.setError("Describe el motivo (≥ 6)");
@@ -185,10 +190,18 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
         }
         if (TextUtils.isEmpty(txt(etHora))){
             etHora.setError("Selecciona hora");
+            if (btnGuardar != null) {
+                btnGuardar.setEnabled(true);
+                btnGuardar.setText(originalText);
+            }
             return;
         }
         if (TextUtils.isEmpty(actividadId)){
             toast("Falta actividadId");
+            if (btnGuardar != null) {
+                btnGuardar.setEnabled(true);
+                btnGuardar.setText(originalText);
+            }
             return;
         }
 
@@ -197,6 +210,10 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
         ValidationResult validacionFecha = ActividadValidator.validarFechaFutura(nuevaFecha);
         if (!validacionFecha.isValid()) {
             mostrarDialogoError("Fecha inválida", validacionFecha.getErrorMessage());
+            if (btnGuardar != null) {
+                btnGuardar.setEnabled(true);
+                btnGuardar.setText(originalText);
+            }
             return;
         }
 
@@ -208,21 +225,21 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
 
         // ✅ Validar cupo del lugar si está definido
         if (!TextUtils.isEmpty(lugarNombreActual)) {
-            validarCupoYConflicto(motivo, nuevaFecha, progressDialog);
+            validarCupoYConflicto(motivo, nuevaFecha, progressDialog, btnGuardar, originalText);
         } else {
             // Sin lugar definido, proceder directo
             if (!TextUtils.isEmpty(citaId)) {
-                reagendarCita(citaId, motivo, nuevaFecha, progressDialog);
+                reagendarCita(citaId, motivo, nuevaFecha, progressDialog, btnGuardar, originalText);
             } else {
-                proximaCitaYReagendar(motivo, nuevaFecha, progressDialog);
+                proximaCitaYReagendar(motivo, nuevaFecha, progressDialog, btnGuardar, originalText);
             }
         }
     }
 
     // ===== Validación de cupo del lugar =====
-    private void validarCupoYConflicto(String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog) {
+    private void validarCupoYConflicto(String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog, MaterialButton btnGuardar, CharSequence originalText) {
         if (TextUtils.isEmpty(lugarNombreActual)) {
-            validarConflictoGlobal(motivo, nuevaFecha, progressDialog);
+            validarConflictoGlobal(motivo, nuevaFecha, progressDialog, btnGuardar, originalText);
             return;
         }
 
@@ -233,7 +250,7 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                 .get()
                 .addOnSuccessListener(qs -> {
                     if (qs.isEmpty()) {
-                        validarConflictoGlobal(motivo, nuevaFecha, progressDialog);
+                        validarConflictoGlobal(motivo, nuevaFecha, progressDialog, btnGuardar, originalText);
                         return;
                     }
 
@@ -250,23 +267,27 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                                             validacionCupo.getErrorMessage(),
                                             "Entendido"
                                     );
+                                    if (btnGuardar != null) {
+                                        btnGuardar.setEnabled(true);
+                                        btnGuardar.setText(originalText);
+                                    }
                                     return;
                                 }
                             }
-                            validarConflictoGlobal(motivo, nuevaFecha, progressDialog);
+                            validarConflictoGlobal(motivo, nuevaFecha, progressDialog, btnGuardar, originalText);
                         }
 
                         @Override
                         public void onError(String error) {
-                            validarConflictoGlobal(motivo, nuevaFecha, progressDialog);
+                            validarConflictoGlobal(motivo, nuevaFecha, progressDialog, btnGuardar, originalText);
                         }
                     });
                 })
-                .addOnFailureListener(e -> validarConflictoGlobal(motivo, nuevaFecha, progressDialog));
+                .addOnFailureListener(e -> validarConflictoGlobal(motivo, nuevaFecha, progressDialog, btnGuardar, originalText));
     }
 
     // ===== Validación de conflicto global =====
-    private void validarConflictoGlobal(String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog) {
+    private void validarConflictoGlobal(String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog, MaterialButton btnGuardar, CharSequence originalText) {
         TimeZone tz = TimeZone.getTimeZone("America/Santiago");
         Calendar day = Calendar.getInstance(tz);
         day.setTime(nuevaFecha);
@@ -335,47 +356,86 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                                 "Ya existe una cita a esa hora (" + tf.format(nuevaFecha) +
                                         ") para el mismo lugar u oferente.\n\n¿Qué deseas hacer?"
                         );
+                        if (btnGuardar != null) {
+                            btnGuardar.setEnabled(true);
+                            btnGuardar.setText(originalText);
+                        }
                     } else {
+                        // Sin conflicto global: continuar con la lógica normal de reagendar
                         if (!TextUtils.isEmpty(citaId)) {
-                            reagendarCita(citaId, motivo, nuevaFecha, progressDialog);
+                            reagendarCita(citaId, motivo, nuevaFecha, progressDialog, btnGuardar, originalText);
                         } else {
-                            proximaCitaYReagendar(motivo, nuevaFecha, progressDialog);
+                            proximaCitaYReagendar(motivo, nuevaFecha, progressDialog, btnGuardar, originalText);
                         }
                     }
                 })
                 .addOnFailureListener(e -> {
                     progressDialog.dismiss();
+                    if (btnGuardar != null) {
+                        btnGuardar.setEnabled(true);
+                        btnGuardar.setText(originalText);
+                    }
                     CustomToast.showError(getContext(), "Error al validar: " + e.getMessage());
                 });
     }
 
-    private void proximaCitaYReagendar(String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog){
-        act(actividadId,true).collection("citas")
+    /**
+     * Busca la próxima cita futura de la actividad y la reagenda.
+     * Mantiene el mismo comportamiento que la versión anterior pero con manejo del botón.
+     */
+    private void proximaCitaYReagendar(String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog, MaterialButton btnGuardar, CharSequence originalText) {
+        // Buscar primero en EN
+        act(actividadId, true).collection("citas")
                 .whereGreaterThan("startAt", Timestamp.now())
                 .orderBy("startAt", Query.Direction.ASCENDING)
-                .limit(1).get().addOnSuccessListener(q -> {
-                    if (!q.isEmpty()){
-                        reagendarCita(q.getDocuments().get(0).getId(), motivo, nuevaFecha, progressDialog);
+                .limit(1)
+                .get()
+                .addOnSuccessListener(q -> {
+                    if (!q.isEmpty()) {
+                        reagendarCita(q.getDocuments().get(0).getId(), motivo, nuevaFecha, progressDialog, btnGuardar, originalText);
                         return;
                     }
-                    act(actividadId,false).collection("citas")
+
+                    // Si no hay en EN, intentar en ES
+                    act(actividadId, false).collection("citas")
                             .whereGreaterThan("startAt", Timestamp.now())
                             .orderBy("startAt", Query.Direction.ASCENDING)
-                            .limit(1).get().addOnSuccessListener(q2 -> {
-                                if (!q2.isEmpty()){
-                                    reagendarCita(q2.getDocuments().get(0).getId(), motivo, nuevaFecha, progressDialog);
+                            .limit(1)
+                            .get()
+                            .addOnSuccessListener(q2 -> {
+                                if (!q2.isEmpty()) {
+                                    reagendarCita(q2.getDocuments().get(0).getId(), motivo, nuevaFecha, progressDialog, btnGuardar, originalText);
                                     return;
                                 }
+
+                                // No hay citas futuras
                                 progressDialog.dismiss();
+                                if (btnGuardar != null) {
+                                    btnGuardar.setEnabled(true);
+                                    btnGuardar.setText(originalText);
+                                }
                                 CustomToast.showError(getContext(), "No hay citas futuras para reagendar");
+                            })
+                            .addOnFailureListener(e -> {
+                                progressDialog.dismiss();
+                                if (btnGuardar != null) {
+                                    btnGuardar.setEnabled(true);
+                                    btnGuardar.setText(originalText);
+                                }
+                                CustomToast.showError(getContext(), "Error: " + e.getMessage());
                             });
-                }).addOnFailureListener(e -> {
+                })
+                .addOnFailureListener(e -> {
                     progressDialog.dismiss();
+                    if (btnGuardar != null) {
+                        btnGuardar.setEnabled(true);
+                        btnGuardar.setText(originalText);
+                    }
                     CustomToast.showError(getContext(), "Error: " + e.getMessage());
                 });
     }
 
-    private void reagendarCita(String citaId, String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog){
+    private void reagendarCita(String citaId, String motivo, Date nuevaFecha, android.app.ProgressDialog progressDialog, MaterialButton btnGuardar, CharSequence originalText){
         DocumentReference citaES = act(actividadId,false).collection("citas").document(citaId);
         DocumentReference citaEN = act(actividadId,true ).collection("citas").document(citaId);
 
@@ -407,10 +467,18 @@ public class ReagendarActividadSheet extends BottomSheetDialogFragment {
                     })
                     .addOnFailureListener(e -> {
                         progressDialog.dismiss();
+                        if (btnGuardar != null) {
+                            btnGuardar.setEnabled(true);
+                            btnGuardar.setText(originalText);
+                        }
                         CustomToast.showError(getContext(), "Error al reagendar: " + e.getMessage());
                     });
         }).addOnFailureListener(e -> {
             progressDialog.dismiss();
+            if (btnGuardar != null) {
+                btnGuardar.setEnabled(true);
+                btnGuardar.setText(originalText);
+            }
             CustomToast.showError(getContext(), "Error al reagendar: " + e.getMessage());
         });
     }

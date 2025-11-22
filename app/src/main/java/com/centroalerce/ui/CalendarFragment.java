@@ -1,5 +1,7 @@
 package com.centroalerce.ui;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -42,12 +44,16 @@ import java.util.*;
 
 public class CalendarFragment extends Fragment {
 
+    private static final String PREFS_ONBOARDING = "onboarding_prefs";
+    private static final String KEY_CALENDAR_ONBOARDING_SEEN = "calendar_onboarding_seen";
+
     private LocalDate weekStart;
     private LocalDate selectedDay;
     private DayAdapter dayAdapter;
     private EventAdapter eventAdapter;
     private TextView tvRangoSemana, tvTituloDia;
-    private RecyclerView rvDays;
+    private RecyclerView rvDays, rvEventos;
+    private View layoutEmptyCalendar;
 
     // ✅ Sistema de roles
     private PermissionChecker permissionChecker;
@@ -76,10 +82,11 @@ public class CalendarFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle b) {
         View v = inf.inflate(R.layout.fragment_calendar, c, false);
 
-        tvRangoSemana = v.findViewById(R.id.tvRangoSemana);
-        tvTituloDia   = v.findViewById(R.id.tvTituloDia);
-        rvDays        = v.findViewById(R.id.rvDays);
-        RecyclerView rvEventos = v.findViewById(R.id.rvEventos);
+        tvRangoSemana      = v.findViewById(R.id.tvRangoSemana);
+        tvTituloDia        = v.findViewById(R.id.tvTituloDia);
+        rvDays             = v.findViewById(R.id.rvDays);
+        rvEventos          = v.findViewById(R.id.rvEventos);
+        layoutEmptyCalendar = v.findViewById(R.id.layoutEmptyCalendar);
 
         // ✅ Inicializar sistema de roles
         initializeRoleSystem();
@@ -270,7 +277,27 @@ public class CalendarFragment extends Fragment {
         );
 
         fillWeek();
+
+        // 🆕 Mostrar onboarding solo la primera vez que se abre el calendario
+        maybeShowOnboarding();
+
         return v;
+    }
+
+    private void maybeShowOnboarding() {
+        if (!isAdded()) return;
+
+        Context ctx = requireContext();
+        SharedPreferences prefs = ctx.getSharedPreferences(PREFS_ONBOARDING, Context.MODE_PRIVATE);
+        boolean seen = prefs.getBoolean(KEY_CALENDAR_ONBOARDING_SEEN, false);
+        if (seen) return;
+
+        try {
+            new CalendarOnboardingBottomSheet()
+                    .show(getParentFragmentManager(), "calendar_onboarding");
+            prefs.edit().putBoolean(KEY_CALENDAR_ONBOARDING_SEEN, true).apply();
+        } catch (Exception ignored) {
+        }
     }
 
     // ✅ Inicializar sistema de roles
@@ -389,6 +416,15 @@ public class CalendarFragment extends Fragment {
     private void loadEventsFor(LocalDate day) {
         List<EventItem> list = weekEvents.get(day);
         if (list == null) list = Collections.emptyList();
+        // Estado vacío vs lista
+        boolean isEmpty = list.isEmpty();
+        if (layoutEmptyCalendar != null) {
+            layoutEmptyCalendar.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        }
+        if (rvEventos != null) {
+            rvEventos.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+        }
+
         eventAdapter.submit(list);
     }
 

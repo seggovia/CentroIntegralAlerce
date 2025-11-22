@@ -193,11 +193,48 @@
                 android:layout_height="1dp"
                 android:background="@color/divider"/>
 
+            <!-- Estado vacío cuando no hay actividades -->
+            <LinearLayout
+                android:id="@+id/layoutEmptyCalendar"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="24dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:src="@android:drawable/ic_menu_today"
+                    android:alpha="0.25"
+                    app:tint="@color/textSecondary"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="No hay actividades para este día"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="@color/textPrimary"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Crea una nueva actividad desde el botón + de la parte inferior."
+                    android:textSize="13sp"
+                    android:textColor="@color/textSecondary"/>
+            </LinearLayout>
+
             <!-- Lista de eventos -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvEventos"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
                 android:padding="12dp"
                 android:clipToPadding="false"
                 android:overScrollMode="never"/>

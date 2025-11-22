@@ -116,6 +116,9 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     private String proyectoId;
     private List<String> beneficiariosIds = new ArrayList<>();
 
+    // 🔥 NUEVO: Lista temporal de adjuntos usada por loadAdjuntosAll / showPlaceholderIfEmpty
+    private final List<Map<String, Object>> adjuntosTemporales = new ArrayList<>();
+
     private static final String COL_EN = "activities";
     private static final String COL_ES = "actividades";
     private DocumentReference act(String actividadId, boolean preferEN) {
@@ -257,7 +260,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 }
 
                 emitAttach.run();
-                AdjuntarComunicacionSheet.newInstance(actividadId)
+                AdjuntarComunicacionSheet.newInstance(actividadId, citaId)
                         .show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
             };
             rememberClickListener(btnAdjuntar, l);
@@ -1369,7 +1372,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                     }
                     if (added > 0) {
                         android.util.Log.d("DETAIL", "✅ Cargados " + added + " archivos de subcolección " + sub);
-                        // 🔥 NUEVO: Renderizar botón después de cargar archivos
                         showPlaceholderIfEmpty();
                     } else {
                         onEmpty.run();
@@ -1377,6 +1379,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 })
                 .addOnFailureListener(e -> onEmpty.run());
     }
+
     private void showPlaceholderIfEmpty() {
         if (llAdjuntos == null) return;
 
@@ -1395,7 +1398,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
     }
 
     /**
-     * Renderiza un botón para ver/descargar archivos adjuntos (mismo estilo que ModificarActividadSheet)
+     * Renderiza un botón para ver/descargar archivos adjuntos (sin eliminar)
      */
     private void renderizarBotonArchivos() {
         if (llAdjuntos == null || adjuntosTemporales.isEmpty()) return;
@@ -1406,15 +1409,15 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
         // Configurar layout params
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
         );
         params.setMargins(0, dp(8), 0, dp(8));
         btnVerArchivos.setLayoutParams(params);
 
         btnVerArchivos.setOnClickListener(v -> {
             try {
-                // Abrir ArchivosListSheet para ver/descargar archivos (sin eliminar)
+                // Abrir ArchivosListSheet solo para ver/descargar
                 ArchivosListSheet sheet = ArchivosListSheet.newInstance(
                         adjuntosTemporales,
                         "Archivos adjuntos"
@@ -1428,49 +1431,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
         llAdjuntos.addView(btnVerArchivos);
     }
-
-    /**
-     * [DEPRECATED] Muestra un mensaje informativo en amarillo sobre archivos adjuntos
-     * Ya no se usa - ahora se muestra un botón con loadAdjuntosAll()
-     */
-    /*
-    private void mostrarMensajeArchivosAdjuntos() {
-        if (llAdjuntos == null) return;
-
-        // Limpiar cualquier contenido previo
-        llAdjuntos.removeAllViews();
-
-        // Crear TextView con mensaje informativo en amarillo
-        TextView tvMensaje = new TextView(requireContext());
-        tvMensaje.setText("ℹ️ Para ver y gestionar los archivos adjuntos, utiliza el botón 'Modificar'");
-        tvMensaje.setTextColor(0xFFF59E0B); // Amarillo/Ámbar (#F59E0B)
-        tvMensaje.setTextSize(14);
-        tvMensaje.setPadding(dp(16), dp(12), dp(16), dp(12));
-
-        // Agregar bordes redondeados y fondo con borde
-        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
-        shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-        shape.setCornerRadius(dp(12)); // Bordes redondeados
-        shape.setColor(0xFFFEF3C7); // Fondo amarillo claro (#FEF3C7)
-        shape.setStroke(dp(2), 0xFFF59E0B); // Borde amarillo (#F59E0B)
-        tvMensaje.setBackground(shape);
-
-        // Agregar margen vertical para separación
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        params.setMargins(0, dp(8), 0, dp(8));
-        tvMensaje.setLayoutParams(params);
-
-        llAdjuntos.addView(tvMensaje);
-    }
-    */
-
-    // ---------- UI helpers ----------
-
-    // 🔥 NUEVO: Lista temporal para almacenar los adjuntos y mostrarlos con botón
-    private final List<Map<String, Object>> adjuntosTemporales = new ArrayList<>();
 
     private void addAdjuntoRow(String nombre, @Nullable String url) { addAdjuntoRow(nombre, url, null); }
     private void addAdjuntoRow(String nombre, @Nullable String url, @Nullable String adjuntoId) {
@@ -1501,71 +1461,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         // Nota: Ya no agregamos rows individuales aquí
         // Los archivos se mostrarán con un botón al final
         return;
-
-        /* CÓDIGO ANTIGUO COMENTADO - ahora usamos botón en lugar de rows
-        LinearLayout item = new LinearLayout(requireContext());
-        item.setOrientation(LinearLayout.VERTICAL);
-        item.setPadding(0, dp(6), 0, dp(6));
-
-        TextView tvName = new TextView(requireContext());
-        tvName.setText(nombre);
-        tvName.setTextSize(14);
-        tvName.setSingleLine(true);
-        tvName.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        if (!TextUtils.isEmpty(url)) {
-            tvName.setTextColor(0xFF1D4ED8);
-            tvName.setOnClickListener(v -> {
-                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
-                catch (Exception e) { toast("No se pudo abrir el archivo"); }
-            });
-        } else {
-            tvName.setTextColor(0xFF374151);
-        }
-        item.addView(tvName);
-
-        if (!TextUtils.isEmpty(url)) {
-            LinearLayout actions = new LinearLayout(requireContext());
-            actions.setOrientation(LinearLayout.HORIZONTAL);
-
-            TextView btnVer = new TextView(requireContext());
-            btnVer.setText("Ver");
-            btnVer.setTextColor(0xFF1D4ED8);
-            btnVer.setPadding(0, dp(4), dp(16), 0);
-            btnVer.setOnClickListener(v -> {
-                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
-                catch (Exception e) { toast("No se pudo abrir el archivo"); }
-            });
-
-            TextView btnDesc = new TextView(requireContext());
-            btnDesc.setText("Descargar");
-            btnDesc.setTextColor(0xFF1D4ED8);
-            btnDesc.setPadding(0, dp(4), 0, 0);
-            final String nombreFinal = (nombre == null || nombre.trim().isEmpty()) ? nombreDesdeUrl(url) : nombre;
-            btnDesc.setOnClickListener(v -> descargarConDownloadManager(nombreFinal, url));
-
-            actions.addView(btnVer);
-            actions.addView(btnDesc);
-            item.addView(actions);
-        }
-
-        if (!TextUtils.isEmpty(adjuntoId)) {
-            TextView tvId = new TextView(requireContext());
-            tvId.setText("ID: " + adjuntoId);
-            tvId.setTextSize(12);
-            tvId.setTextColor(0xFF6B7280);
-            tvId.setTypeface(android.graphics.Typeface.MONOSPACE);
-            item.addView(tvId);
-        }
-
-        llAdjuntos.addView(item);
-
-        View sep = new View(requireContext());
-        sep.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)));
-        sep.setBackgroundColor(0xFFE5E7EB);
-        llAdjuntos.addView(sep);
-
-        Log.d(TAG, "Adjunto agregado: " + nombre + " | url=" + url + (adjuntoId != null ? " | id=" + adjuntoId : ""));
-        */
     }
 
     private void addNoFilesRow() {
@@ -1695,14 +1590,15 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 String[] tokens = s.split("[,;|\\n]+");
                 LinkedHashSet<String> set = new LinkedHashSet<>();
                 for (String t : tokens) {
-                    String st = (t == null) ? "" : t.trim();
-                    if (!st.isEmpty()) set.add(st);
+                    String s2 = (t == null) ? "" : t.trim();
+                    if (!s2.isEmpty()) set.add(s2);
                 }
                 out.addAll(set);
             }
         }
         return out;
     }
+
     private String joinListOrText(List<String> xs) { return (xs == null || xs.isEmpty()) ? "" : TextUtils.join(", ", xs); }
     private String stringOr(Object v, String def) { if (v == null) return def; String s = String.valueOf(v).trim(); return s.isEmpty() ? def : s; }
     private List<String> splitToList(String text) {
@@ -1852,7 +1748,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             btnCompletar.setAlpha(enabled ? 1f : 0.5f);
         }
     }
-
 
     private String getArg(String key) { return (getArguments() != null) ? getArguments().getString(key, "") : ""; }
     private int dp(int v){ return Math.round(v * getResources().getDisplayMetrics().density); }

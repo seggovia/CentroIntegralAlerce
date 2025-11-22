@@ -32,11 +32,16 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
 
     private Uri fileUri;
     private ActivityResultLauncher<Intent> pickerLauncher;
+    private TextView tvArchivo;
+    private com.google.android.material.button.MaterialButton btnEliminar;
 
-    public static AdjuntarComunicacionSheet newInstance(String actividadId) {
+    public static AdjuntarComunicacionSheet newInstance(String actividadId, @Nullable String citaId) {
         AdjuntarComunicacionSheet f = new AdjuntarComunicacionSheet();
         Bundle b = new Bundle();
         b.putString("actividadId", actividadId);
+        if (!android.text.TextUtils.isEmpty(citaId)) {
+            b.putString("citaId", citaId);
+        }
         f.setArguments(b);
         return f;
     }
@@ -58,10 +63,14 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
                         fileUri = result.getData().getData();
                         View dialogView = getView();
                         if (dialogView != null) {
-                            TextView tv = dialogView.findViewById(id("tvArchivo"));
-                            if (tv != null && fileUri != null) {
+                            tvArchivo = dialogView.findViewById(id("tvArchivo"));
+                            if (tvArchivo != null && fileUri != null) {
                                 String last = fileUri.getLastPathSegment();
-                                tv.setText(last != null ? last : fileUri.toString());
+                                tvArchivo.setText(last != null ? last : fileUri.toString());
+                                // Mostrar botón eliminar cuando hay archivo
+                                if (btnEliminar != null) {
+                                    btnEliminar.setVisibility(View.VISIBLE);
+                                }
                             }
                         }
                     }
@@ -82,10 +91,17 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
         super.onViewCreated(v, s);
 
         String actividadId = getArguments() != null ? getArguments().getString("actividadId", "") : "";
+        String citaId      = getArguments() != null ? getArguments().getString("citaId", "")      : "";
 
-        TextView tvArchivo = v.findViewById(id("tvArchivo"));
+        tvArchivo = v.findViewById(id("tvArchivo"));
         com.google.android.material.button.MaterialButton btnSeleccionar = v.findViewById(id("btnSeleccionarArchivo")); // ✅ CORREGIDO
         com.google.android.material.button.MaterialButton btnSubir = v.findViewById(id("btnSubir")); // ✅ CORREGIDO
+        btnEliminar = v.findViewById(id("btnEliminar"));
+
+        // Inicialmente ocultar botón eliminar
+        if (btnEliminar != null) {
+            btnEliminar.setVisibility(View.GONE);
+        }
 
         btnSeleccionar.setOnClickListener(view -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -93,6 +109,29 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
             intent.setType("*/*");
             pickerLauncher.launch(intent);
         });
+
+        // Configurar botón eliminar
+        if (btnEliminar != null) {
+            btnEliminar.setOnClickListener(view -> {
+                // Mostrar confirmación
+                androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
+                builder.setTitle("¿Eliminar archivo?")
+                       .setMessage("El archivo seleccionado será eliminado de la lista.")
+                       .setPositiveButton("Eliminar", (dialog, which) -> {
+                           // Limpiar archivo seleccionado
+                           fileUri = null;
+                           if (tvArchivo != null) {
+                               tvArchivo.setText("Ningún archivo seleccionado");
+                           }
+                           // Ocultar botón eliminar
+                           btnEliminar.setVisibility(View.GONE);
+                           // Mostrar toast
+                           CustomToast.showSuccess(getContext(), "Archivo eliminado de la lista");
+                       })
+                       .setNegativeButton("Cancelar", null)
+                       .show();
+            });
+        }
 
         btnSubir.setOnClickListener(view -> {
             if (fileUri == null) {
@@ -110,8 +149,10 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
             progressDialog.setCancelable(false);
             progressDialog.show();
 
-            // ✅ Deshabilitar botón mientras sube
+            // ✅ Deshabilitar botón mientras sube y cambiar texto
             btnSubir.setEnabled(false);
+            CharSequence originalText = btnSubir.getText();
+            btnSubir.setText("Subiendo...");
 
             FirebaseStorage storage = FirebaseStorage.getInstance();
             String fileName = obtenerNombreArchivo(fileUri);
@@ -136,7 +177,7 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
                         meta.put("url", download.toString());
                         meta.put("creadoEn", Timestamp.now());
 
-                        // Subcolección (para queries ordenadas)
+                        // Subcolección (para queries ordenadas) a nivel de actividad
                         db.collection("activities").document(actividadId)
                                 .collection("adjuntos").add(meta)
                                 .addOnSuccessListener(docRef -> {
@@ -144,17 +185,54 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
                                     meta.put("id", docRef.getId());
                                     docRef.update("id", docRef.getId());
 
-                                    // ✅ Actualizar array en el documento principal
+                                    // ✅ Actualizar array en el documento principal (EN y ES)
                                     db.collection("activities").document(actividadId)
                                             .update("adjuntos", FieldValue.arrayUnion(meta))
                                             .addOnSuccessListener(aVoid -> {
-                                                // También actualizar en colección ES
                                                 db.collection("actividades").document(actividadId)
                                                         .update("adjuntos", FieldValue.arrayUnion(meta))
                                                         .addOnSuccessListener(aVoid2 -> {
-                                                            // ✅ AHORA SÍ: Ambas actualizaciones completadas, notificar
-                                                            android.util.Log.d("AdjuntarSheet", "✅ Adjuntos actualizados en ambas colecciones - enviando evento");
-                                                            enviarEventoYCerrar(progressDialog);
+                                                            // ✅ Si hay citaId, guardar también en la subcolección de la cita (EN y ES)
+                                                            if (!android.text.TextUtils.isEmpty(citaId)) {
+                                                                // EN
+                                                                db.collection("activities").document(actividadId)
+                                                                        .collection("citas").document(citaId)
+                                                                        .collection("adjuntos").add(meta)
+                                                                        .addOnSuccessListener(citaDoc -> {
+                                                                            android.util.Log.d("AdjuntarSheet", "✅ Adjunto guardado en cita EN " + citaId);
+
+                                                                            // ES (mejor esfuerzo)
+                                                                            db.collection("actividades").document(actividadId)
+                                                                                    .collection("citas").document(citaId)
+                                                                                    .collection("adjuntos").add(meta)
+                                                                                    .addOnSuccessListener(citaEsDoc -> {
+                                                                                        android.util.Log.d("AdjuntarSheet", "✅ Adjunto guardado en cita ES " + citaId);
+                                                                                        enviarEventoYCerrar(progressDialog);
+                                                                                    })
+                                                                                    .addOnFailureListener(e -> {
+                                                                                        android.util.Log.w("AdjuntarSheet", "⚠️ Error guardando adjunto en cita ES, pero EN OK: " + e.getMessage());
+                                                                                        enviarEventoYCerrar(progressDialog);
+                                                                                    });
+                                                                        })
+                                                                        .addOnFailureListener(e -> {
+                                                                            android.util.Log.w("AdjuntarSheet", "⚠️ Error guardando adjunto en cita EN, pero actividad OK: " + e.getMessage());
+                                                                            // Intentar al menos ES antes de cerrar
+                                                                            db.collection("actividades").document(actividadId)
+                                                                                    .collection("citas").document(citaId)
+                                                                                    .collection("adjuntos").add(meta)
+                                                                                    .addOnSuccessListener(citaEsDoc -> {
+                                                                                        android.util.Log.d("AdjuntarSheet", "✅ Adjunto guardado en cita ES (fallback) " + citaId);
+                                                                                        enviarEventoYCerrar(progressDialog);
+                                                                                    })
+                                                                                    .addOnFailureListener(e2 -> {
+                                                                                        android.util.Log.e("AdjuntarSheet", "❌ Error guardando adjunto en cita EN y ES: " + e2.getMessage());
+                                                                                        enviarEventoYCerrar(progressDialog);
+                                                                                    });
+                                                                        });
+                                                            } else {
+                                                                android.util.Log.d("AdjuntarSheet", "✅ Adjuntos actualizados en actividad - sin citaId");
+                                                                enviarEventoYCerrar(progressDialog);
+                                                            }
                                                         })
                                                         .addOnFailureListener(e -> {
                                                             // Si falla la actualización en ES, igual notificar (EN ya se actualizó)
@@ -166,18 +244,21 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
                                                 android.util.Log.e("AdjuntarSheet", "❌ Error actualizando adjuntos en EN: " + e.getMessage());
                                                 progressDialog.dismiss();
                                                 btnSubir.setEnabled(true);
+                                                btnSubir.setText(originalText);
                                                 CustomToast.showError(getContext(), "Error al actualizar actividad: " + e.getMessage());
                                             });
                                 })
                                 .addOnFailureListener(e -> {
                                     progressDialog.dismiss();
                                     btnSubir.setEnabled(true);
+                                    btnSubir.setText(originalText);
                                     CustomToast.showError(getContext(), "Error al guardar: " + e.getMessage());
                                 });
                     })
                     .addOnFailureListener(e -> {
                         progressDialog.dismiss();
                         btnSubir.setEnabled(true);
+                        btnSubir.setText(originalText);
                         CustomToast.showError(getContext(), "Error al subir: " + e.getMessage());
                     });
         });

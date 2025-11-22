@@ -59,6 +59,22 @@
                 android:layout_marginStart="12dp"
                 android:textSize="14sp"
                 android:textColor="@color/textSecondary"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEliminar"
+                style="?attr/materialButtonStyle"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:padding="12dp"
+                app:backgroundTint="@android:color/transparent"
+                app:icon="@android:drawable/ic_menu_delete"
+                app:iconTint="@color/error"
+                app:iconSize="20dp"/>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

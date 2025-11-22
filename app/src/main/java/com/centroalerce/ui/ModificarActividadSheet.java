@@ -156,7 +156,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
 
         precargar();
 
-        ((MaterialButton) v.findViewById(R.id.btnGuardarCambios)).setOnClickListener(x -> guardar());
+        MaterialButton btnGuardarCambios = v.findViewById(R.id.btnGuardarCambios);
+        if (btnGuardarCambios != null) {
+            btnGuardarCambios.setOnClickListener(x -> guardar());
+        }
     }
 
     // ================== Precargar & bind ==================
