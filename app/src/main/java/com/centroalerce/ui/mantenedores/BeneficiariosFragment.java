@@ -43,6 +43,9 @@ public class BeneficiariosFragment extends Fragment {
 
     private RecyclerView rv;
     private FloatingActionButton fab;
+    private android.view.View bottomBarSeleccion;
+    private android.widget.TextView tvSeleccionados;
+    private com.google.android.material.button.MaterialButton btnEliminarSeleccion;
     private BeneficiarioAdapter adapter;
     private FirebaseFirestore db;
     private ListenerRegistration reg;
@@ -57,6 +60,10 @@ public class BeneficiariosFragment extends Fragment {
         View v = inf.inflate(R.layout.fragment_beneficiarios, c, false);
         rv = v.findViewById(R.id.rvLista);
         fab = v.findViewById(R.id.fabAgregar);
+
+        bottomBarSeleccion = v.findViewById(R.id.bottomBarSeleccion);
+        tvSeleccionados = v.findViewById(R.id.tvSeleccionados);
+        btnEliminarSeleccion = v.findViewById(R.id.btnEliminarSeleccion);
 
         // Botón de retroceso
         com.google.android.material.button.MaterialButton btnVolver = v.findViewById(R.id.btnVolver);
@@ -75,14 +82,58 @@ public class BeneficiariosFragment extends Fragment {
             @Override public void onEdit(Beneficiario item) { mostrarDialogoBeneficiario(item); }
             @Override public void onDelete(Beneficiario item) { confirmarEliminar(item); }
             @Override public void onToggleActivo(Beneficiario item) { toggleActivo(item); }
+            @Override public void onSelectionChanged(int selectedCount) {
+                actualizarBarraSeleccion(selectedCount);
+            }
         });
         rv.setAdapter(adapter);
 
         fab.setOnClickListener(v1 -> mostrarDialogoBeneficiario(null));
 
+        if (btnEliminarSeleccion != null) {
+            btnEliminarSeleccion.setOnClickListener(v1 -> eliminarSeleccionados());
+        }
+
         cargarSocios();
         suscribirCambios();
         return v;
+    }
+
+    private void actualizarBarraSeleccion(int selectedCount) {
+        if (bottomBarSeleccion == null || tvSeleccionados == null || fab == null) return;
+
+        if (selectedCount > 0) {
+            bottomBarSeleccion.setVisibility(View.VISIBLE);
+            tvSeleccionados.setText(selectedCount == 1
+                    ? "1 elemento seleccionado"
+                    : selectedCount + " elementos seleccionados");
+            fab.hide();
+        } else {
+            bottomBarSeleccion.setVisibility(View.GONE);
+            fab.show();
+        }
+    }
+
+    private void eliminarSeleccionados() {
+        if (adapter == null) return;
+        List<Beneficiario> seleccionados = adapter.getSelectedItems();
+        if (seleccionados == null || seleccionados.isEmpty()) return;
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Eliminar")
+                .setMessage(seleccionados.size() == 1
+                        ? "¿Eliminar al beneficiario seleccionado?"
+                        : "¿Eliminar los " + seleccionados.size() + " beneficiarios seleccionados?")
+                .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                .setPositiveButton("Eliminar", (d, w) -> {
+                    for (Beneficiario b : seleccionados) {
+                        if (b != null) {
+                            confirmarEliminar(b);
+                        }
+                    }
+                    adapter.clearSelection();
+                })
+                .show();
     }
 
     @Override

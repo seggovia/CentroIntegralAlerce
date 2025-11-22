@@ -12,6 +12,7 @@
 
         <!-- Header -->
         <FrameLayout
+            android:id="@+id/headerSettings"
             android:layout_width="match_parent"
             android:layout_height="160dp"
             android:background="@drawable/bg_header_alerce">

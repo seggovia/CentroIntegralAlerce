@@ -46,6 +46,9 @@ public class ActivitiesListFragment extends Fragment {
     private FirebaseFirestore db;
     private ListenerRegistration activitiesListener;
 
+    // Detector de gestos para swipe horizontal
+    private GestureDetector gestureDetector;
+
     // ✅ NUEVO: Sistema de roles
     private RoleManager roleManager;
     private UserRole currentUserRole;
@@ -79,6 +82,48 @@ public class ActivitiesListFragment extends Fragment {
         rvActivities.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new ActivityAdapter(filteredActivities, this::onActivityClick);
         rvActivities.setAdapter(adapter);
+
+        // Gestos de swipe para navegar entre pestañas principales (máxima sensibilidad razonable)
+        gestureDetector = new GestureDetector(requireContext(), new GestureDetector.SimpleOnGestureListener() {
+            private static final int SWIPE_THRESHOLD = 15;
+
+            @Override
+            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                if (e1 == null || e2 == null) return false;
+                float diffX = e2.getX() - e1.getX();
+                float diffY = e2.getY() - e1.getY();
+
+                if (Math.abs(diffX) > Math.abs(diffY)
+                        && Math.abs(diffX) > SWIPE_THRESHOLD) {
+                    if (diffX < 0) {
+                        // Swipe izquierda: ir a Calendario
+                        try {
+                            androidx.navigation.fragment.NavHostFragment.findNavController(ActivitiesListFragment.this)
+                                    .navigate(R.id.action_activitiesListFragment_to_calendarFragment);
+                        } catch (Exception ignored) {}
+                    } else {
+                        // Swipe derecha: ir a Configuración
+                        try {
+                            androidx.navigation.fragment.NavHostFragment.findNavController(ActivitiesListFragment.this)
+                                    .navigate(R.id.action_activitiesListFragment_to_settingsFragment);
+                        } catch (Exception ignored) {}
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        View.OnTouchListener swipeListener = (view, event) -> gestureDetector != null && gestureDetector.onTouchEvent(event);
+        v.setOnTouchListener(swipeListener);
+        rvActivities.setOnTouchListener(swipeListener);
+        View header = v.findViewById(R.id.headerActivities);
+        if (header != null) header.setOnTouchListener(swipeListener);
+        View cardSearch = v.findViewById(R.id.cardSearchActivities);
+        if (cardSearch != null) cardSearch.setOnTouchListener(swipeListener);
+        View scrollFiltros = v.findViewById(R.id.scrollFiltrosActivities);
+        if (scrollFiltros != null) scrollFiltros.setOnTouchListener(swipeListener);
+        if (layoutEmpty != null) layoutEmpty.setOnTouchListener(swipeListener);
 
         db = FirebaseFirestore.getInstance();
 
@@ -124,6 +169,13 @@ public class ActivitiesListFragment extends Fragment {
         }
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Asegura que la lista siempre refleje cambios recientes
+        loadActivitiesFromFirestore();
+    }
+
     // ============ CARGA DESDE FIRESTORE ============
     private void loadActivitiesFromFirestore() {
         Log.d(TAG, "🔍 Precargando activities...");
@@ -143,7 +195,11 @@ public class ActivitiesListFragment extends Fragment {
 
                     for (DocumentSnapshot aDoc : qs.getDocuments()) {
                         String id   = aDoc.getId();
-                        String tipo = firstNonEmpty(aDoc.getString("tipoActividad"), aDoc.getString("tipo"));
+                        String tipo = firstNonEmpty(
+                                aDoc.getString("tipoActividad"),
+                                aDoc.getString("tipo"),
+                                aDoc.getString("tipoActividadNombre")
+                        );
                         String per  = firstNonEmpty(aDoc.getString("periodicidad"), aDoc.getString("frecuencia"));
                         String lug  = firstNonEmpty(aDoc.getString("lugarNombre"), aDoc.getString("lugar"));
 
@@ -257,7 +313,8 @@ public class ActivitiesListFragment extends Fragment {
 
         String tipo = firstNonEmpty(
                 doc.getString("tipo"),
-                doc.getString("tipoActividad")
+                doc.getString("tipoActividad"),
+                doc.getString("tipoActividadNombre")
         );
         String periodicidad = firstNonEmpty(
                 doc.getString("periodicidad"),

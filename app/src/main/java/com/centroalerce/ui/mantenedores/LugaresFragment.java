@@ -32,6 +32,11 @@ import java.util.Map;
 public class LugaresFragment extends Fragment {
 
     private FirebaseFirestore db;
+    private RecyclerView rv;
+    private com.google.android.material.floatingactionbutton.FloatingActionButton fab;
+    private android.view.View bottomBarSeleccion;
+    private android.widget.TextView tvSeleccionados;
+    private com.google.android.material.button.MaterialButton btnEliminarSeleccion;
     private LugarAdapter adapter;
 
     @Nullable
@@ -55,17 +60,26 @@ public class LugaresFragment extends Fragment {
             });
         }
 
-        RecyclerView rv = view.findViewById(R.id.rvLista);
+        rv = view.findViewById(R.id.rvLista);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
+
+        fab = view.findViewById(R.id.fabAgregar);
+        bottomBarSeleccion = view.findViewById(R.id.bottomBarSeleccion);
+        tvSeleccionados = view.findViewById(R.id.tvSeleccionados);
+        btnEliminarSeleccion = view.findViewById(R.id.btnEliminarSeleccion);
 
         adapter = new LugarAdapter(new LugarAdapter.Callbacks() {
             @Override public void onEditar(Lugar l) { abrirDialogo(l); }
             @Override public void onEliminar(Lugar l) { confirmarEliminar(l); }
+            @Override public void onSelectionChanged(int selectedCount) { actualizarBarraSeleccion(selectedCount); }
         });
         rv.setAdapter(adapter);
 
-        FloatingActionButton fab = view.findViewById(R.id.fabAgregar);
         if (fab != null) fab.setOnClickListener(v -> abrirDialogo(null));
+
+        if (btnEliminarSeleccion != null) {
+            btnEliminarSeleccion.setOnClickListener(v -> eliminarSeleccionados());
+        }
 
         db = FirebaseFirestore.getInstance();
         observarColeccion();
@@ -86,6 +100,43 @@ public class LugaresFragment extends Fragment {
                     }
                     adapter.submit(lista);
                 });
+    }
+
+    private void actualizarBarraSeleccion(int selectedCount) {
+        if (bottomBarSeleccion == null || tvSeleccionados == null || fab == null) return;
+
+        if (selectedCount > 0) {
+            bottomBarSeleccion.setVisibility(View.VISIBLE);
+            tvSeleccionados.setText(selectedCount == 1
+                    ? "1 elemento seleccionado"
+                    : selectedCount + " elementos seleccionados");
+            fab.hide();
+        } else {
+            bottomBarSeleccion.setVisibility(View.GONE);
+            fab.show();
+        }
+    }
+
+    private void eliminarSeleccionados() {
+        if (adapter == null) return;
+        List<Lugar> seleccionados = adapter.getSelectedItems();
+        if (seleccionados == null || seleccionados.isEmpty()) return;
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Eliminar")
+                .setMessage(seleccionados.size() == 1
+                        ? "¿Eliminar el lugar seleccionado?"
+                        : "¿Eliminar los " + seleccionados.size() + " lugares seleccionados?")
+                .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                .setPositiveButton("Eliminar", (d, w) -> {
+                    for (Lugar l : seleccionados) {
+                        if (l != null) {
+                            confirmarEliminar(l);
+                        }
+                    }
+                    adapter.clearSelection();
+                })
+                .show();
     }
 
     private void abrirDialogo(@Nullable Lugar original) {

@@ -7,6 +7,7 @@
     android:background="@drawable/bg_mantenedores_soft">
     <!-- Header -->
     <FrameLayout
+        android:id="@+id/headerActivities"
         android:layout_width="match_parent"
         android:layout_height="160dp"
         android:background="@drawable/bg_header_alerce">
@@ -41,6 +42,7 @@
 
     <!-- Barra de búsqueda con filtro de ordenamiento -->
     <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardSearchActivities"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
@@ -94,6 +96,7 @@
 
     <!-- Filtros: 5 chips -->
     <HorizontalScrollView
+        android:id="@+id/scrollFiltrosActivities"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"

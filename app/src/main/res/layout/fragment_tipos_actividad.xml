@@ -67,6 +67,38 @@
             android:padding="8dp"
             android:paddingBottom="140dp"
             android:clipToPadding="false"/>
+
+        <!-- Barra inferior para selección múltiple -->
+        <LinearLayout
+            android:id="@+id/bottomBarSeleccion"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="@color/card_surface"
+            android:elevation="8dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tvSeleccionados"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="0 seleccionados"
+                android:textSize="15sp"
+                android:textColor="@color/textPrimary"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEliminarSeleccion"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Eliminar"
+                app:icon="@android:drawable/ic_menu_delete"
+                app:iconTint="@android:color/white"
+                app:iconGravity="textStart"/>
+        </LinearLayout>
     </LinearLayout>
 
     <!-- FAB fijo en esquina inferior derecha -->

@@ -666,8 +666,8 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             android.util.Log.d("MOD_ACT", "✅ Transacción exitosa - cambios guardados en Firestore");
             CustomToast.showSuccess(getContext(), "Cambios guardados con éxito");
 
-            // 🔥 NUEVO: Actualizar las citas asociadas con el nuevo nombre y lugar
-            actualizarCitasAsociadas(nombre, lugar);
+            // 🔥 NUEVO: Actualizar las citas asociadas con el nuevo nombre, lugar y tipo
+            actualizarCitasAsociadas(nombre, lugar, tipo);
 
             // Reprogramar notificaciones si se modificó diasAvisoPrevio
             if (!TextUtils.isEmpty(diasAvisoStr)) {
@@ -684,10 +684,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     }
 
     /**
-     * Actualiza las citas asociadas con el nuevo nombre y lugar de la actividad
+     * Actualiza las citas asociadas con el nuevo nombre, lugar y tipo de la actividad
      */
-    private void actualizarCitasAsociadas(String nuevoNombre, String nuevoLugar) {
-        android.util.Log.d("MOD_ACT", "📝 Actualizando citas asociadas con nombre='" + nuevoNombre + "', lugar='" + nuevoLugar + "'");
+    private void actualizarCitasAsociadas(String nuevoNombre, String nuevoLugar, String nuevoTipo) {
+        android.util.Log.d("MOD_ACT", "📝 Actualizando citas asociadas con nombre='" + nuevoNombre + "', lugar='" + nuevoLugar + "', tipo='" + nuevoTipo + "'");
 
         // Actualizar citas en la colección global "citas"
         db.collection("citas")
@@ -700,6 +700,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 updates.put("nombre", nuevoNombre);
                 updates.put("titulo", nuevoNombre);
                 updates.put("activityName", nuevoNombre);
+                if (!TextUtils.isEmpty(nuevoTipo)) {
+                    updates.put("tipo", nuevoTipo);
+                    updates.put("tipoActividad", nuevoTipo);
+                }
                 if (!TextUtils.isEmpty(nuevoLugar)) {
                     updates.put("lugar", nuevoLugar);
                     updates.put("lugarNombre", nuevoLugar);
@@ -727,6 +731,10 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
                 updates.put("nombre", nuevoNombre);
                 updates.put("titulo", nuevoNombre);
                 updates.put("activityName", nuevoNombre);
+                if (!TextUtils.isEmpty(nuevoTipo)) {
+                    updates.put("tipo", nuevoTipo);
+                    updates.put("tipoActividad", nuevoTipo);
+                }
                 if (!TextUtils.isEmpty(nuevoLugar)) {
                     updates.put("lugar", nuevoLugar);
                     updates.put("lugarNombre", nuevoLugar);

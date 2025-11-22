@@ -2,6 +2,7 @@ package com.centroalerce.ui.mantenedores;
 
 import android.os.Bundle;
 import android.view.*;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.*;
@@ -14,12 +15,18 @@ import com.centroalerce.ui.mantenedores.adapter.TipoActividadAdapter;
 import com.centroalerce.ui.mantenedores.dialog.TipoActividadDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.*;
 import java.util.*;
 
 public class TiposActividadFragment extends Fragment {
 
     private FirebaseFirestore db;
+    private RecyclerView rv;
+    private FloatingActionButton fab;
+    private View bottomBarSeleccion;
+    private TextView tvSeleccionados;
+    private MaterialButton btnEliminarSeleccion;
     private TipoActividadAdapter adapter;
 
     @Nullable @Override public View onCreateView(@NonNull LayoutInflater i, @Nullable ViewGroup c, @Nullable Bundle b){
@@ -37,15 +44,26 @@ public class TiposActividadFragment extends Fragment {
             });
         }
 
-        RecyclerView rv=v.findViewById(R.id.rvLista);
+        rv = v.findViewById(R.id.rvLista);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
+
+        fab = v.findViewById(R.id.fabAgregar);
+        bottomBarSeleccion = v.findViewById(R.id.bottomBarSeleccion);
+        tvSeleccionados = v.findViewById(R.id.tvSeleccionados);
+        btnEliminarSeleccion = v.findViewById(R.id.btnEliminarSeleccion);
+
         adapter=new TipoActividadAdapter(new TipoActividadAdapter.Callbacks(){
             @Override public void onEditar(TipoActividad t){ abrirDialogo(t); }
             @Override public void onEliminar(TipoActividad t){ confirmarEliminar(t); }
+            @Override public void onSelectionChanged(int selectedCount) { actualizarBarraSeleccion(selectedCount); }
         });
         rv.setAdapter(adapter);
 
-        ((FloatingActionButton)v.findViewById(R.id.fabAgregar)).setOnClickListener(x->abrirDialogo(null));
+        fab.setOnClickListener(x->abrirDialogo(null));
+
+        if (btnEliminarSeleccion != null) {
+            btnEliminarSeleccion.setOnClickListener(x -> eliminarSeleccionados());
+        }
 
         db=FirebaseFirestore.getInstance();
         db.collection("tiposActividad").orderBy("nombre")
@@ -59,6 +77,43 @@ public class TiposActividadFragment extends Fragment {
                     }
                     adapter.submit(lista);
                 });
+    }
+
+    private void actualizarBarraSeleccion(int selectedCount) {
+        if (bottomBarSeleccion == null || tvSeleccionados == null || fab == null) return;
+
+        if (selectedCount > 0) {
+            bottomBarSeleccion.setVisibility(View.VISIBLE);
+            tvSeleccionados.setText(selectedCount == 1
+                    ? "1 elemento seleccionado"
+                    : selectedCount + " elementos seleccionados");
+            fab.hide();
+        } else {
+            bottomBarSeleccion.setVisibility(View.GONE);
+            fab.show();
+        }
+    }
+
+    private void eliminarSeleccionados() {
+        if (adapter == null) return;
+        List<TipoActividad> seleccionados = adapter.getSelectedItems();
+        if (seleccionados == null || seleccionados.isEmpty()) return;
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Eliminar")
+                .setMessage(seleccionados.size() == 1
+                        ? "¿Eliminar el tipo de actividad seleccionado?"
+                        : "¿Eliminar los " + seleccionados.size() + " tipos de actividad seleccionados?")
+                .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                .setPositiveButton("Eliminar", (d, w) -> {
+                    for (TipoActividad t : seleccionados) {
+                        if (t != null) {
+                            confirmarEliminar(t);
+                        }
+                    }
+                    adapter.clearSelection();
+                })
+                .show();
     }
 
     private void abrirDialogo(@Nullable TipoActividad original) {
@@ -82,6 +137,16 @@ public class TiposActividadFragment extends Fragment {
                             if (original != null && !t.getNombre().equals(original.getNombre())) {
                                 android.util.Log.d("TiposActividad", "🔄 Nombre cambió de '" + original.getNombre() + "' a '" + t.getNombre() + "' - actualizando actividades...");
                                 actualizarNombreEnActividades(original.getNombre(), t.getNombre());
+
+                                // 🔔 Notificar a la lista de actividades para que recargue
+                                android.os.Bundle result = new android.os.Bundle();
+                                result.putBoolean("tipoActividadUpdated", true);
+                                try {
+                                    getParentFragmentManager().setFragmentResult("actividad_change", result);
+                                } catch (Exception ignored) {}
+                                try {
+                                    requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", result);
+                                } catch (Exception ignored) {}
                             }
                             CustomToast.showSuccess(getContext(), "Tipo de actividad actualizado con éxito");
                         })

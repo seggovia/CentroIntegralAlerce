@@ -85,7 +85,7 @@
             android:checkable="false"
             android:clickable="false"/>
 
-        <!-- Botón More -->
+        <!-- Botón More (oculto, ya no se usa para acciones) -->
         <ImageButton
             android:id="@+id/btnMore"
             android:layout_width="40dp"
@@ -94,6 +94,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Opciones"
             android:src="@android:drawable/ic_menu_more"
+            android:visibility="gone"
             app:tint="@color/textSecondary"/>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

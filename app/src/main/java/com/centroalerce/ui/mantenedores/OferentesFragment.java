@@ -2,6 +2,7 @@ package com.centroalerce.ui.mantenedores;
 
 import android.os.Bundle;
 import android.view.*;
+import android.widget.TextView;
 
 import androidx.annotation.*;
 import androidx.fragment.app.Fragment;
@@ -14,6 +15,7 @@ import com.centroalerce.ui.mantenedores.adapter.OferenteAdapter;
 import com.centroalerce.ui.mantenedores.dialog.OferenteDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.*;
 
 import java.util.*;
@@ -23,6 +25,11 @@ public class OferentesFragment extends Fragment {
     private static final String COL_OFERENTES = "oferentes";
 
     private FirebaseFirestore db;
+    private RecyclerView rv;
+    private FloatingActionButton fab;
+    private View bottomBarSeleccion;
+    private TextView tvSeleccionados;
+    private MaterialButton btnEliminarSeleccion;
     private OferenteAdapter adapter;
 
     @Nullable
@@ -43,23 +50,33 @@ public class OferentesFragment extends Fragment {
             });
         }
 
-        RecyclerView rv = v.findViewById(R.id.rvLista);
+        rv = v.findViewById(R.id.rvLista);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
+
+        fab = v.findViewById(R.id.fabAgregar);
+        bottomBarSeleccion = v.findViewById(R.id.bottomBarSeleccion);
+        tvSeleccionados = v.findViewById(R.id.tvSeleccionados);
+        btnEliminarSeleccion = v.findViewById(R.id.btnEliminarSeleccion);
 
         adapter = new OferenteAdapter(new OferenteAdapter.Callbacks(){
             @Override public void onEditar(Oferente o){ abrirDialogo(o); }
             @Override public void onEliminar(Oferente o){ confirmarEliminar(o); }
+            @Override public void onSelectionChanged(int selectedCount) { actualizarBarraSeleccion(selectedCount); }
         });
         rv.setAdapter(adapter);
 
-        ((FloatingActionButton)v.findViewById(R.id.fabAgregar))
-                .setOnClickListener(x -> abrirDialogo(null));
+        fab.setOnClickListener(x -> abrirDialogo(null));
+
+        if (btnEliminarSeleccion != null) {
+            btnEliminarSeleccion.setOnClickListener(x -> eliminarSeleccionados());
+        }
 
         db = FirebaseFirestore.getInstance();
         db.collection(COL_OFERENTES).orderBy("nombre")
                 .addSnapshotListener((snap, e) -> {
                     if (e != null || snap == null) return;
                     List<Oferente> lista = new ArrayList<>();
+
                     for (QueryDocumentSnapshot d : snap) {
                         Oferente o = d.toObject(Oferente.class);
                         o.setId(d.getId());
@@ -67,6 +84,43 @@ public class OferentesFragment extends Fragment {
                     }
                     adapter.submit(lista);
                 });
+    }
+
+    private void actualizarBarraSeleccion(int selectedCount) {
+        if (bottomBarSeleccion == null || tvSeleccionados == null || fab == null) return;
+
+        if (selectedCount > 0) {
+            bottomBarSeleccion.setVisibility(View.VISIBLE);
+            tvSeleccionados.setText(selectedCount == 1
+                    ? "1 elemento seleccionado"
+                    : selectedCount + " elementos seleccionados");
+            fab.hide();
+        } else {
+            bottomBarSeleccion.setVisibility(View.GONE);
+            fab.show();
+        }
+    }
+
+    private void eliminarSeleccionados() {
+        if (adapter == null) return;
+        List<Oferente> seleccionados = adapter.getSelectedItems();
+        if (seleccionados == null || seleccionados.isEmpty()) return;
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Eliminar")
+                .setMessage(seleccionados.size() == 1
+                        ? "¿Eliminar el oferente seleccionado?"
+                        : "¿Eliminar los " + seleccionados.size() + " oferentes seleccionados?")
+                .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                .setPositiveButton("Eliminar", (d, w) -> {
+                    for (Oferente o : seleccionados) {
+                        if (o != null) {
+                            confirmarEliminar(o);
+                        }
+                    }
+                    adapter.clearSelection();
+                })
+                .show();
     }
 
     private void abrirDialogo(@Nullable Oferente original){

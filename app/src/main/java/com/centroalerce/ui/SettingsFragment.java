@@ -4,6 +4,8 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -39,6 +41,9 @@ public class SettingsFragment extends Fragment {
     private TextView tvUserInfo;
     private TextView tvUserRole;
 
+    // Gestos de swipe para navegar entre pestañas principales
+    private GestureDetector gestureDetector;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -55,6 +60,54 @@ public class SettingsFragment extends Fragment {
 
         // Inicializar vistas
         initializeViews(view);
+
+        // Gestos de swipe para navegar entre pestañas principales (máxima sensibilidad razonable)
+        gestureDetector = new GestureDetector(requireContext(), new GestureDetector.SimpleOnGestureListener() {
+            private static final int SWIPE_THRESHOLD = 15;
+
+            @Override
+            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                if (e1 == null || e2 == null) return false;
+                float diffX = e2.getX() - e1.getX();
+                float diffY = e2.getY() - e1.getY();
+
+                if (Math.abs(diffX) > Math.abs(diffY)
+                        && Math.abs(diffX) > SWIPE_THRESHOLD) {
+                    if (diffX < 0) {
+                        // Swipe izquierda: ir a Lista de actividades (slide izquierda)
+                        try {
+                            androidx.navigation.NavOptions opts = new androidx.navigation.NavOptions.Builder()
+                                    .setEnterAnim(R.anim.slide_in_right)
+                                    .setExitAnim(R.anim.slide_out_left)
+                                    .setPopEnterAnim(R.anim.slide_in_left)
+                                    .setPopExitAnim(R.anim.slide_out_right)
+                                    .build();
+                            NavHostFragment.findNavController(SettingsFragment.this)
+                                    .navigate(R.id.action_settingsFragment_to_activitiesListFragment, null, opts);
+                        } catch (Exception ignored) {}
+                    } else {
+                        // Swipe derecha: ir a Calendario (slide derecha)
+                        try {
+                            androidx.navigation.NavOptions opts = new androidx.navigation.NavOptions.Builder()
+                                    .setEnterAnim(R.anim.slide_in_left)
+                                    .setExitAnim(R.anim.slide_out_right)
+                                    .setPopEnterAnim(R.anim.slide_in_right)
+                                    .setPopExitAnim(R.anim.slide_out_left)
+                                    .build();
+                            NavHostFragment.findNavController(SettingsFragment.this)
+                                    .navigate(R.id.action_settingsFragment_to_calendarFragment, null, opts);
+                        } catch (Exception ignored) {}
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        View.OnTouchListener swipeListener = (v, event) -> gestureDetector != null && gestureDetector.onTouchEvent(event);
+        view.setOnTouchListener(swipeListener);
+        View header = view.findViewById(R.id.headerSettings);
+        if (header != null) header.setOnTouchListener(swipeListener);
 
         // Cargar rol y configurar UI
         loadUserRoleAndConfigureUI();

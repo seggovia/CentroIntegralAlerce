@@ -61,6 +61,9 @@ public class CalendarFragment extends Fragment {
     private FirebaseFirestore db;
     private ListenerRegistration weekListener;
 
+    // Detector de gestos para swipe horizontal
+    private android.view.GestureDetector gestureDetector;
+
     // Cache de nombres y tipos de actividad
     private final Map<String, String> activityNameCache = new HashMap<>();
     private final Map<String, String> activityTypeCache = new HashMap<>();
@@ -80,6 +83,60 @@ public class CalendarFragment extends Fragment {
 
         // ✅ Inicializar sistema de roles
         initializeRoleSystem();
+
+        // Gestos de swipe para navegar entre pestañas principales (mínimo esfuerzo en Calendario)
+        gestureDetector = new android.view.GestureDetector(requireContext(), new android.view.GestureDetector.SimpleOnGestureListener() {
+            private static final int SWIPE_THRESHOLD = 5;
+
+            @Override
+            public boolean onScroll(android.view.MotionEvent e1, android.view.MotionEvent e2, float distanceX, float distanceY) {
+                if (e1 == null || e2 == null) return false;
+                float diffX = e2.getX() - e1.getX();
+                float diffY = e2.getY() - e1.getY();
+
+                if (Math.abs(diffX) > Math.abs(diffY)
+                        && Math.abs(diffX) > SWIPE_THRESHOLD) {
+                    if (diffX < 0) {
+                        // Swipe izquierda: ir a Configuración (slide izquierda)
+                        try {
+                            androidx.navigation.NavOptions opts = new androidx.navigation.NavOptions.Builder()
+                                    .setEnterAnim(R.anim.slide_in_right)
+                                    .setExitAnim(R.anim.slide_out_left)
+                                    .setPopEnterAnim(R.anim.slide_in_left)
+                                    .setPopExitAnim(R.anim.slide_out_right)
+                                    .build();
+                            androidx.navigation.fragment.NavHostFragment.findNavController(CalendarFragment.this)
+                                    .navigate(R.id.action_calendarFragment_to_settingsFragment, null, opts);
+                        } catch (Exception ignored) {}
+                    } else {
+                        // Swipe derecha: ir a Lista de actividades (slide derecha)
+                        try {
+                            androidx.navigation.NavOptions opts = new androidx.navigation.NavOptions.Builder()
+                                    .setEnterAnim(R.anim.slide_in_left)
+                                    .setExitAnim(R.anim.slide_out_right)
+                                    .setPopEnterAnim(R.anim.slide_in_right)
+                                    .setPopExitAnim(R.anim.slide_out_left)
+                                    .build();
+                            androidx.navigation.fragment.NavHostFragment.findNavController(CalendarFragment.this)
+                                    .navigate(R.id.action_calendarFragment_to_activitiesListFragment, null, opts);
+                        } catch (Exception ignored) {}
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        View.OnTouchListener swipeListener = (view1, event) -> gestureDetector != null && gestureDetector.onTouchEvent(event);
+        v.setOnTouchListener(swipeListener);
+        rvEventos.setOnTouchListener(swipeListener);
+        if (rvDays != null) rvDays.setOnTouchListener(swipeListener);
+        View header = v.findViewById(R.id.header);
+        if (header != null) header.setOnTouchListener(swipeListener);
+        View cardWeek = v.findViewById(R.id.cardWeek);
+        if (cardWeek != null) cardWeek.setOnTouchListener(swipeListener);
+        View cardEventos = v.findViewById(R.id.cardEventos);
+        if (cardEventos != null) cardEventos.setOnTouchListener(swipeListener);
 
         // ✅ Escuchar cambios desde ModificarActividadSheet (en childFragmentManager)
         android.util.Log.d("CAL", "🎧 Registrando listener para calendar_refresh en childFragmentManager");
@@ -298,6 +355,12 @@ public class CalendarFragment extends Fragment {
     }
 
     private void fillWeek() {
+        // Evitar crash si el fragment ya no está adjunto
+        if (!isAdded() || getContext() == null) {
+            android.util.Log.w("CAL", "fillWeek() llamado cuando el fragment no está adjunto. Se omite.");
+            return;
+        }
+
         List<LocalDate> week = new ArrayList<>(7);
         for (int i = 0; i < 7; i++) week.add(weekStart.plusDays(i));
         dayAdapter.submit(week);
@@ -330,6 +393,7 @@ public class CalendarFragment extends Fragment {
     }
 
     private int dp(int v){
+        if (!isAdded() || getResources() == null) return v;
         return Math.round(v * getResources().getDisplayMetrics().density);
     }
 

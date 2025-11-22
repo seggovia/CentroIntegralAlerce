@@ -19,6 +19,11 @@ import java.util.*;
 public class SociosFragment extends Fragment {
 
     private FirebaseFirestore db;
+    private RecyclerView rv;
+    private com.google.android.material.floatingactionbutton.FloatingActionButton fab;
+    private android.view.View bottomBarSeleccion;
+    private android.widget.TextView tvSeleccionados;
+    private com.google.android.material.button.MaterialButton btnEliminarSeleccion;
     private SocioAdapter adapter;
 
     @Nullable @Override public View onCreateView(@NonNull LayoutInflater i, @Nullable ViewGroup c, @Nullable Bundle b){
@@ -36,15 +41,26 @@ public class SociosFragment extends Fragment {
             });
         }
 
-        RecyclerView rv=v.findViewById(R.id.rvLista);
+        rv = v.findViewById(R.id.rvLista);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
+
+        fab = v.findViewById(R.id.fabAgregar);
+        bottomBarSeleccion = v.findViewById(R.id.bottomBarSeleccion);
+        tvSeleccionados = v.findViewById(R.id.tvSeleccionados);
+        btnEliminarSeleccion = v.findViewById(R.id.btnEliminarSeleccion);
+
         adapter=new SocioAdapter(new SocioAdapter.Callbacks(){
             @Override public void onEditar(SocioComunitario s){ abrirDialogo(s); }
             @Override public void onEliminar(SocioComunitario s){ confirmarEliminar(s); }
+            @Override public void onSelectionChanged(int selectedCount) { actualizarBarraSeleccion(selectedCount); }
         });
         rv.setAdapter(adapter);
 
-        ((FloatingActionButton)v.findViewById(R.id.fabAgregar)).setOnClickListener(x->abrirDialogo(null));
+        fab.setOnClickListener(x->abrirDialogo(null));
+
+        if (btnEliminarSeleccion != null) {
+            btnEliminarSeleccion.setOnClickListener(x -> eliminarSeleccionados());
+        }
 
         db=FirebaseFirestore.getInstance();
         db.collection("socios").orderBy("nombre")
@@ -58,6 +74,43 @@ public class SociosFragment extends Fragment {
                     }
                     adapter.submit(lista);
                 });
+    }
+
+    private void actualizarBarraSeleccion(int selectedCount) {
+        if (bottomBarSeleccion == null || tvSeleccionados == null || fab == null) return;
+
+        if (selectedCount > 0) {
+            bottomBarSeleccion.setVisibility(View.VISIBLE);
+            tvSeleccionados.setText(selectedCount == 1
+                    ? "1 elemento seleccionado"
+                    : selectedCount + " elementos seleccionados");
+            fab.hide();
+        } else {
+            bottomBarSeleccion.setVisibility(View.GONE);
+            fab.show();
+        }
+    }
+
+    private void eliminarSeleccionados() {
+        if (adapter == null) return;
+        List<SocioComunitario> seleccionados = adapter.getSelectedItems();
+        if (seleccionados == null || seleccionados.isEmpty()) return;
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Eliminar")
+                .setMessage(seleccionados.size() == 1
+                        ? "¿Eliminar al socio seleccionado?"
+                        : "¿Eliminar los " + seleccionados.size() + " socios seleccionados?")
+                .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                .setPositiveButton("Eliminar", (d, w) -> {
+                    for (SocioComunitario s : seleccionados) {
+                        if (s != null) {
+                            confirmarEliminar(s);
+                        }
+                    }
+                    adapter.clearSelection();
+                })
+                .show();
     }
 
     private void abrirDialogo(@Nullable SocioComunitario original){
