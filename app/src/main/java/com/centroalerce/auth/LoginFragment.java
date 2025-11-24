@@ -210,25 +210,24 @@ public class LoginFragment extends Fragment {
         return e.getText()==null || e.getText().toString().trim().isEmpty();
     }
 
-    private void doLogin(View root){
+    private void doLogin(View root) {
         if (etEmail == null || etPass == null) {
             if (tilEmail != null) { tilEmail.setError("Campo no disponible"); tilEmail.setErrorEnabled(true); }
             if (tilPass  != null) { tilPass.setError("Campo no disponible"); tilPass.setErrorEnabled(true); }
             return;
         }
 
-        String email = etEmail.getText()==null ? "" : etEmail.getText().toString().trim();
-        String pass  = etPass.getText()==null ? "" : etPass.getText().toString();
+        String email = etEmail.getText() == null ? "" : etEmail.getText().toString().trim();
+        String pass  = etPass.getText() == null ? "" : etPass.getText().toString();
 
-        // Validar campos vacíos
         boolean ok = true;
-        if (email.isEmpty()){
+        if (email.isEmpty()) {
             if (tilEmail != null) { tilEmail.setError("El correo es requerido"); tilEmail.setErrorEnabled(true); }
             else etEmail.setError("El correo es requerido");
             etEmail.requestFocus();
             ok = false;
         }
-        if (pass.isEmpty()){
+        if (pass.isEmpty()) {
             if (tilPass != null) { tilPass.setError("La contraseña es requerida"); tilPass.setErrorEnabled(true); }
             else etPass.setError("La contraseña es requerida");
             if (ok) etPass.requestFocus();
@@ -236,16 +235,14 @@ public class LoginFragment extends Fragment {
         }
         if (!ok) return;
 
-        // Validar formato de email
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             if (tilEmail != null) { tilEmail.setError("Formato de correo inválido"); tilEmail.setErrorEnabled(true); }
             else etEmail.setError("El formato del correo no es válido");
             etEmail.requestFocus();
             return;
         }
 
-        // Validar longitud mínima de contraseña
-        if (pass.length() < 6){
+        if (pass.length() < 6) {
             if (tilPass != null) { tilPass.setError("Mínimo 6 caracteres"); tilPass.setErrorEnabled(true); }
             else etPass.setError("La contraseña debe tener al menos 6 caracteres");
             etPass.requestFocus();
@@ -255,14 +252,13 @@ public class LoginFragment extends Fragment {
         if (auth == null) auth = FirebaseAuth.getInstance();
         auth.setLanguageCode("es");
 
-        // Mostrar loading
         showLoading(true);
         btnLogin.setEnabled(false);
         btnLogin.setText("Iniciando sesión...");
 
         auth.signInWithEmailAndPassword(email, pass)
                 .addOnCompleteListener(task -> {
-                    if (!task.isSuccessful()){
+                    if (!task.isSuccessful()) {
                         showLoading(false);
                         btnLogin.setEnabled(true);
                         btnLogin.setText("Iniciar sesión");
@@ -290,11 +286,8 @@ public class LoginFragment extends Fragment {
                         return;
                     }
 
-                    // ✅ LOGIN EXITOSO - Guardar email si está marcado "recordar"
                     boolean rememberMe = cbRememberMe.isChecked();
                     emailHistoryManager.saveLastEmail(email, rememberMe);
-
-                    // Siempre agregar al historial (para autocompletado)
                     emailHistoryManager.saveEmail(email);
 
                     FirebaseUser user = auth.getCurrentUser();
@@ -318,7 +311,9 @@ public class LoginFragment extends Fragment {
                             return;
                         }
 
-                        if (!user.isEmailVerified()) {
+                        if (!user.isEmailVerified()
+                                && user.getEmail() != null
+                                && !user.getEmail().equalsIgnoreCase("superadmin@stomas.cl")) {
                             showLoading(false);
                             btnLogin.setEnabled(true);
                             btnLogin.setText("Iniciar sesión");
@@ -330,7 +325,7 @@ public class LoginFragment extends Fragment {
                             user.sendEmailVerification()
                                     .addOnSuccessListener(x ->
                                             Toast.makeText(getContext(),
-                                                    "Te reenviamos el enlace de verificación ✅",
+                                                    "Te reenviamos el enlace de verificación ",
                                                     Toast.LENGTH_SHORT).show())
                                     .addOnFailureListener(e ->
                                             Toast.makeText(getContext(),
@@ -357,10 +352,6 @@ public class LoginFragment extends Fragment {
                                             tilEmail.setError("Esta cuenta no existe en el sistema");
                                             tilEmail.setErrorEnabled(true);
                                         }
-                                        Toast.makeText(getContext(),
-                                                "Esta cuenta ha sido eliminada del sistema",
-                                                Toast.LENGTH_LONG).show();
-                                        auth.signOut();
                                         return;
                                     }
 

@@ -15,6 +15,7 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.centroalerce.gestion.utils.PermissionChecker;
 import com.centroalerce.gestion.utils.RoleManager;
 import com.centroalerce.gestion.utils.UserRole;
@@ -296,6 +297,8 @@ public class SettingsFragment extends Fragment {
         auth.signOut();
 
         android.util.Log.d("SettingsFragment", "✅ Sesión cerrada");
+
+        CustomToast.showSuccess(requireContext(), "Sesión cerrada correctamente");
 
         // Navegar al login primero
         NavHostFragment.findNavController(this)

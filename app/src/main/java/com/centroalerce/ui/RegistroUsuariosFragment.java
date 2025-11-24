@@ -1,5 +1,6 @@
 package com.centroalerce.ui;
 
+import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -15,6 +16,7 @@ import androidx.fragment.app.Fragment;
 
 import com.centroalerce.gestion.R;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -30,6 +32,7 @@ public class RegistroUsuariosFragment extends Fragment {
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
     private FirebaseFunctions functions;
+    private ProgressDialog progressDialog;
     
     private com.google.android.material.textfield.TextInputLayout tilEmail;
     private com.google.android.material.textfield.TextInputLayout tilPassword;
@@ -47,6 +50,20 @@ public class RegistroUsuariosFragment extends Fragment {
         return inflater.inflate(R.layout.fragment_registro_usuarios, container, false);
     }
 
+    private void showProgress(String message) {
+        if (progressDialog == null) return;
+        progressDialog.setMessage(message);
+        if (!progressDialog.isShowing()) {
+            progressDialog.show();
+        }
+    }
+
+    private void hideProgress() {
+        if (progressDialog != null && progressDialog.isShowing()) {
+            progressDialog.dismiss();
+        }
+    }
+
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -54,6 +71,9 @@ public class RegistroUsuariosFragment extends Fragment {
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         functions = FirebaseFunctions.getInstance("us-central1");
+        progressDialog = new ProgressDialog(requireContext());
+        progressDialog.setCancelable(false);
+        progressDialog.setMessage("Procesando...");
 
         // Ejecutar limpieza automática de datos inconsistentes
         limpiarDatosAutomaticamente();
@@ -257,6 +277,7 @@ public class RegistroUsuariosFragment extends Fragment {
         // Deshabilitar botón para evitar múltiples registros
         btnRegistrar.setEnabled(false);
         btnRegistrar.setText("Validando...");
+        showProgress("Validando información...");
 
         // Verificar si el correo ya está registrado ANTES de intentar crear el usuario
         mAuth.fetchSignInMethodsForEmail(email)
@@ -265,6 +286,7 @@ public class RegistroUsuariosFragment extends Fragment {
                         // Error al verificar
                         btnRegistrar.setEnabled(true);
                         btnRegistrar.setText("Registrar Usuario");
+                        hideProgress();
                         mostrarError("No se pudo validar el correo, intenta nuevamente");
                         return;
                     }
@@ -278,6 +300,7 @@ public class RegistroUsuariosFragment extends Fragment {
                     if (emailYaRegistrado) {
                         // El correo existe en Firebase Auth, verificar si está inactivo en Firestore
                         btnRegistrar.setText("Verificando estado...");
+                        showProgress("Verificando estado del usuario...");
 
                         db.collection("usuarios")
                                 .whereEqualTo("email", email)
@@ -290,11 +313,13 @@ public class RegistroUsuariosFragment extends Fragment {
 
                                         if (activo != null && !activo) {
                                             // Usuario inactivo, reactivarlo
+                                            showProgress("Reactivando usuario...");
                                             reactivarUsuario(doc.getId(), email, rol);
                                         } else {
                                             // Usuario activo, no se puede registrar
                                             btnRegistrar.setEnabled(true);
                                             btnRegistrar.setText("Registrar Usuario");
+                                            hideProgress();
                                             if (tilEmail != null) {
                                                 tilEmail.setError("Este correo ya está registrado y activo");
                                                 tilEmail.setErrorEnabled(true);
@@ -312,17 +337,20 @@ public class RegistroUsuariosFragment extends Fragment {
                                         // Existe en Auth pero no en Firestore
                                         // Intentar crearlo nuevamente (Firebase Auth rechazará si ya existe)
                                         btnRegistrar.setText("Registrando...");
+                                        showProgress("Registrando usuario...");
                                         crearUsuarioEnFirebase(email, password, rol);
                                     }
                                 })
                                 .addOnFailureListener(e -> {
                                     btnRegistrar.setEnabled(true);
                                     btnRegistrar.setText("Registrar Usuario");
+                                    hideProgress();
                                     mostrarError("Error al verificar usuario: " + e.getMessage());
                                 });
                     } else {
                         // El correo está disponible, proceder con el registro
                         btnRegistrar.setText("Registrando...");
+                        showProgress("Registrando usuario...");
                         crearUsuarioEnFirebase(email, password, rol);
                     }
                 });
@@ -341,6 +369,7 @@ public class RegistroUsuariosFragment extends Fragment {
             android.util.Log.e("RegistroUsuarios", "getCurrentUser() retornó null");
             btnRegistrar.setEnabled(true);
             btnRegistrar.setText("Registrar Usuario");
+            hideProgress();
             return;
         }
 
@@ -349,6 +378,7 @@ public class RegistroUsuariosFragment extends Fragment {
         // Cambiar botón a estado de carga
         btnRegistrar.setEnabled(false);
         btnRegistrar.setText("Registrando...");
+        showProgress("Registrando usuario...");
 
         // Forzar refresh del token antes de llamar a la Cloud Function
         currentUser.getIdToken(true)
@@ -375,7 +405,7 @@ public class RegistroUsuariosFragment extends Fragment {
                                 btnRegistrar.setText("Registrar Usuario");
 
                                 // Mostrar Snackbar de éxito
-                                com.google.android.material.snackbar.Snackbar snackbar = com.google.android.material.snackbar.Snackbar.make(
+                                Snackbar snackbar = Snackbar.make(
                                     requireView(),
                                     "✓ Usuario registrado correctamente",
                                     com.google.android.material.snackbar.Snackbar.LENGTH_LONG
@@ -385,9 +415,11 @@ public class RegistroUsuariosFragment extends Fragment {
                                 snackbar.show();
 
                                 // Volver a la pantalla anterior
+                                hideProgress();
                                 requireActivity().onBackPressed();
                             })
                             .addOnFailureListener(e -> {
+                                hideProgress();
                                 android.util.Log.e("RegistroUsuarios", "Error al crear usuario", e);
 
                                 // Rehabilitar botón cuando hay error
@@ -415,6 +447,7 @@ public class RegistroUsuariosFragment extends Fragment {
                     // Rehabilitar botón
                     btnRegistrar.setEnabled(true);
                     btnRegistrar.setText("Registrar Usuario");
+                    hideProgress();
 
                     com.google.android.material.snackbar.Snackbar.make(
                         requireView(),
@@ -481,9 +514,11 @@ public class RegistroUsuariosFragment extends Fragment {
 
                     // Volver a la pantalla anterior
                     androidx.navigation.fragment.NavHostFragment.findNavController(this).popBackStack();
+                    hideProgress();
                 })
                 .addOnFailureListener(e -> {
                     mostrarError("Error al reactivar usuario: " + e.getMessage());
+                    hideProgress();
                 });
     }
 
@@ -509,6 +544,7 @@ public class RegistroUsuariosFragment extends Fragment {
         // Rehabilitar botón
         btnRegistrar.setEnabled(true);
         btnRegistrar.setText("Registrar Usuario");
+        hideProgress();
     }
 
     private void mostrarDialogoEliminarCuentaAuth(String email, String password, String rol) {
@@ -551,6 +587,7 @@ public class RegistroUsuariosFragment extends Fragment {
     private void eliminarCuentaAuthYCrearNueva(String email, String password, String rol) {
         btnRegistrar.setEnabled(false);
         btnRegistrar.setText("Eliminando cuenta anterior...");
+        showProgress("Eliminando cuenta anterior...");
 
         // Iniciar sesión con la cuenta existente para poder eliminarla
         mAuth.signInWithEmailAndPassword(email, password)
@@ -564,22 +601,26 @@ public class RegistroUsuariosFragment extends Fragment {
                                         if (deleteTask.isSuccessful()) {
                                             // Cuenta eliminada, ahora crear una nueva
                                             btnRegistrar.setText("Creando cuenta nueva...");
+                                            showProgress("Creando cuenta nueva...");
                                             crearUsuarioEnFirebase(email, password, rol);
                                         } else {
                                             btnRegistrar.setEnabled(true);
                                             btnRegistrar.setText("Registrar Usuario");
+                                            hideProgress();
                                             mostrarError("Error al eliminar cuenta anterior: " + deleteTask.getException().getMessage());
                                         }
                                     });
                         } else {
                             btnRegistrar.setEnabled(true);
                             btnRegistrar.setText("Registrar Usuario");
+                            hideProgress();
                             mostrarError("Error: no se pudo obtener el usuario");
                         }
                     } else {
                         // La contraseña no coincide
                         btnRegistrar.setEnabled(true);
                         btnRegistrar.setText("Registrar Usuario");
+                        hideProgress();
 
                         if (tilPassword != null) {
                             tilPassword.setError("La contraseña no coincide con la cuenta existente");
