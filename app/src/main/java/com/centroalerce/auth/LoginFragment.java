@@ -14,7 +14,6 @@ import android.widget.AutoCompleteTextView;
 import android.widget.CheckBox;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -23,6 +22,7 @@ import androidx.navigation.NavOptions;
 import com.centroalerce.gestion.R;
 import com.centroalerce.gestion.adapters.EmailAutocompleteAdapter;
 import com.centroalerce.gestion.utils.EmailHistoryManager;
+import com.centroalerce.gestion.utils.CustomToast;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
@@ -295,7 +295,8 @@ public class LoginFragment extends Fragment {
                         showLoading(false);
                         btnLogin.setEnabled(true);
                         btnLogin.setText("Iniciar sesión");
-                        Toast.makeText(getContext(), "Error: usuario no encontrado", Toast.LENGTH_LONG).show();
+                        CustomToast.showError(getContext(), "Error: usuario no encontrado");
+
                         return;
                     }
 
@@ -306,7 +307,8 @@ public class LoginFragment extends Fragment {
                             showLoading(false);
                             btnLogin.setEnabled(true);
                             btnLogin.setText("Iniciar sesión");
-                            Toast.makeText(getContext(), "Error al verificar estado de correo", Toast.LENGTH_LONG).show();
+                            CustomToast.showError(getContext(), "Error al verificar estado de correo");
+
                             auth.signOut();
                             return;
                         }
@@ -318,19 +320,16 @@ public class LoginFragment extends Fragment {
                             btnLogin.setEnabled(true);
                             btnLogin.setText("Iniciar sesión");
 
-                            Toast.makeText(getContext(),
-                                    "Tu cuenta aún no está verificada. Revisa tu correo (incluye carpeta de spam).",
-                                    Toast.LENGTH_LONG).show();
+                            CustomToast.showInfoLong(getContext(),
+                                    "Tu cuenta aún no está verificada. Revisa tu correo (incluye carpeta de spam).");
 
                             user.sendEmailVerification()
                                     .addOnSuccessListener(x ->
-                                            Toast.makeText(getContext(),
-                                                    "Te reenviamos el enlace de verificación ",
-                                                    Toast.LENGTH_SHORT).show())
+                                            CustomToast.showSuccess(getContext(),
+                                                    "Te reenviamos el enlace de verificación "))
                                     .addOnFailureListener(e ->
-                                            Toast.makeText(getContext(),
-                                                    "No se pudo reenviar el correo: " + e.getMessage(),
-                                                    Toast.LENGTH_LONG).show());
+                                            CustomToast.showErrorLong(getContext(),
+                                                    "No se pudo reenviar el correo: " + e.getMessage()));
 
                             auth.signOut();
                             return;
@@ -366,8 +365,8 @@ public class LoginFragment extends Fragment {
                                                     .document(user.getUid())
                                                     .update("activo", true)
                                                     .addOnFailureListener(e ->
-                                                            android.util.Log.e("LoginFragment", "Error actualizando campo activo", e)
-                                                    );
+                                                    android.util.Log.e("LoginFragment", "Error actualizando campo activo", e)
+                                            );
                                         }
                                     }
 
@@ -379,9 +378,9 @@ public class LoginFragment extends Fragment {
                                             tilEmail.setError("Esta cuenta ha sido desactivada");
                                             tilEmail.setErrorEnabled(true);
                                         }
-                                        Toast.makeText(getContext(),
-                                                "Tu cuenta ha sido desactivada. Contacta al administrador",
-                                                Toast.LENGTH_LONG).show();
+                                        CustomToast.showErrorLong(getContext(),
+                                                "Tu cuenta ha sido desactivada. Contacta al administrador");
+
                                         auth.signOut();
                                         return;
                                     }
@@ -416,9 +415,8 @@ public class LoginFragment extends Fragment {
                                     showLoading(false);
                                     btnLogin.setEnabled(true);
                                     btnLogin.setText("Iniciar sesión");
-                                    Toast.makeText(getContext(),
-                                            "Error al verificar estado de la cuenta: " + e.getMessage(),
-                                            Toast.LENGTH_LONG).show();
+                                    CustomToast.showErrorLong(getContext(),
+                                            "Error al verificar estado de la cuenta: " + e.getMessage());
                                     auth.signOut();
                                 });
                     });

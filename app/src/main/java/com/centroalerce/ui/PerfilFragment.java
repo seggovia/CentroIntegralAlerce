@@ -6,7 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.centroalerce.gestion.utils.CustomToast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -104,9 +104,8 @@ public class PerfilFragment extends Fragment {
             themeManager.applyTheme();
 
             // Mostrar feedback
-            Toast.makeText(getContext(),
-                    isChecked ? "Modo oscuro activado" : "Modo claro activado",
-                    Toast.LENGTH_SHORT).show();
+            CustomToast.showInfo(getContext(),
+                    isChecked ? "Modo oscuro activado" : "Modo claro activado");
 
             // Recrear la actividad para aplicar el tema
             if (getActivity() != null) {
@@ -189,14 +188,14 @@ public class PerfilFragment extends Fragment {
                         }
                     } else {
                         if (getContext() != null) {
-                            Toast.makeText(getContext(), "No se encontraron datos del usuario", Toast.LENGTH_SHORT).show();
+                            CustomToast.showInfo(getContext(), "No se encontraron datos del usuario");
                         }
                     }
                 })
                 .addOnFailureListener(e -> {
                     if (!isAdded()) return;
                     if (getContext() != null) {
-                        Toast.makeText(getContext(), "Error al cargar datos: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        CustomToast.showError(getContext(), "Error al cargar datos: " + e.getMessage());
                     }
                 });
     }
@@ -234,7 +233,7 @@ public class PerfilFragment extends Fragment {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null || currentUser.getEmail() == null) {
             if (getContext() != null) {
-                Toast.makeText(getContext(), "No hay sesión activa", Toast.LENGTH_SHORT).show();
+                CustomToast.showError(getContext(), "No hay sesión activa");
             }
             return;
         }
@@ -248,16 +247,14 @@ public class PerfilFragment extends Fragment {
                     mAuth.sendPasswordResetEmail(email)
                             .addOnSuccessListener(aVoid -> {
                                 if (getContext() != null) {
-                                    Toast.makeText(getContext(),
-                                            "Correo enviado. Revisa tu bandeja de entrada",
-                                            Toast.LENGTH_LONG).show();
+                                    CustomToast.showSuccessLong(getContext(),
+                                            "Correo enviado. Revisa tu bandeja de entrada");
                                 }
                             })
                             .addOnFailureListener(e -> {
                                 if (getContext() != null) {
-                                    Toast.makeText(getContext(),
-                                            "Error al enviar correo: " + e.getMessage(),
-                                            Toast.LENGTH_LONG).show();
+                                    CustomToast.showErrorLong(getContext(),
+                                            "Error al enviar correo: " + e.getMessage());
                                 }
                             });
                 })

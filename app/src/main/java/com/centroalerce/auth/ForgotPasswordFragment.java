@@ -8,7 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.Toast;
+import com.centroalerce.gestion.utils.CustomToast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -61,7 +61,8 @@ public class ForgotPasswordFragment extends Fragment {
         // Botón enviar
         btnEnviar.setOnClickListener(view -> {
             if (etEmail == null || etEmail.getText() == null) {
-                Toast.makeText(getContext(), "Error: campo no inicializado", Toast.LENGTH_SHORT).show();
+                CustomToast.showError(getContext(), "Error: campo no inicializado");
+
                 return;
             }
             
@@ -118,7 +119,7 @@ public class ForgotPasswordFragment extends Fragment {
         // Observar éxito
         authViewModel.getLoginResult().observe(getViewLifecycleOwner(), message -> {
             if (message != null) {
-                Toast.makeText(getContext(), message, Toast.LENGTH_LONG).show();
+                CustomToast.showSuccessLong(getContext(), message);
                 btnEnviar.setText("Enviar enlace de recuperación");
 
                 // Volver al login después de éxito
@@ -129,7 +130,7 @@ public class ForgotPasswordFragment extends Fragment {
         // Observar errores
         authViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
             if (error != null) {
-                Toast.makeText(getContext(), error, Toast.LENGTH_LONG).show();
+                CustomToast.showErrorLong(getContext(), error);
                 btnEnviar.setEnabled(true);
                 btnEnviar.setText("Enviar enlace de recuperación");
             }
