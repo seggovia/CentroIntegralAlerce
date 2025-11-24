@@ -34,6 +34,8 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
     private ActivityResultLauncher<Intent> pickerLauncher;
     private TextView tvArchivo;
     private com.google.android.material.button.MaterialButton btnEliminar;
+    private String actividadId = "";
+    private String citaId = "";
 
     public static AdjuntarComunicacionSheet newInstance(String actividadId, @Nullable String citaId) {
         AdjuntarComunicacionSheet f = new AdjuntarComunicacionSheet();
@@ -90,8 +92,8 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
     public void onViewCreated(@NonNull View v, @Nullable Bundle s) {
         super.onViewCreated(v, s);
 
-        String actividadId = getArguments() != null ? getArguments().getString("actividadId", "") : "";
-        String citaId      = getArguments() != null ? getArguments().getString("citaId", "")      : "";
+        actividadId = getArguments() != null ? getArguments().getString("actividadId", "") : "";
+        citaId      = getArguments() != null ? getArguments().getString("citaId", "")      : "";
 
         tvArchivo = v.findViewById(id("tvArchivo"));
         com.google.android.material.button.MaterialButton btnSeleccionar = v.findViewById(id("btnSeleccionarArchivo")); // ✅ CORREGIDO
@@ -265,18 +267,20 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
     }
 
     /**
-     * ✅ NUEVO: Envía el evento y cierra el sheet CON DELAY para que el listener lo procese
+     *  NUEVO: Envía el evento y cierra el sheet CON DELAY para que el listener lo procese
      */
     private void enviarEventoYCerrar(android.app.ProgressDialog progressDialog) {
         Bundle res = new Bundle();
         res.putBoolean("adjunto_subido", true);
         res.putLong("timestamp", System.currentTimeMillis());
+        res.putString("actividadId", actividadId);
+        res.putString("citaId", citaId);
 
-        android.util.Log.d("AdjuntarSheet", "📤 Enviando evento adjuntos_change...");
+        android.util.Log.d("AdjuntarSheet", " Enviando evento adjuntos_change...");
 
         try {
             getParentFragmentManager().setFragmentResult("adjuntos_change", res);
-            android.util.Log.d("AdjuntarSheet", "✅ Evento enviado a ParentFragmentManager");
+            android.util.Log.d("AdjuntarSheet", " Evento enviado a ParentFragmentManager");
         } catch (Exception e) {
             android.util.Log.w("AdjuntarSheet", "⚠️ Error enviando a ParentFragmentManager: " + e.getMessage());
         }

@@ -8,6 +8,9 @@ import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -16,10 +19,12 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import com.centroalerce.gestion.utils.CustomToast;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.fragment.app.FragmentManager;
+
+import com.centroalerce.gestion.utils.CustomToast;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -50,6 +55,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
@@ -121,6 +127,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     private static final String COL_EN = "activities";
     private static final String COL_ES = "actividades";
+
     private DocumentReference act(String actividadId, boolean preferEN) {
         return FirebaseFirestore.getInstance().collection(preferEN ? COL_EN : COL_ES).document(actividadId);
     }
@@ -332,23 +339,51 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         requireActivity().getSupportFragmentManager().setFragmentResultListener("actividad_change", getViewLifecycleOwner(),
                 (req,b) -> { loadActividad(actividadId); loadCita(actividadId, citaId); });
 
-        // ✅ NUEVO: Listener para cambios en adjuntos (solo uno para evitar duplicados)
-        requireActivity().getSupportFragmentManager().setFragmentResultListener("adjuntos_change", getViewLifecycleOwner(),
-                (req,b) -> {
-                    Log.d(TAG, "📎 Evento adjuntos_change recibido");
-                    Log.d(TAG, "📎 actividadId: " + actividadId + ", citaId: " + citaId);
-
-                    // ✅ Recargar INMEDIATAMENTE primero (puede mostrar caché, pero algo es mejor que nada)
-                    loadAdjuntosAllFromServer(actividadId, citaId);
-
-                    // ✅ Luego recargar de nuevo con delay para asegurar datos frescos del servidor
-                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                        Log.d(TAG, "📎 Recarga con delay - obteniendo datos frescos del servidor");
-                        loadAdjuntosAllFromServer(actividadId, citaId);
-                    }, 1500);
-                });
+        // ✅ Listener para cambios en adjuntos (filtrado por actividad/cita), registrar solo una vez
+        registerAdjuntosChangeListener(getParentFragmentManager(), parentAdjuntosListenerRegistered);
+        parentAdjuntosListenerRegistered = true;
+        registerAdjuntosChangeListener(requireActivity().getSupportFragmentManager(), activityAdjuntosListenerRegistered);
+        activityAdjuntosListenerRegistered = true;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (!TextUtils.isEmpty(actividadId)) {
+            loadAdjuntosAllFromServer(actividadId, citaId);
+        }
+    }
+
+    private boolean parentAdjuntosListenerRegistered = false;
+    private boolean activityAdjuntosListenerRegistered = false;
+
+    private void registerAdjuntosChangeListener(@Nullable FragmentManager manager, boolean alreadyRegistered) {
+        if (manager == null || getViewLifecycleOwner() == null || alreadyRegistered) return;
+
+        manager.setFragmentResultListener("adjuntos_change", getViewLifecycleOwner(), (req, bundle) -> {
+            String targetActividadId = bundle != null ? bundle.getString("actividadId") : null;
+            String targetCitaId      = bundle != null ? bundle.getString("citaId")      : null;
+
+            if (!TextUtils.isEmpty(targetActividadId) && !TextUtils.equals(targetActividadId, actividadId)) {
+                Log.d(TAG, "📎 adjuntos_change ignorado (actividad " + targetActividadId + " distinta a " + actividadId + ")");
+                return;
+            }
+
+            String actividadToLoad = !TextUtils.isEmpty(targetActividadId) ? targetActividadId : actividadId;
+            String citaToLoad = targetCitaId != null ? targetCitaId : citaId;
+
+            if (TextUtils.isEmpty(actividadToLoad)) {
+                Log.w(TAG, "📎 adjuntos_change sin actividadId, se ignora");
+                return;
+            }
+
+            Log.d(TAG, "📎 adjuntos_change -> recargando adjuntos (actividad=" + actividadToLoad + ", cita=" + citaToLoad + ")");
+
+            loadAdjuntosAllFromServer(actividadToLoad, citaToLoad);
+            new Handler(Looper.getMainLooper()).postDelayed(() ->
+                    loadAdjuntosAllFromServer(actividadToLoad, citaToLoad), 1500);
+        });
+    }
 
     // ✅ NUEVO: Configurar la UI según el rol del usuario
     private void setupUIBasedOnRole() {
@@ -425,9 +460,6 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
             }
             citaReg = null;
         }
-
-        // 🆕 Limpiar listeners de mantenedores
-        removeMantenedorListeners();
 
         // ✅ Limpiar referencias de vistas para evitar memory leaks
         tvNombre = null;
