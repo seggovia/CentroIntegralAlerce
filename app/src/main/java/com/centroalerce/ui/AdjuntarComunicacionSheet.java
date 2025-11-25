@@ -36,6 +36,8 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
     private com.google.android.material.button.MaterialButton btnEliminar;
     private String actividadId = "";
     private String citaId = "";
+    @Nullable
+    private Runnable onDismissCallback;
 
     public static AdjuntarComunicacionSheet newInstance(String actividadId, @Nullable String citaId) {
         AdjuntarComunicacionSheet f = new AdjuntarComunicacionSheet();
@@ -300,6 +302,18 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
             android.util.Log.d("AdjuntarSheet", "🚪 Cerrando sheet después de enviar evento");
             dismiss();
         }, 300);
+    }
+
+    @Override
+    public void onDismiss(@NonNull android.content.DialogInterface dialog) {
+        super.onDismiss(dialog);
+        if (onDismissCallback != null) {
+            onDismissCallback.run();
+        }
+    }
+
+    public void setOnDismissCallback(@Nullable Runnable callback) {
+        this.onDismissCallback = callback;
     }
 
     private String obtenerNombreArchivo(Uri uri) {
