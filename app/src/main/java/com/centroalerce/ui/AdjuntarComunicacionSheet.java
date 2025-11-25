@@ -223,7 +223,7 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
 
     private boolean agregarArchivoSeleccionado(@NonNull Uri uri) {
         try {
-            final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION;
+            final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
             requireContext().getContentResolver().takePersistableUriPermission(uri, takeFlags);
         } catch (Exception ignored) {}
 
