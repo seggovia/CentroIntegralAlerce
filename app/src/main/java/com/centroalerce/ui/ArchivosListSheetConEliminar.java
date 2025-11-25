@@ -1,6 +1,8 @@
 package com.centroalerce.ui;
 
 import android.app.DownloadManager;
+import android.app.ProgressDialog;
+
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -20,6 +22,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.utils.CustomToast;
+import com.centroalerce.ui.AttachmentDownloadHelper;
+
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -43,6 +48,8 @@ public class ArchivosListSheetConEliminar extends BottomSheetDialogFragment {
     private List<Map<String, Object>> adjuntos = new ArrayList<>();
     private String actividadId;
     private Runnable onDismissListener;
+    private AttachmentDownloadHelper downloadHelper;
+    private ProgressDialog progressDialog;
 
     public static ArchivosListSheetConEliminar newInstance(
             List<Map<String, Object>> adjuntos,
@@ -89,10 +96,12 @@ public class ArchivosListSheetConEliminar extends BottomSheetDialogFragment {
             if (tvTitulo != null) tvTitulo.setText(titulo);
         }
 
+        downloadHelper = new AttachmentDownloadHelper(this);
+
         recyclerView = view.findViewById(R.id.rvArchivos);
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
 
-        adapter = new AdjuntosConEliminarAdapter(adjuntos, this::eliminarAdjunto);
+        adapter = new AdjuntosConEliminarAdapter(adjuntos, this::eliminarAdjunto, downloadHelper);
         recyclerView.setAdapter(adapter);
 
         MaterialButton btnCerrar = view.findViewById(R.id.btnCerrar);
@@ -119,6 +128,7 @@ public class ArchivosListSheetConEliminar extends BottomSheetDialogFragment {
                 .setTitle("Eliminar archivo")
                 .setMessage("¿Estás seguro de eliminar este archivo?")
                 .setPositiveButton("Eliminar", (d, w) -> {
+                    showProgressDialog("Eliminando archivo...");
                     adjuntos.remove(adjunto);
                     actualizarFirestore();
                 })
@@ -157,23 +167,35 @@ public class ArchivosListSheetConEliminar extends BottomSheetDialogFragment {
                 tvContador.setText(adjuntos.size() + " archivo(s)");
             }
 
-            toast("Archivo eliminado");
+            showSuccess("Archivo eliminado");
 
             // ✅ Notificar cambios
             Bundle res = new Bundle();
             res.putBoolean("adjunto_eliminado", true);
             res.putLong("timestamp", System.currentTimeMillis());
+            if (!TextUtils.isEmpty(actividadId)) {
+                res.putString("actividadId", actividadId);
+            }
 
             try {
                 getParentFragmentManager().setFragmentResult("adjuntos_change", res);
                 requireActivity().getSupportFragmentManager().setFragmentResult("adjuntos_change", res);
             } catch (Exception ignore) {}
 
+            try {
+                getParentFragmentManager().setFragmentResult("actividad_change", res);
+                requireActivity().getSupportFragmentManager().setFragmentResult("actividad_change", res);
+            } catch (Exception ignore) {}
+
+            hideProgressDialog();
+
         }).addOnFailureListener(e -> {
             android.util.Log.e("ELIMINAR", "❌ Error: " + e.getMessage(), e);
-            toast("Error: " + e.getMessage());
+            showError("Error: " + e.getMessage());
+            hideProgressDialog();
         });
     }
+
     /**
      * Elimina archivos de TODAS las subcolecciones que no estén en el array principal
      */
@@ -238,10 +260,49 @@ public class ArchivosListSheetConEliminar extends BottomSheetDialogFragment {
                 });
     }
 
+    private void showInfo(String message) {
+        if (getContext() != null) {
+            CustomToast.showInfo(getContext(), message);
+        }
+    }
 
-    private void toast(String m) {
-        android.widget.Toast.makeText(requireContext(), m,
-                android.widget.Toast.LENGTH_SHORT).show();
+    private void showSuccess(String message) {
+        if (getContext() != null) {
+            CustomToast.showSuccess(getContext(), message);
+        }
+    }
+
+    private void showError(String message) {
+        if (getContext() != null) {
+            CustomToast.showError(getContext(), message);
+        }
+    }
+
+    private void showProgressDialog(String message) {
+        if (!isAdded()) return;
+        if (progressDialog == null) {
+            progressDialog = new ProgressDialog(requireContext());
+            progressDialog.setIndeterminate(true);
+            progressDialog.setCancelable(false);
+        }
+        progressDialog.setMessage(message);
+        if (!progressDialog.isShowing()) {
+            progressDialog.show();
+        }
+    }
+
+    private void hideProgressDialog() {
+        if (progressDialog != null && progressDialog.isShowing()) {
+            try {
+                progressDialog.dismiss();
+            } catch (Exception ignore) {}
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        hideProgressDialog();
+        super.onDestroyView();
     }
 
     // Adapter interno
@@ -249,14 +310,16 @@ public class ArchivosListSheetConEliminar extends BottomSheetDialogFragment {
 
         private final List<Map<String, Object>> items;
         private final OnEliminarListener listener;
+        private final AttachmentDownloadHelper downloadHelper;
 
         interface OnEliminarListener {
             void onEliminar(Map<String, Object> item);
         }
 
-        AdjuntosConEliminarAdapter(List<Map<String, Object>> items, OnEliminarListener listener) {
+        AdjuntosConEliminarAdapter(List<Map<String, Object>> items, OnEliminarListener listener, AttachmentDownloadHelper downloadHelper) {
             this.items = items;
             this.listener = listener;
+            this.downloadHelper = downloadHelper;
         }
 
         @NonNull
@@ -304,7 +367,7 @@ public class ArchivosListSheetConEliminar extends BottomSheetDialogFragment {
                             v.getContext().startActivity(intent);
                         } catch (Exception e) {
                             android.util.Log.e("ADAPTER", "❌ Error abriendo archivo: " + e.getMessage(), e);
-                            Toast.makeText(v.getContext(), "No se pudo abrir el archivo", Toast.LENGTH_SHORT).show();
+                            CustomToast.showError(v.getContext(), "No se pudo abrir el archivo");
                         }
                     });
                 } else {
@@ -321,24 +384,14 @@ public class ArchivosListSheetConEliminar extends BottomSheetDialogFragment {
                     vh.btnDescargar.setOnClickListener(v -> {
                         try {
                             // ✅ CRÍTICO: Usar Context.DOWNLOAD_SERVICE en vez de DOWNLOAD_MANAGER_SERVICE
-                            DownloadManager dm = (DownloadManager) v.getContext().getSystemService(Context.DOWNLOAD_SERVICE);
-                            if (dm == null) {
-                                Toast.makeText(v.getContext(), "Servicio de descarga no disponible", Toast.LENGTH_SHORT).show();
-                                return;
+                            if (downloadHelper != null) {
+                                downloadHelper.startDownload(nombre, url);
+                            } else {
+                                CustomToast.showInfo(v.getContext(), "Descarga iniciada: " + nombre);
                             }
-
-                            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
-                            request.setTitle(nombre);
-                            request.setDescription("Descargando archivo...");
-                            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, nombre);
-                            request.setMimeType(getMimeType(nombre));
-
-                            dm.enqueue(request);
-                            Toast.makeText(v.getContext(), "Descarga iniciada: " + nombre, Toast.LENGTH_SHORT).show();
                         } catch (Exception e) {
                             android.util.Log.e("ADAPTER", "❌ Error descargando: " + e.getMessage(), e);
-                            Toast.makeText(v.getContext(), "Error al descargar", Toast.LENGTH_SHORT).show();
+                            CustomToast.showError(v.getContext(), "Error al descargar");
                         }
                     });
                 } else {

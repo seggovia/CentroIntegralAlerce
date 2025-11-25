@@ -20,6 +20,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.centroalerce.gestion.R;
+import com.centroalerce.gestion.utils.CustomToast;
+import com.centroalerce.ui.AttachmentDownloadHelper;
+
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -47,6 +50,7 @@ public class ArchivosListSheet extends BottomSheetDialogFragment {
     private List<AdjuntoItem> adjuntos = new ArrayList<>();
     private String actividadId;
     private boolean puedeEliminar;
+    private AttachmentDownloadHelper downloadHelper;
 
     public static ArchivosListSheet newInstance(List<Map<String, Object>> adjuntos, String titulo) {
         return newInstance(adjuntos, titulo, null, false);
@@ -99,6 +103,8 @@ public class ArchivosListSheet extends BottomSheetDialogFragment {
             if (tvTitulo != null) tvTitulo.setText(titulo);
         }
 
+        downloadHelper = new AttachmentDownloadHelper(this);
+
         // Setup RecyclerView
         recyclerView = view.findViewById(R.id.rvArchivos);
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -137,7 +143,7 @@ public class ArchivosListSheet extends BottomSheetDialogFragment {
 
     private void abrirArchivo(String url) {
         if (TextUtils.isEmpty(url)) {
-            toast("URL no disponible");
+            showError("URL no disponible");
             return;
         }
 
@@ -147,30 +153,22 @@ public class ArchivosListSheet extends BottomSheetDialogFragment {
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(intent);
         } catch (Exception e) {
-            toast("No se pudo abrir el archivo");
+            showError("No se pudo abrir el archivo");
             android.util.Log.e("ARCHIVOS_SHEET", "Error abriendo archivo: " + e.getMessage(), e);
         }
     }
 
     private void descargarArchivo(String nombre, String url) {
         if (TextUtils.isEmpty(url)) {
-            toast("URL no disponible");
+            showError("URL no disponible");
             return;
         }
 
-        try {
-            DownloadManager dm = (DownloadManager) requireContext().getSystemService(Context.DOWNLOAD_SERVICE);
-            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
-
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, nombre);
-
-            dm.enqueue(request);
-            toast("Descarga iniciada...");
-        } catch (Exception e) {
-            toast("Error al descargar: " + e.getMessage());
-            android.util.Log.e("ARCHIVOS_SHEET", "Error descargando: " + e.getMessage(), e);
+        if (downloadHelper == null) {
+            downloadHelper = new AttachmentDownloadHelper(this);
         }
+
+        downloadHelper.startDownload(nombre, url);
     }
 
     private void confirmarEliminarArchivo(AdjuntoItem item) {
@@ -184,7 +182,7 @@ public class ArchivosListSheet extends BottomSheetDialogFragment {
 
     private void eliminarArchivo(AdjuntoItem item) {
         if (TextUtils.isEmpty(actividadId)) {
-            toast("Error: No se puede eliminar el archivo");
+            showError("Error: No se puede eliminar el archivo");
             return;
         }
 
@@ -206,7 +204,7 @@ public class ArchivosListSheet extends BottomSheetDialogFragment {
                     }
                 }
 
-                toast("Archivo eliminado");
+                showSuccess("Archivo eliminado");
 
                 // Notificar cambios
                 Bundle b = new Bundle();
@@ -320,8 +318,22 @@ public class ArchivosListSheet extends BottomSheetDialogFragment {
                 });
     }
 
-    private void toast(String mensaje) {
-        android.widget.Toast.makeText(requireContext(), mensaje, android.widget.Toast.LENGTH_SHORT).show();
+    private void showInfo(String mensaje) {
+        if (getContext() != null) {
+            CustomToast.showInfo(getContext(), mensaje);
+        }
+    }
+
+    private void showSuccess(String mensaje) {
+        if (getContext() != null) {
+            CustomToast.showSuccess(getContext(), mensaje);
+        }
+    }
+
+    private void showError(String mensaje) {
+        if (getContext() != null) {
+            CustomToast.showError(getContext(), mensaje);
+        }
     }
 
     private static String firstNonEmpty(String... values) {

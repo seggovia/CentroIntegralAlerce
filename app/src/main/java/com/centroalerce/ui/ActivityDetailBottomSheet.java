@@ -216,8 +216,17 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 }
 
                 emitEdit.run();
-                ModificarActividadSheet.newInstance(actividadId)
-                        .show(getParentFragmentManager(), "ModificarActividadSheet");
+                ModificarActividadSheet sheet = ModificarActividadSheet.newInstance(actividadId);
+                sheet.setOnDismissCallback(() -> {
+                    try {
+                        getParentFragmentManager().setFragmentResult("adjuntos_change", createAdjuntoBundle());
+                    } catch (Exception ignore) {}
+                    try {
+                        requireActivity().getSupportFragmentManager().setFragmentResult("adjuntos_change", createAdjuntoBundle());
+                    } catch (Exception ignore) {}
+                    reloadAdjuntosDesdeModificar();
+                });
+                sheet.show(getParentFragmentManager(), "ModificarActividadSheet");
             };
             rememberClickListener(btnModificar, l);
             btnModificar.setOnClickListener(l);
@@ -361,6 +370,7 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         if (manager == null || getViewLifecycleOwner() == null || alreadyRegistered) return;
 
         manager.setFragmentResultListener("adjuntos_change", getViewLifecycleOwner(), (req, bundle) -> {
+
             String targetActividadId = bundle != null ? bundle.getString("actividadId") : null;
             String targetCitaId      = bundle != null ? bundle.getString("citaId")      : null;
 
@@ -385,10 +395,18 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
         });
     }
 
+    private Bundle createAdjuntoBundle() {
+        Bundle b = new Bundle();
+        if (!TextUtils.isEmpty(actividadId)) b.putString("actividadId", actividadId);
+        if (!TextUtils.isEmpty(citaId)) b.putString("citaId", citaId);
+        return b;
+    }
+
     // ✅ NUEVO: Configurar la UI según el rol del usuario
     private void setupUIBasedOnRole() {
         Log.d(TAG, "🔐 Configurando UI para rol: " + userRole.getValue());
 
+// ... (rest of the code remains the same)
         // VISUALIZADOR: Ocultar TODOS los botones de acción
         if (userRole.isVisualizador()) {
             Log.d(TAG, "👁️ Ocultando botones para VISUALIZADOR");
@@ -1103,11 +1121,16 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
 
     // ---------- Adjuntos ----------
     private interface Done { void run(); }
+    public void reloadAdjuntosDesdeModificar() {
+        if (llAdjuntos == null) return;
+        loadAdjuntosAllFromServer(actividadId, citaId);
+    }
+
     private void loadAdjuntosAll(String actividadId, String citaId) {
         if (llAdjuntos == null) return;
-        android.util.Log.d("DETAIL", "🚀 Iniciando carga de adjuntos - Actividad: " + actividadId + ", Cita: " + citaId);
+        android.util.Log.d("DETAIL", " Iniciando carga de adjuntos - Actividad: " + actividadId + ", Cita: " + citaId);
 
-        // 🔥 NUEVO: Limpiar la lista temporal
+        // NUEVO: Limpiar la lista temporal
         adjuntosTemporales.clear();
 
         llAdjuntos.removeAllViews();

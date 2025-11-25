@@ -1,5 +1,6 @@
 package com.centroalerce.ui;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -96,6 +97,9 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     private final List<Beneficiario> beneficiariosSeleccionados = new ArrayList<>();
     private final List<String> beneficiariosSeleccionadosIds = new ArrayList<>();
 
+    @Nullable
+    private Runnable onDismissCallback;
+
     // Fallbacks
     private final String[] tiposFijos = new String[]{
             "Capacitación","Taller","Charlas","Atenciones","Operativo en oficina","Operativo rural","Operativo","Práctica profesional","Diagnostico"
@@ -166,6 +170,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
     private void precargar(){
         if (TextUtils.isEmpty(actividadId)) { toast("Falta actividadId"); return; }
         act(actividadId,true).get().addOnSuccessListener(doc -> {
+            if (!isAdded()) return;
             if (doc!=null && doc.exists()) bind(doc);
             else act(actividadId,false).get().addOnSuccessListener(this::bind)
                     .addOnFailureListener(e -> toast("No se pudo cargar"));
@@ -997,6 +1002,8 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             android.util.Log.e("MOD_ACT", "❌ Error enviando calendar_refresh a activity: " + e.getMessage());
         }
 
+        emitirAdjuntosChange();
+
         // 🔥 NUEVO: También enviar al childFragmentManager del parent (para que CalendarFragment lo reciba)
         try {
             // ActivityDetailBottomSheet es el parent de ModificarActividadSheet
@@ -1019,7 +1026,45 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         }
     }
 
+    private void emitirAdjuntosChange() {
+        Bundle adjuntosBundle = new Bundle();
+        if (!TextUtils.isEmpty(actividadId)) {
+            adjuntosBundle.putString("actividadId", actividadId);
+        }
+
+        try {
+            getParentFragmentManager().setFragmentResult("adjuntos_change", adjuntosBundle);
+            android.util.Log.d("MOD_ACT", "✅ Enviado adjuntos_change a parentFragmentManager");
+        } catch (Exception e) {
+            android.util.Log.e("MOD_ACT", "❌ Error enviando adjuntos_change a parent: " + e.getMessage());
+        }
+
+        try {
+            requireActivity().getSupportFragmentManager().setFragmentResult("adjuntos_change", adjuntosBundle);
+            android.util.Log.d("MOD_ACT", "✅ Enviado adjuntos_change a activity supportFragmentManager");
+        } catch (Exception e) {
+            android.util.Log.e("MOD_ACT", "❌ Error enviando adjuntos_change a activity: " + e.getMessage());
+        }
+    }
+
     private void toast(String m){ Toast.makeText(requireContext(), m, Toast.LENGTH_SHORT).show(); }
+
+    @Override
+    public void onDismiss(@NonNull DialogInterface dialog) {
+        super.onDismiss(dialog);
+        emitirAdjuntosChange();
+        Fragment parent = getParentFragment();
+        if (parent instanceof ActivityDetailBottomSheet) {
+            ((ActivityDetailBottomSheet) parent).reloadAdjuntosDesdeModificar();
+        }
+        if (onDismissCallback != null) {
+            onDismissCallback.run();
+        }
+    }
+
+    public void setOnDismissCallback(@Nullable Runnable callback) {
+        this.onDismissCallback = callback;
+    }
 
     /**
      * Muestra diálogo de conflicto de horario
@@ -1124,7 +1169,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
      * Renderiza los archivos adjuntos con botón para ver/descargar/eliminar
      */
     private void renderizarArchivosAdjuntos(List<Map<String, Object>> adjuntos) {
-        if (llAdjuntos == null) return;
+        if (llAdjuntos == null || !isAdded() || getContext() == null) return;
 
         llAdjuntos.removeAllViews();
 
@@ -1151,6 +1196,11 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
             sheet.setOnDismissListener(() -> {
                 android.util.Log.d("ModificarActividad", "🔄 Sheet cerrado, recargando actividad...");
                 precargar(); // Recargar toda la actividad para reflejar cambios
+
+                Fragment parent = getParentFragment();
+                if (parent instanceof ActivityDetailBottomSheet) {
+                    ((ActivityDetailBottomSheet) parent).reloadAdjuntosDesdeModificar();
+                }
             });
 
             sheet.show(getParentFragmentManager(), "archivos_list_eliminar");
@@ -1163,7 +1213,7 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
      * Muestra mensaje cuando no hay archivos adjuntos
      */
     private void mostrarMensajeSinAdjuntos() {
-        if (llAdjuntos == null) return;
+        if (llAdjuntos == null || !isAdded() || getContext() == null) return;
 
         llAdjuntos.removeAllViews();
 
