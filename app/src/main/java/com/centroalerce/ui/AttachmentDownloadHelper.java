@@ -11,6 +11,7 @@ import android.os.Build;
 import android.os.Environment;
 import android.text.TextUtils;
 import android.util.Log;
+import android.webkit.MimeTypeMap;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -55,10 +56,16 @@ public class AttachmentDownloadHelper {
 
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            if (TextUtils.isEmpty(nombreArchivo)) {
-                nombreArchivo = nombreDesdeUrl(url);
+            request.setAllowedOverMetered(true);
+            request.allowScanningByMediaScanner();
+
+            String sanitizedName = sanitizeFileName(TextUtils.isEmpty(nombreArchivo) ? nombreDesdeUrl(url) : nombreArchivo, url);
+            String mimeType = guessMimeType(sanitizedName, url);
+            if (!TextUtils.isEmpty(mimeType)) {
+                request.setMimeType(mimeType);
             }
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, nombreArchivo);
+            request.setTitle(sanitizedName);
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, sanitizedName);
 
             showProgressDialog();
             fallbackContext = context.getApplicationContext();
@@ -175,6 +182,43 @@ public class AttachmentDownloadHelper {
         String clean = q >= 0 ? url.substring(0, q) : url;
         int idx = clean.lastIndexOf('/');
         return idx >= 0 ? clean.substring(idx + 1) : clean;
+    }
+
+    private String sanitizeFileName(@Nullable String rawName, @NonNull String url) {
+        String candidate = TextUtils.isEmpty(rawName) ? nombreDesdeUrl(url) : rawName;
+        if (TextUtils.isEmpty(candidate)) candidate = "archivo";
+        candidate = candidate.replace("\\", "_").replace("/", "_");
+        candidate = candidate.replaceAll("[:*?\"<>|]", "_");
+        candidate = candidate.trim();
+        if (candidate.isEmpty()) candidate = "archivo";
+
+        String ext = obtenerExtension(candidate);
+        if (TextUtils.isEmpty(ext)) {
+            String fromUrl = MimeTypeMap.getFileExtensionFromUrl(url);
+            if (!TextUtils.isEmpty(fromUrl)) {
+                candidate += "." + fromUrl;
+            } else {
+                candidate += ".bin";
+            }
+        }
+        return candidate;
+    }
+
+    private String guessMimeType(String fileName, String url) {
+        String ext = obtenerExtension(fileName);
+        if (TextUtils.isEmpty(ext)) {
+            ext = MimeTypeMap.getFileExtensionFromUrl(url);
+        }
+        if (TextUtils.isEmpty(ext)) return "";
+        String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.toLowerCase());
+        return mime != null ? mime : "";
+    }
+
+    private String obtenerExtension(String fileName) {
+        if (TextUtils.isEmpty(fileName)) return "";
+        int dot = fileName.lastIndexOf('.');
+        if (dot < 0 || dot == fileName.length() - 1) return "";
+        return fileName.substring(dot + 1);
     }
 
     private Context getToastContext() {
