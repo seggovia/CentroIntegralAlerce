@@ -1,5 +1,6 @@
 package com.centroalerce.ui;
 
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
@@ -889,8 +890,19 @@ public class ModificarActividadSheet extends BottomSheetDialogFragment {
         return xs;
     }
 
-    private void setAdapter(AutoCompleteTextView view, ArrayList<OptionItem> items){
-        view.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, items));
+    private void setAdapter(@Nullable AutoCompleteTextView view, @NonNull ArrayList<OptionItem> items){
+        if (view == null) return;
+        Context ctx = getContext();
+        if (ctx == null || !isAdded()) {
+            android.util.Log.w("MOD_ACT", "setAdapter() ignorado porque el fragment ya no está adjunto");
+            return;
+        }
+        view.post(() -> {
+            if (!isAdded()) return;
+            Context safeCtx = getContext();
+            if (safeCtx == null) return;
+            view.setAdapter(new ArrayAdapter<>(safeCtx, android.R.layout.simple_list_item_1, items));
+        });
     }
 
     // ================== Helpers UI ==================
