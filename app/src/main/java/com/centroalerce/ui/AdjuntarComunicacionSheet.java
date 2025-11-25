@@ -1,6 +1,7 @@
 package com.centroalerce.ui;
 
 import android.app.Activity;
+import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -20,17 +21,21 @@ import androidx.annotation.Nullable;
 import com.centroalerce.gestion.utils.CustomToast;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
 
-    private Uri fileUri;
+    private final List<Uri> selectedFiles = new ArrayList<>();
+    private final List<String> selectedFileNames = new ArrayList<>();
     private ActivityResultLauncher<Intent> pickerLauncher;
     private TextView tvArchivo;
     private com.google.android.material.button.MaterialButton btnEliminar;
@@ -64,19 +69,7 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-                        fileUri = result.getData().getData();
-                        View dialogView = getView();
-                        if (dialogView != null) {
-                            tvArchivo = dialogView.findViewById(id("tvArchivo"));
-                            if (tvArchivo != null && fileUri != null) {
-                                String last = fileUri.getLastPathSegment();
-                                tvArchivo.setText(last != null ? last : fileUri.toString());
-                                // Mostrar botón eliminar cuando hay archivo
-                                if (btnEliminar != null) {
-                                    btnEliminar.setVisibility(View.VISIBLE);
-                                }
-                            }
-                        }
+                        handleSelectionResult(result.getData());
                     }
                 });
     }
@@ -111,26 +104,21 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
             pickerLauncher.launch(intent);
         });
 
         // Configurar botón eliminar
         if (btnEliminar != null) {
             btnEliminar.setOnClickListener(view -> {
-                // Mostrar confirmación
                 androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
-                builder.setTitle("¿Eliminar archivo?")
-                       .setMessage("El archivo seleccionado será eliminado de la lista.")
-                       .setPositiveButton("Eliminar", (dialog, which) -> {
-                           // Limpiar archivo seleccionado
-                           fileUri = null;
-                           if (tvArchivo != null) {
-                               tvArchivo.setText("Ningún archivo seleccionado");
-                           }
-                           // Ocultar botón eliminar
-                           btnEliminar.setVisibility(View.GONE);
-                           // Mostrar toast
-                           CustomToast.showSuccess(getContext(), "Archivo eliminado de la lista");
+                builder.setTitle("¿Limpiar selección?")
+                       .setMessage("Se eliminarán todos los archivos seleccionados.")
+                       .setPositiveButton("Limpiar", (dialog, which) -> {
+                           selectedFiles.clear();
+                           selectedFileNames.clear();
+                           actualizarTextoSeleccion();
+                           CustomToast.showSuccess(getContext(), "Selección limpiada");
                        })
                        .setNegativeButton("Cancelar", null)
                        .show();
@@ -138,8 +126,8 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
         }
 
         btnSubir.setOnClickListener(view -> {
-            if (fileUri == null) {
-                CustomToast.showError(getContext(), "Selecciona un archivo");
+            if (selectedFiles.isEmpty()) {
+                CustomToast.showError(getContext(), "Selecciona al menos un archivo");
                 return;
             }
             if (TextUtils.isEmpty(actividadId)) {
@@ -149,7 +137,7 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
 
             // Crear ProgressDialog
             android.app.ProgressDialog progressDialog = new android.app.ProgressDialog(requireContext());
-            progressDialog.setMessage("Subiendo archivo...");
+            progressDialog.setMessage("Preparando subida...");
             progressDialog.setCancelable(false);
             progressDialog.show();
 
@@ -157,114 +145,7 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
             btnSubir.setEnabled(false);
             CharSequence originalText = btnSubir.getText();
             btnSubir.setText("Subiendo...");
-
-            FirebaseStorage storage = FirebaseStorage.getInstance();
-            String fileName = obtenerNombreArchivo(fileUri);
-            StorageReference ref = storage.getReference()
-                    .child("activities")
-                    .child(actividadId)
-                    .child("attachments")
-                    .child(fileName);
-
-            // Subir a Storage y luego guardar metadata
-            ref.putFile(fileUri)
-                    .continueWithTask(task -> {
-                        if (!task.isSuccessful()) throw task.getException();
-                        return ref.getDownloadUrl();
-                    })
-                    .addOnSuccessListener(download -> {
-                        FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-                        Map<String, Object> meta = new HashMap<>();
-                        meta.put("nombre", fileName);
-                        meta.put("name", fileName);
-                        meta.put("url", download.toString());
-                        meta.put("creadoEn", Timestamp.now());
-
-                        // Subcolección (para queries ordenadas) a nivel de actividad
-                        db.collection("activities").document(actividadId)
-                                .collection("adjuntos").add(meta)
-                                .addOnSuccessListener(docRef -> {
-                                    // Agregar el ID del documento al metadata
-                                    meta.put("id", docRef.getId());
-                                    docRef.update("id", docRef.getId());
-
-                                    // ✅ Actualizar array en el documento principal (EN y ES)
-                                    db.collection("activities").document(actividadId)
-                                            .update("adjuntos", FieldValue.arrayUnion(meta))
-                                            .addOnSuccessListener(aVoid -> {
-                                                db.collection("actividades").document(actividadId)
-                                                        .update("adjuntos", FieldValue.arrayUnion(meta))
-                                                        .addOnSuccessListener(aVoid2 -> {
-                                                            // ✅ Si hay citaId, guardar también en la subcolección de la cita (EN y ES)
-                                                            if (!android.text.TextUtils.isEmpty(citaId)) {
-                                                                // EN
-                                                                db.collection("activities").document(actividadId)
-                                                                        .collection("citas").document(citaId)
-                                                                        .collection("adjuntos").add(meta)
-                                                                        .addOnSuccessListener(citaDoc -> {
-                                                                            android.util.Log.d("AdjuntarSheet", "✅ Adjunto guardado en cita EN " + citaId);
-
-                                                                            // ES (mejor esfuerzo)
-                                                                            db.collection("actividades").document(actividadId)
-                                                                                    .collection("citas").document(citaId)
-                                                                                    .collection("adjuntos").add(meta)
-                                                                                    .addOnSuccessListener(citaEsDoc -> {
-                                                                                        android.util.Log.d("AdjuntarSheet", "✅ Adjunto guardado en cita ES " + citaId);
-                                                                                        enviarEventoYCerrar(progressDialog);
-                                                                                    })
-                                                                                    .addOnFailureListener(e -> {
-                                                                                        android.util.Log.w("AdjuntarSheet", "⚠️ Error guardando adjunto en cita ES, pero EN OK: " + e.getMessage());
-                                                                                        enviarEventoYCerrar(progressDialog);
-                                                                                    });
-                                                                        })
-                                                                        .addOnFailureListener(e -> {
-                                                                            android.util.Log.w("AdjuntarSheet", "⚠️ Error guardando adjunto en cita EN, pero actividad OK: " + e.getMessage());
-                                                                            // Intentar al menos ES antes de cerrar
-                                                                            db.collection("actividades").document(actividadId)
-                                                                                    .collection("citas").document(citaId)
-                                                                                    .collection("adjuntos").add(meta)
-                                                                                    .addOnSuccessListener(citaEsDoc -> {
-                                                                                        android.util.Log.d("AdjuntarSheet", "✅ Adjunto guardado en cita ES (fallback) " + citaId);
-                                                                                        enviarEventoYCerrar(progressDialog);
-                                                                                    })
-                                                                                    .addOnFailureListener(e2 -> {
-                                                                                        android.util.Log.e("AdjuntarSheet", "❌ Error guardando adjunto en cita EN y ES: " + e2.getMessage());
-                                                                                        enviarEventoYCerrar(progressDialog);
-                                                                                    });
-                                                                        });
-                                                            } else {
-                                                                android.util.Log.d("AdjuntarSheet", "✅ Adjuntos actualizados en actividad - sin citaId");
-                                                                enviarEventoYCerrar(progressDialog);
-                                                            }
-                                                        })
-                                                        .addOnFailureListener(e -> {
-                                                            // Si falla la actualización en ES, igual notificar (EN ya se actualizó)
-                                                            android.util.Log.w("AdjuntarSheet", "⚠️ Error actualizando en ES, pero EN OK: " + e.getMessage());
-                                                            enviarEventoYCerrar(progressDialog);
-                                                        });
-                                            })
-                                            .addOnFailureListener(e -> {
-                                                android.util.Log.e("AdjuntarSheet", "❌ Error actualizando adjuntos en EN: " + e.getMessage());
-                                                progressDialog.dismiss();
-                                                btnSubir.setEnabled(true);
-                                                btnSubir.setText(originalText);
-                                                CustomToast.showError(getContext(), "Error al actualizar actividad: " + e.getMessage());
-                                            });
-                                })
-                                .addOnFailureListener(e -> {
-                                    progressDialog.dismiss();
-                                    btnSubir.setEnabled(true);
-                                    btnSubir.setText(originalText);
-                                    CustomToast.showError(getContext(), "Error al guardar: " + e.getMessage());
-                                });
-                    })
-                    .addOnFailureListener(e -> {
-                        progressDialog.dismiss();
-                        btnSubir.setEnabled(true);
-                        btnSubir.setText(originalText);
-                        CustomToast.showError(getContext(), "Error al subir: " + e.getMessage());
-                    });
+            uploadFileSequential(0, selectedFiles.size(), btnSubir, originalText, progressDialog);
         });
     }
 
@@ -314,6 +195,206 @@ public class AdjuntarComunicacionSheet extends BottomSheetDialogFragment {
 
     public void setOnDismissCallback(@Nullable Runnable callback) {
         this.onDismissCallback = callback;
+    }
+
+    private void handleSelectionResult(Intent data) {
+        if (data == null) return;
+        boolean added = false;
+
+        if (data.getClipData() != null) {
+            ClipData clip = data.getClipData();
+            for (int i = 0; clip != null && i < clip.getItemCount(); i++) {
+                Uri uri = clip.getItemAt(i).getUri();
+                if (uri != null && agregarArchivoSeleccionado(uri)) {
+                    added = true;
+                }
+            }
+        } else if (data.getData() != null) {
+            if (agregarArchivoSeleccionado(data.getData())) {
+                added = true;
+            }
+        }
+
+        if (!added) {
+            CustomToast.showInfo(getContext(), "No se agregó ningún archivo");
+        }
+        actualizarTextoSeleccion();
+    }
+
+    private boolean agregarArchivoSeleccionado(@NonNull Uri uri) {
+        try {
+            final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION;
+            requireContext().getContentResolver().takePersistableUriPermission(uri, takeFlags);
+        } catch (Exception ignored) {}
+
+        String fileName = obtenerNombreArchivo(uri);
+        if (TextUtils.isEmpty(fileName)) {
+            fileName = "archivo" + (selectedFiles.size() + 1);
+        }
+        selectedFiles.add(uri);
+        selectedFileNames.add(fileName);
+        return true;
+    }
+
+    private void actualizarTextoSeleccion() {
+        if (tvArchivo == null) return;
+
+        if (selectedFiles.isEmpty()) {
+            tvArchivo.setText("Ningún archivo seleccionado");
+            if (btnEliminar != null) {
+                btnEliminar.setVisibility(View.GONE);
+            }
+        } else {
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < selectedFileNames.size(); i++) {
+                builder.append(i + 1)
+                        .append(". ")
+                        .append(selectedFileNames.get(i))
+                        .append('\n');
+            }
+            tvArchivo.setText(builder.toString().trim());
+            if (btnEliminar != null) {
+                btnEliminar.setVisibility(View.VISIBLE);
+            }
+        }
+    }
+
+    private void uploadFileSequential(int index, int total, com.google.android.material.button.MaterialButton btnSubir,
+                                      CharSequence originalText, android.app.ProgressDialog progressDialog) {
+        if (index >= total) {
+            btnSubir.setEnabled(true);
+            btnSubir.setText(originalText);
+            selectedFiles.clear();
+            selectedFileNames.clear();
+            actualizarTextoSeleccion();
+            enviarEventoYCerrar(progressDialog);
+            return;
+        }
+
+        progressDialog.setMessage("Subiendo archivo " + (index + 1) + " de " + total + "...");
+
+        Uri currentFile = selectedFiles.get(index);
+        String fileName = selectedFileNames.get(index);
+
+        subirArchivoIndividual(currentFile, fileName, new UploadCallbacks() {
+            @Override
+            public void onSuccess() {
+                uploadFileSequential(index + 1, total, btnSubir, originalText, progressDialog);
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                progressDialog.dismiss();
+                btnSubir.setEnabled(true);
+                btnSubir.setText(originalText);
+                CustomToast.showError(getContext(), errorMessage);
+            }
+        });
+    }
+
+    private void subirArchivoIndividual(Uri fileUri, String fileName, UploadCallbacks callbacks) {
+        FirebaseStorage storage = FirebaseStorage.getInstance();
+        StorageReference ref = storage.getReference()
+                .child("activities")
+                .child(actividadId)
+                .child("attachments")
+                .child(fileName);
+
+        ref.putFile(fileUri)
+                .continueWithTask(task -> {
+                    if (!task.isSuccessful()) throw task.getException();
+                    return ref.getDownloadUrl();
+                })
+                .addOnSuccessListener(download -> guardarMetadata(download.toString(), fileName, callbacks))
+                .addOnFailureListener(e -> callbacks.onError("Error al subir: " + e.getMessage()));
+    }
+
+    private void guardarMetadata(String downloadUrl, String fileName, UploadCallbacks callbacks) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("nombre", fileName);
+        meta.put("name", fileName);
+        meta.put("url", downloadUrl);
+        meta.put("creadoEn", Timestamp.now());
+
+        db.collection("activities").document(actividadId)
+                .collection("adjuntos").add(meta)
+                .addOnSuccessListener(docRef -> {
+                    meta.put("id", docRef.getId());
+                    docRef.update("id", docRef.getId());
+                    android.util.Log.d("AdjuntarSheet", "✅ Metadata guardada en subcolección EN (" + docRef.getId() + ")");
+                    actualizarAdjuntosPrincipales(meta, callbacks);
+                })
+                .addOnFailureListener(e -> callbacks.onError("Error al guardar: " + e.getMessage()));
+    }
+
+    private void actualizarAdjuntosPrincipales(Map<String, Object> meta, UploadCallbacks callbacks) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("activities").document(actividadId)
+                .update("adjuntos", FieldValue.arrayUnion(meta))
+                .addOnSuccessListener(aVoid -> {
+                    android.util.Log.d("AdjuntarSheet", "✅ Array adjuntos EN actualizado");
+                    db.collection("actividades").document(actividadId)
+                            .update("adjuntos", FieldValue.arrayUnion(meta))
+                            .addOnSuccessListener(aVoid2 -> {
+                                android.util.Log.d("AdjuntarSheet", "✅ Array adjuntos ES actualizado");
+                                guardarEnCitaSiCorresponde(meta, callbacks);
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.w("AdjuntarSheet", "⚠️ Error actualizando array ES: " + e.getMessage());
+                                guardarEnCitaSiCorresponde(meta, callbacks);
+                            });
+                })
+                .addOnFailureListener(e -> callbacks.onError("Error al actualizar actividad: " + e.getMessage()));
+    }
+
+    private void guardarEnCitaSiCorresponde(Map<String, Object> meta, UploadCallbacks callbacks) {
+        if (TextUtils.isEmpty(citaId)) {
+            callbacks.onSuccess();
+            return;
+        }
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        DocumentReference citaEn = db.collection("activities").document(actividadId)
+                .collection("citas").document(citaId);
+
+        citaEn.collection("adjuntos").add(meta)
+                .addOnSuccessListener(citaDoc -> {
+                    android.util.Log.d("AdjuntarSheet", "✅ Adjunto guardado en cita EN " + citaId);
+                    citaEn.update("adjuntos", FieldValue.arrayUnion(meta))
+                            .addOnFailureListener(e -> android.util.Log.w("AdjuntarSheet", "⚠️ Error actualizando array adjuntos EN: " + e.getMessage()));
+                    guardarAdjuntoEnCitaEs(meta, callbacks);
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.w("AdjuntarSheet", "⚠️ Error guardando adjunto en cita EN: " + e.getMessage());
+                    guardarAdjuntoEnCitaEs(meta, callbacks);
+                });
+    }
+
+    private void guardarAdjuntoEnCitaEs(Map<String, Object> meta, UploadCallbacks callbacks) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference citaEs = db.collection("actividades").document(actividadId)
+                .collection("citas").document(citaId);
+
+        citaEs.collection("adjuntos").add(meta)
+                .addOnSuccessListener(citaDoc -> {
+                    android.util.Log.d("AdjuntarSheet", "✅ Adjunto guardado en cita ES " + citaId);
+                    citaEs.update("adjuntos", FieldValue.arrayUnion(meta))
+                            .addOnFailureListener(e -> android.util.Log.w("AdjuntarSheet", "⚠️ Error actualizando array adjuntos ES: " + e.getMessage()));
+                    callbacks.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.w("AdjuntarSheet", "⚠️ Error guardando adjunto en cita ES: " + e.getMessage());
+                    callbacks.onSuccess();
+                });
+    }
+
+    private interface UploadCallbacks {
+        void onSuccess();
+        void onError(String errorMessage);
     }
 
     private String obtenerNombreArchivo(Uri uri) {

@@ -276,8 +276,17 @@ public class ActivityDetailBottomSheet extends BottomSheetDialogFragment {
                 }
 
                 emitAttach.run();
-                AdjuntarComunicacionSheet.newInstance(actividadId, citaId)
-                        .show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
+                AdjuntarComunicacionSheet sheet = AdjuntarComunicacionSheet.newInstance(actividadId, citaId);
+                sheet.setOnDismissCallback(() -> {
+                    try {
+                        getParentFragmentManager().setFragmentResult("adjuntos_change", createAdjuntoBundle());
+                    } catch (Exception ignore) {}
+                    try {
+                        requireActivity().getSupportFragmentManager().setFragmentResult("adjuntos_change", createAdjuntoBundle());
+                    } catch (Exception ignore) {}
+                    reloadAdjuntosDesdeModificar();
+                });
+                sheet.show(getParentFragmentManager(), "AdjuntarComunicacionSheet");
             };
             rememberClickListener(btnAdjuntar, l);
             btnAdjuntar.setOnClickListener(l);
